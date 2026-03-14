@@ -8,11 +8,11 @@ interface CommitMeta extends GitCommit {
   changedFiles: ChangedFile[];
 }
 
-export class ReviewPanel implements vscode.Disposable {
-  static readonly viewType = 'commitReview.panel';
+export class ReviewPanel implements vscode.WebviewViewProvider, vscode.Disposable {
+  static readonly viewType = 'commitReview.reviewView';
   private static instance: ReviewPanel | undefined;
 
-  private panel: vscode.WebviewPanel;
+  private _view?: vscode.WebviewView;
   private disposables: vscode.Disposable[] = [];
   private selectedHash: string = '';
 
@@ -20,45 +20,68 @@ export class ReviewPanel implements vscode.Disposable {
     private context: vscode.ExtensionContext,
     private git: GitService,
     private comments: CommentManager
-  ) {
-    this.panel = vscode.window.createWebviewPanel(
-      ReviewPanel.viewType,
-      'Commit Review',
-      vscode.ViewColumn.Beside,
-      {
-        enableScripts: true,
-        localResourceRoots: [vscode.Uri.file(path.join(context.extensionPath, 'media'))],
-        retainContextWhenHidden: true,
-      }
-    );
-
-    this.panel.onDidDispose(() => this.dispose(), null, this.disposables);
-    this.panel.webview.onDidReceiveMessage(msg => this.handleMessage(msg), null, this.disposables);
-
-    this.panel.webview.html = this.buildHtml();
-  }
+  ) {}
 
   // ── Public factory ───────────────────────────────────────────────────────
 
-  static createOrShow(
+  static register(
     context: vscode.ExtensionContext,
     git: GitService,
-    comments: CommentManager,
-    focusHash?: string,
-    focusFile?: string
+    comments: CommentManager
   ): ReviewPanel {
-    if (ReviewPanel.instance) {
-      ReviewPanel.instance.panel.reveal(vscode.ViewColumn.Beside);
-      if (focusHash) ReviewPanel.instance.selectedHash = focusHash;
-      ReviewPanel.instance.sendLoadMessage(focusFile);
-      return ReviewPanel.instance;
+    if (!ReviewPanel.instance) {
+      ReviewPanel.instance = new ReviewPanel(context, git, comments);
+    } else {
+      // Update active services when the repo switches
+      ReviewPanel.instance.git = git;
+      ReviewPanel.instance.comments = comments;
     }
+    return ReviewPanel.instance;
+  }
 
-    const p = new ReviewPanel(context, git, comments);
-    ReviewPanel.instance = p;
-    if (focusHash) p.selectedHash = focusHash;
-    p.sendLoadMessage(focusFile);
-    return p;
+  /** Update the active git/comment services (called on repo switch). */
+  updateServices(git: GitService, comments: CommentManager): void {
+    this.git = git;
+    this.comments = comments;
+    this.sendLoadMessage();
+  }
+
+  /** Bring the review view into focus and optionally highlight a commit/file. */
+  focus(focusHash?: string, focusFile?: string): void {
+    if (focusHash) this.selectedHash = focusHash;
+    if (this._view) {
+      this._view.show(true);
+      this.sendLoadMessage(focusFile);
+    } else {
+      // View not yet resolved — executing focus will trigger resolveWebviewView
+      vscode.commands.executeCommand(`${ReviewPanel.viewType}.focus`);
+    }
+  }
+
+  // ── WebviewViewProvider ───────────────────────────────────────────────────
+
+  resolveWebviewView(
+    webviewView: vscode.WebviewView,
+    _ctx: vscode.WebviewViewResolveContext,
+    _token: vscode.CancellationToken
+  ): void {
+    this._view = webviewView;
+
+    webviewView.webview.options = {
+      enableScripts: true,
+      localResourceRoots: [vscode.Uri.file(path.join(this.context.extensionPath, 'media'))],
+    };
+
+    webviewView.webview.html = this.buildHtml(webviewView.webview);
+
+    webviewView.webview.onDidReceiveMessage(
+      msg => this.handleMessage(msg),
+      null,
+      this.disposables
+    );
+
+    // Send initial data once the view is live
+    this.sendLoadMessage();
   }
 
   // ── Message handlers ─────────────────────────────────────────────────────
@@ -125,7 +148,7 @@ export class ReviewPanel implements vscode.Disposable {
         const parsedDiff = this.git.parseDiff(rawDiff);
         const changedFiles = this.git.getChangedFilesInRange(oldestHash, newestHash);
 
-        this.panel.webview.postMessage({
+        this._view?.webview.postMessage({
           type: 'diffResult',
           parsedDiff,
           changedFiles,
@@ -142,6 +165,8 @@ export class ReviewPanel implements vscode.Disposable {
   // ── Data loading ─────────────────────────────────────────────────────────
 
   sendLoadMessage(focusFile?: string): void {
+    if (!this._view) return;
+
     const commits = this.git.getLog(30);
     if (commits.length > 0 && !this.selectedHash) {
       this.selectedHash = commits[0].hash;
@@ -153,7 +178,7 @@ export class ReviewPanel implements vscode.Disposable {
       changedFiles: this.git.getChangedFiles(c.hash),
     }));
 
-    this.panel.webview.postMessage({
+    this._view.webview.postMessage({
       type: 'load',
       commits: metas,
       comments: this.comments.load(),
@@ -162,7 +187,7 @@ export class ReviewPanel implements vscode.Disposable {
 
     if (focusFile) {
       setTimeout(() => {
-        this.panel.webview.postMessage({ type: 'focusFile', file: focusFile });
+        this._view?.webview.postMessage({ type: 'focusFile', file: focusFile });
       }, 300);
     }
   }
@@ -214,8 +239,7 @@ export class ReviewPanel implements vscode.Disposable {
 
   // ── HTML ──────────────────────────────────────────────────────────────────
 
-  private buildHtml(): string {
-    const webview = this.panel.webview;
+  private buildHtml(webview: vscode.Webview): string {
     const cssUri = webview.asWebviewUri(
       vscode.Uri.file(path.join(this.context.extensionPath, 'media', 'review.css'))
     );
@@ -330,7 +354,6 @@ export class ReviewPanel implements vscode.Disposable {
 
   dispose(): void {
     ReviewPanel.instance = undefined;
-    this.panel.dispose();
     for (const d of this.disposables) d.dispose();
     this.disposables = [];
   }

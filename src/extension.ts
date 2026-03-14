@@ -10,6 +10,7 @@ import { ReviewPanel } from './ReviewPanel';
 let activeGit: GitService | undefined;
 let activeComments: CommentManager | undefined;
 let activeTree: ReviewTreeProvider | undefined;
+let activeReviewPanel: ReviewPanel | undefined;
 let statusBar: vscode.StatusBarItem | undefined;
 let commentChangeDisposable: vscode.Disposable | undefined;
 
@@ -32,6 +33,25 @@ export function activate(context: vscode.ExtensionContext): void {
   });
   context.subscriptions.push(treeView);
 
+  // ── Review WebviewView — registered once, lives in the sidebar ──────────
+  // We register a placeholder provider now; switchToRepo() will call
+  // register() to inject the real git/comments services.
+  // The view resolves lazily when the user first expands it.
+  // We keep a module-level reference so commands can call .focus() on it.
+  activeReviewPanel = ReviewPanel.register(
+    context,
+    // Temporary no-op services replaced by switchToRepo on first selection
+    new GitService(''),
+    new CommentManager('')
+  );
+  context.subscriptions.push(
+    vscode.window.registerWebviewViewProvider(
+      ReviewPanel.viewType,
+      activeReviewPanel,
+      { webviewOptions: { retainContextWhenHidden: true } }
+    )
+  );
+
   // ── Status bar ─────────────────────────────────────────────────────────
   statusBar = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Left, 10);
   statusBar.command = 'commitReview.selectRepo';
@@ -51,9 +71,13 @@ export function activate(context: vscode.ExtensionContext): void {
 
     activeTree = new ReviewTreeProvider(activeGit, activeComments);
 
+    // Push new services into the review panel
+    activeReviewPanel?.updateServices(activeGit, activeComments);
+
     // Wire auto-refresh on reviews.json changes
     commentChangeDisposable = activeComments.onDidChange(() => {
       activeTree?.refresh();
+      activeReviewPanel?.sendLoadMessage();
       updateStatusBar();
     });
 
@@ -98,7 +122,7 @@ export function activate(context: vscode.ExtensionContext): void {
           vscode.commands.executeCommand('commitReview.selectRepo');
           return;
         }
-        ReviewPanel.createOrShow(context, activeGit, activeComments, focusHash, focusFile);
+        activeReviewPanel?.focus(focusHash, focusFile);
       }
     )
   );
@@ -115,10 +139,9 @@ export function activate(context: vscode.ExtensionContext): void {
         vscode.commands.executeCommand('commitReview.selectRepo');
         return;
       }
-      const panel = ReviewPanel.createOrShow(context, activeGit, activeComments);
-      setTimeout(() => panel.sendLoadMessage(), 100);
+      activeReviewPanel?.focus();
       vscode.window.showInformationMessage(
-        'Open the Commit Review panel and click "Copy Agent Prompt" to copy the formatted prompt.'
+        'Click "Copy Agent Prompt" in the Review panel to copy the formatted prompt.'
       );
     })
   );

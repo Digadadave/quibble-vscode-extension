@@ -53,6 +53,12 @@
           "name": "Commits",
           "icon": "$(git-commit)",
           "contextualTitle": "Commit Review"
+        },
+        {
+          "type": "webview",
+          "id": "commitReview.reviewView",
+          "name": "Review",
+          "contextualTitle": "Commit Review"
         }
       ]
     },
