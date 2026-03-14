@@ -240,24 +240,29 @@ export class ReviewPanel implements vscode.Disposable {
 
 <div id="layout">
 
-  <!-- Left sidebar: commit list -->
+  <!-- Left sidebar: git graph + changes (comments) -->
   <div id="sidebar">
-    <div id="sidebar-header">
-      <h3>Commits</h3>
+
+    <!-- GRAPH section -->
+    <div class="sidebar-section-header">
+      <span class="section-title">GRAPH</span>
       <div class="sidebar-actions">
-        <button class="sidebar-btn" data-action="select-all-commits" title="Select all">All</button>
-        <button class="sidebar-btn" data-action="select-no-commits" title="Select none">None</button>
+        <button class="sidebar-btn" data-action="select-all-commits" title="Select all commits">All</button>
+        <button class="sidebar-btn" data-action="select-no-commits" title="Clear selection">None</button>
       </div>
     </div>
-    <div id="commit-list"></div>
-    <div id="sidebar-comments-header">
-      <h3>Comments</h3>
+    <div id="graph-list"></div>
+
+    <!-- CHANGES (comments) section -->
+    <div class="sidebar-section-header sidebar-section-border">
+      <span class="section-title">CHANGES</span>
       <div class="sidebar-actions">
         <button class="sidebar-btn active" data-action="view-selected" title="Comments for selected commits">Selected</button>
         <button class="sidebar-btn" data-action="view-all-comments" title="All comments">All</button>
       </div>
     </div>
     <div id="comment-list"></div>
+
   </div>
 
   <!-- Right: main review area -->
@@ -290,6 +295,9 @@ export class ReviewPanel implements vscode.Disposable {
   </div>
 
 </div>
+
+<!-- Commit message tooltip -->
+<div id="commit-tooltip"></div>
 
 <!-- Floating comment composer -->
 <div id="comment-composer">
