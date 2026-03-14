@@ -12,23 +12,20 @@ const state = {
   comments: [],
   /** @type {Set<string>} selected commit hashes */
   selectedHashes: new Set(),
-  /** @type {Set<string>} commits with expanded full messages */
-  expandedMessages: new Set(),
   /** @type {Set<string>} commits marked reviewed */
   reviewedCommits: new Set(),
   /** 'selected' | 'all' */
   commentView: 'selected',
 
   // Current rendered diff result
-  /** @type {any[]} parsedDiff from last diffResult */
+  /** @type {any[]} */
   currentDiff: [],
-  /** @type {any[]} changedFiles from last diffResult */
+  /** @type {any[]} */
   currentChangedFiles: [],
   /** @type {string} */
   currentOldestShort: '',
   /** @type {string} */
   currentNewestShort: '',
-  /** whether a diff request is in flight */
   diffLoading: false,
 };
 
@@ -36,6 +33,9 @@ const state = {
 let pendingCommentFile = '';
 let pendingCommentLine = 0;
 let pendingCommentCommitHash = '';
+
+// Shift+click anchor index in the commits array
+let lastClickedIndex = -1;
 
 // Debounce timer for diff requests
 let diffRequestTimer = /** @type {ReturnType<typeof setTimeout>|null} */ (null);
@@ -51,11 +51,12 @@ window.addEventListener('message', (/** @type {MessageEvent} */ event) => {
       // Auto-select the first commit on initial load
       if (state.selectedHashes.size === 0 && state.commits.length > 0) {
         state.selectedHashes.add(state.commits[0].hash);
+        lastClickedIndex = 0;
       }
-      renderCommitList();
+      renderGraph();
       renderCommentList();
       renderTopBar();
-      requestDiff();   // fetch diff for the initial selection
+      requestDiff();
       break;
     }
     case 'diffResult': {
@@ -107,24 +108,37 @@ document.addEventListener('click', (/** @type {MouseEvent} */ e) => {
   }
 
   switch (action) {
-    case 'toggle-commit-row': {
+    case 'graph-row-click': {
       const hash = btn.getAttribute('data-hash') ?? '';
-      toggleCommitSelection(hash);
-      break;
-    }
-    case 'toggle-message': {
-      const hash = btn.getAttribute('data-hash') ?? '';
-      if (state.expandedMessages.has(hash)) {
-        state.expandedMessages.delete(hash);
+      const idx = parseInt(btn.getAttribute('data-index') ?? '-1', 10);
+      if (e.shiftKey && lastClickedIndex >= 0 && idx >= 0) {
+        // Range select: toggle all commits between lastClickedIndex and idx
+        const lo = Math.min(lastClickedIndex, idx);
+        const hi = Math.max(lastClickedIndex, idx);
+        for (let i = lo; i <= hi; i++) {
+          state.selectedHashes.add(state.commits[i].hash);
+        }
       } else {
-        state.expandedMessages.add(hash);
+        // Single click: toggle this commit, update anchor
+        if (state.selectedHashes.has(hash) && state.selectedHashes.size === 1) {
+          // clicking the only selected commit — keep it selected
+        } else if (state.selectedHashes.has(hash)) {
+          state.selectedHashes.delete(hash);
+        } else {
+          state.selectedHashes.add(hash);
+        }
+        lastClickedIndex = idx;
       }
-      renderCommitList();
+      renderGraph();
+      renderTopBar();
+      renderCommentList();
+      requestDiff();
       break;
     }
     case 'select-all-commits':
       state.commits.forEach(c => state.selectedHashes.add(c.hash));
-      renderCommitList();
+      lastClickedIndex = -1;
+      renderGraph();
       renderTopBar();
       renderCommentList();
       requestDiff();
@@ -132,7 +146,8 @@ document.addEventListener('click', (/** @type {MouseEvent} */ e) => {
     case 'select-no-commits':
       state.selectedHashes.clear();
       state.currentDiff = [];
-      renderCommitList();
+      lastClickedIndex = -1;
+      renderGraph();
       renderTopBar();
       renderCommentList();
       renderDiff();
@@ -152,7 +167,7 @@ document.addEventListener('click', (/** @type {MouseEvent} */ e) => {
       const file = btn.getAttribute('data-file') ?? '';
       if (!state.selectedHashes.has(hash)) {
         state.selectedHashes.add(hash);
-        renderCommitList();
+        renderGraph();
         renderTopBar();
         renderCommentList();
         requestDiff();
@@ -215,22 +230,49 @@ document.addEventListener('click', (/** @type {MouseEvent} */ e) => {
   }
 });
 
-// Checkbox change — keep in sync with row click
-document.addEventListener('change', (e) => {
-  const target = /** @type {HTMLInputElement} */ (e.target);
-  if (target.classList.contains('commit-checkbox')) {
-    const hash = target.getAttribute('data-hash') ?? '';
-    if (target.checked) {
-      state.selectedHashes.add(hash);
-    } else {
-      state.selectedHashes.delete(hash);
-    }
-    renderCommitList();
-    renderTopBar();
-    renderCommentList();
-    requestDiff();
+// ── Tooltip on graph rows ─────────────────────────────────────────────────
+
+const tooltip = document.getElementById('commit-tooltip');
+
+document.addEventListener('mouseover', (e) => {
+  const row = /** @type {HTMLElement|null} */ (
+    (/** @type {HTMLElement} */ (e.target)).closest('.graph-row')
+  );
+  if (!row || !tooltip) return;
+  const hash = row.getAttribute('data-hash') ?? '';
+  const commit = state.commits.find(c => c.hash === hash);
+  if (!commit) return;
+
+  tooltip.innerHTML = `
+    <div class="tooltip-hash">${esc(commit.hash)}</div>
+    <div class="tooltip-msg">${esc(commit.message)}</div>
+    <div class="tooltip-meta">${esc(commit.author)} &middot; ${formatDate(commit.date)}</div>
+  `;
+  tooltip.style.display = 'block';
+  positionTooltip(e);
+});
+
+document.addEventListener('mousemove', (e) => {
+  if (tooltip && tooltip.style.display === 'block') positionTooltip(e);
+});
+
+document.addEventListener('mouseout', (e) => {
+  const row = /** @type {HTMLElement|null} */ (
+    (/** @type {HTMLElement} */ (e.target)).closest('.graph-row')
+  );
+  if (row && !row.contains(/** @type {Node} */ (e.relatedTarget))) {
+    if (tooltip) tooltip.style.display = 'none';
   }
 });
+
+/** @param {MouseEvent} e */
+function positionTooltip(e) {
+  if (!tooltip) return;
+  const x = Math.min(e.clientX + 14, window.innerWidth - 380);
+  const y = Math.min(e.clientY + 14, window.innerHeight - 100);
+  tooltip.style.left = `${x}px`;
+  tooltip.style.top  = `${y}px`;
+}
 
 // ── Diff request ───────────────────────────────────────────────────────────
 
@@ -256,10 +298,17 @@ function requestDiff() {
 
 // ── Rendering ─────────────────────────────────────────────────────────────
 
-// ── Sidebar: commit list ───────────────────────────────────────────────────
+// ── Sidebar: git graph ────────────────────────────────────────────────────
 
-function renderCommitList() {
-  const container = document.getElementById('commit-list');
+const GRAPH_DOT_CX = 14;      // x-center of the dot in the 28px lane
+const GRAPH_DOT_R  = 4.5;     // radius of the commit dot
+const GRAPH_LINE_COLOR = '#4a9eff';
+const GRAPH_DOT_COLOR  = '#4a9eff';
+const GRAPH_HEAD_COLOR = '#ffffff';
+const ROW_HEIGHT = 36;         // must match min-height in CSS
+
+function renderGraph() {
+  const container = document.getElementById('graph-list');
   if (!container) return;
 
   if (state.commits.length === 0) {
@@ -267,40 +316,79 @@ function renderCommitList() {
     return;
   }
 
-  container.innerHTML = state.commits.map(commit => {
+  // Figure out selected range boundaries for visual highlight
+  const selectedIndices = state.commits
+    .map((c, i) => state.selectedHashes.has(c.hash) ? i : -1)
+    .filter(i => i >= 0);
+  const rangeMin = selectedIndices.length ? Math.min(...selectedIndices) : -1;
+  const rangeMax = selectedIndices.length ? Math.max(...selectedIndices) : -1;
+
+  container.innerHTML = state.commits.map((commit, idx) => {
     const isSelected = state.selectedHashes.has(commit.hash);
-    const isExpanded = state.expandedMessages.has(commit.hash);
+    const isFirst = idx === 0;
+    const isLast  = idx === state.commits.length - 1;
     const openCount = state.comments.filter(
       c => c.commitHash === commit.hash && (c.status === 'open' || c.status === 'agent-replied')
     ).length;
-    const resolvedCount = state.comments.filter(
-      c => c.commitHash === commit.hash && (c.status === 'addressed' || c.status === 'resolved')
-    ).length;
-    const fileCount = commit.changedFiles?.length ?? 0;
-    const dateStr = formatDate(commit.date);
+
+    // SVG: vertical line + dot
+    // Line goes from top to bottom of row, dot is in the middle
+    const dotCy  = ROW_HEIGHT / 2;
+    const lineTop = 0;
+    const lineBot = ROW_HEIGHT;
+    const dotR = isFirst ? GRAPH_DOT_R + 1 : GRAPH_DOT_R;
+    const dotFill = isFirst ? GRAPH_HEAD_COLOR : GRAPH_DOT_COLOR;
+    const dotStroke = GRAPH_DOT_COLOR;
+
+    const lineAbove = isFirst ? '' :
+      `<line x1="${GRAPH_DOT_CX}" y1="${lineTop}" x2="${GRAPH_DOT_CX}" y2="${dotCy - dotR}"
+             stroke="${GRAPH_LINE_COLOR}" stroke-width="1.5"/>`;
+    const lineBelow = isLast ? '' :
+      `<line x1="${GRAPH_DOT_CX}" y1="${dotCy + dotR}" x2="${GRAPH_DOT_CX}" y2="${lineBot}"
+             stroke="${GRAPH_LINE_COLOR}" stroke-width="1.5"/>`;
+
+    const svgContent = `
+      ${lineAbove}
+      ${lineBelow}
+      <circle cx="${GRAPH_DOT_CX}" cy="${dotCy}" r="${dotR}"
+              fill="${dotFill}" stroke="${dotStroke}" stroke-width="1.5"/>
+    `;
+
+    // Ref badges
+    const refs = (commit.refs ?? []).map(/** @param {string} r */ r => {
+      let cls = 'local';
+      let label = r;
+      if (r.startsWith('HEAD ->')) {
+        cls = 'head';
+        label = r.replace('HEAD ->', '').trim();
+        label = `\u2192 ${label}`;
+      } else if (r === 'HEAD') {
+        cls = 'head';
+      } else if (r.startsWith('origin/') || r.startsWith('upstream/')) {
+        cls = 'remote';
+      } else if (r.startsWith('tag:')) {
+        cls = 'tag';
+        label = r.replace('tag:', '').trim();
+      }
+      return `<span class="graph-ref ${cls}" title="${esc(r)}">${esc(label)}</span>`;
+    }).join('');
+
+    const rangeClass = (idx === rangeMin && idx !== rangeMax) ? ' range-start'
+                     : (idx === rangeMax && idx !== rangeMin) ? ' range-end'
+                     : '';
 
     return `
-<div class="commit-item${isSelected ? ' selected' : ''}${isExpanded ? ' expanded' : ''}"
-     data-action="toggle-commit-row" data-hash="${esc(commit.hash)}">
-  <div class="commit-item-top">
-    <input type="checkbox" class="commit-checkbox" data-hash="${esc(commit.hash)}"
-           ${isSelected ? 'checked' : ''} title="Select commit">
-    <div class="commit-info">
-      <div class="commit-hash">${esc(commit.shortHash)}</div>
-      <div class="commit-msg" title="${esc(commit.message)}">${esc(commit.message)}</div>
-      <div class="commit-meta">${esc(commit.author)} &middot; ${esc(dateStr)}</div>
-    </div>
-    <button class="sidebar-btn" data-action="toggle-message" data-hash="${esc(commit.hash)}"
-            title="${isExpanded ? 'Collapse' : 'Expand'} message" style="flex-shrink:0">
-      ${isExpanded ? '&#8679;' : '&#8675;'}
-    </button>
+<div class="graph-row${isSelected ? ' selected' : ''}${rangeClass}"
+     data-action="graph-row-click" data-hash="${esc(commit.hash)}" data-index="${idx}">
+  <div class="graph-lane">
+    <svg height="${ROW_HEIGHT}" width="28">${svgContent}</svg>
   </div>
-  <div class="commit-full-msg">${esc(commit.message)}${commit.body ? '\n\n' + esc(commit.body) : ''}</div>
-  <div class="commit-badges">
-    ${fileCount > 0 ? `<span class="commit-file-count">${fileCount} file${fileCount !== 1 ? 's' : ''}</span>` : ''}
-    ${openCount > 0 ? `<span class="commit-comment-badge">${openCount} open</span>` : ''}
-    ${resolvedCount > 0 && openCount === 0 ? `<span class="commit-file-count">${resolvedCount} resolved</span>` : ''}
+  <div class="graph-info">
+    <div class="graph-msg">${esc(commit.message)}</div>
+    <div class="graph-meta">${esc(commit.author)} &middot; ${esc(formatDate(commit.date))}</div>
+    ${refs ? `<div class="graph-refs">${refs}</div>` : ''}
   </div>
+  ${openCount > 0 ? `<div class="graph-comment-dot" title="${openCount} open comment${openCount !== 1 ? 's' : ''}"></div>` : ''}
 </div>`;
   }).join('');
 }
@@ -539,7 +627,7 @@ function toggleCommitSelection(hash) {
   } else {
     state.selectedHashes.add(hash);
   }
-  renderCommitList();
+  renderGraph();
   renderTopBar();
   renderCommentList();
   requestDiff();
@@ -623,7 +711,7 @@ function toggleMarkReviewed() {
     }
   }
   renderTopBar();
-  renderCommitList();
+  renderGraph();
 }
 
 /** @param {HTMLElement} header */
