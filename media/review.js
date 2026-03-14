@@ -30,9 +30,96 @@ window.addEventListener('message', (/** @type {MessageEvent} */ event) => {
       renderAll();
       break;
     case 'focusFile':
-      // Scroll to a file block by name
       if (msg.file) scrollToFile(msg.file);
       break;
+  }
+});
+
+// ── Event delegation ──────────────────────────────────────────────────────
+// All click handling goes through this single listener (CSP-safe).
+
+document.addEventListener('click', (/** @type {MouseEvent} */ e) => {
+  const target = /** @type {HTMLElement} */ (e.target);
+  const btn = target.closest('[data-action]');
+  if (!btn) {
+    // Close composer on outside click
+    const composer = document.getElementById('comment-composer');
+    if (composer && composer.style.display === 'block' && !composer.contains(target)) {
+      composer.style.display = 'none';
+    }
+    return;
+  }
+
+  const action = btn.getAttribute('data-action');
+  e.stopPropagation();
+
+  switch (action) {
+    case 'navigate-prev':
+      navigateCommit('prev');
+      break;
+    case 'navigate-next':
+      navigateCommit('next');
+      break;
+    case 'toggle-reviewed':
+      toggleMarkReviewed();
+      break;
+    case 'close-composer':
+      closeComposer();
+      break;
+    case 'submit-comment':
+      submitComment();
+      break;
+    case 'export-reviews':
+      vscode.postMessage({ type: 'exportReviews' });
+      break;
+    case 'copy-agent-prompt':
+      vscode.postMessage({ type: 'copyAgentPrompt' });
+      break;
+    case 'add-comment': {
+      const commitHash = btn.getAttribute('data-commit') ?? '';
+      const file = btn.getAttribute('data-file') ?? '';
+      const line = parseInt(btn.getAttribute('data-line') ?? '0', 10);
+      openComposer(commitHash, file, line, e);
+      break;
+    }
+    case 'toggle-file': {
+      const header = btn.closest('.file-header');
+      if (header) toggleFile(/** @type {HTMLElement} */ (header));
+      break;
+    }
+    case 'mark-addressed': {
+      const id = btn.getAttribute('data-id') ?? '';
+      vscode.postMessage({ type: 'updateStatus', id, status: 'addressed' });
+      break;
+    }
+    case 'resolve-thread': {
+      const id = btn.getAttribute('data-id') ?? '';
+      vscode.postMessage({ type: 'updateStatus', id, status: 'resolved' });
+      break;
+    }
+    case 'toggle-reply': {
+      const id = btn.getAttribute('data-id') ?? '';
+      toggleReplyForm(id);
+      break;
+    }
+    case 'submit-reply': {
+      const id = btn.getAttribute('data-id') ?? '';
+      submitReply(id);
+      break;
+    }
+    case 'cancel-reply': {
+      const id = btn.getAttribute('data-id') ?? '';
+      toggleReplyForm(id);
+      break;
+    }
+  }
+});
+
+// Also handle commit select change
+document.addEventListener('change', (e) => {
+  const target = /** @type {HTMLElement} */ (e.target);
+  if (target.id === 'commit-select') {
+    selectCommit(/** @type {HTMLSelectElement} */(target).value);
   }
 });
 
@@ -51,7 +138,7 @@ function renderCommitSelect() {
   for (const c of state.commits) {
     const opt = document.createElement('option');
     opt.value = c.hash;
-    opt.textContent = `${c.shortHash} — ${c.message}`;
+    opt.textContent = `${c.shortHash} \u2014 ${c.message}`;
     if (c.hash === state.selectedHash) opt.selected = true;
     sel.appendChild(opt);
   }
@@ -70,7 +157,7 @@ function renderSummaryBadges() {
   const btn = document.getElementById('mark-reviewed-btn');
   if (btn) {
     const isReviewed = state.reviewedCommits.has(state.selectedHash);
-    btn.textContent = isReviewed ? '✓ Reviewed' : 'Mark as reviewed';
+    btn.textContent = isReviewed ? '\u2713 Reviewed' : 'Mark as reviewed';
     btn.classList.toggle('reviewed', isReviewed);
   }
 }
@@ -93,7 +180,6 @@ function renderDiff() {
   }
 
   main.innerHTML = commit.parsedDiff.map(fileDiff => renderFileBlock(fileDiff, forCommit, commit)).join('');
-  attachFileToggleHandlers();
 }
 
 /**
@@ -109,8 +195,8 @@ function renderFileBlock(fileDiff, comments, commit) {
 
   return `
 <div class="file-block" data-file="${esc(fileDiff.file)}">
-  <div class="file-header" onclick="toggleFile(this)">
-    <span class="chevron">▾</span>
+  <div class="file-header" data-action="toggle-file">
+    <span class="chevron">\u25be</span>
     <span class="file-name">${esc(fileDiff.file)}</span>
     <span class="file-status ${esc(status)}">${esc(status)}</span>
     ${fileComments.length > 0 ? `<span class="badge open">${fileComments.filter(c => c.status === 'open' || c.status === 'agent-replied').length} comments</span>` : ''}
@@ -136,15 +222,14 @@ function renderHunk(hunk, file, comments, commitHash) {
     const prefix = line.type === 'add' ? '+' : line.type === 'delete' ? '-' : ' ';
 
     const lineComments = comments.filter(c => {
-      const matchLine = c.line === line.newLineNum || c.line === line.oldLineNum;
-      return matchLine;
+      return c.line === line.newLineNum || c.line === line.oldLineNum;
     });
 
     const commentRows = lineComments.map(c => renderThreadRow(c)).join('');
 
     // Only show "+" button for added/context lines (right side)
     const addBtn = line.type !== 'delete'
-      ? `<button class="line-add-btn" title="Add comment" onclick="openComposer('${esc(commitHash)}','${esc(file)}',${lineNum},event)">+</button>`
+      ? `<button class="line-add-btn" title="Add comment" data-action="add-comment" data-commit="${esc(commitHash)}" data-file="${esc(file)}" data-line="${lineNum}">+</button>`
       : '';
 
     return `
@@ -184,18 +269,18 @@ function renderThreadRow(comment) {
         <div class="thread-body" style="margin-top:6px">${esc(comment.body)}</div>
         <div class="thread-actions">
           ${comment.status !== 'addressed' && comment.status !== 'resolved'
-            ? `<button class="btn success" onclick="markAddressed('${comment.id}')">Mark addressed</button>`
+            ? `<button class="btn success" data-action="mark-addressed" data-id="${comment.id}">Mark addressed</button>`
             : ''}
           ${comment.status !== 'resolved'
-            ? `<button class="btn danger" onclick="resolveThread('${comment.id}')">Resolve</button>`
+            ? `<button class="btn danger" data-action="resolve-thread" data-id="${comment.id}">Resolve</button>`
             : ''}
-          <button class="btn" onclick="toggleReplyForm('${comment.id}')">Reply</button>
+          <button class="btn" data-action="toggle-reply" data-id="${comment.id}">Reply</button>
         </div>
         <div id="reply-form-${comment.id}" class="thread-reply-form" style="display:none">
-          <textarea placeholder="Add a reply…" id="reply-text-${comment.id}"></textarea>
+          <textarea placeholder="Add a reply\u2026" id="reply-text-${comment.id}"></textarea>
           <div class="thread-reply-actions">
-            <button class="btn" onclick="toggleReplyForm('${comment.id}')">Cancel</button>
-            <button class="btn primary" onclick="submitReply('${comment.id}')">Reply</button>
+            <button class="btn" data-action="cancel-reply" data-id="${comment.id}">Cancel</button>
+            <button class="btn primary" data-action="submit-reply" data-id="${comment.id}">Reply</button>
           </div>
         </div>
       </div>
@@ -253,7 +338,6 @@ function openComposer(commitHash, file, line, event) {
   composer.style.top = `${y}px`;
 
   if (ta) ta.focus();
-  event.stopPropagation();
 }
 
 function closeComposer() {
@@ -276,16 +360,6 @@ function submitComment() {
     body,
   });
   closeComposer();
-}
-
-/** @param {string} id */
-function markAddressed(id) {
-  vscode.postMessage({ type: 'updateStatus', id, status: 'addressed' });
-}
-
-/** @param {string} id */
-function resolveThread(id) {
-  vscode.postMessage({ type: 'updateStatus', id, status: 'resolved' });
 }
 
 /** @param {string} id */
@@ -324,10 +398,6 @@ function toggleFile(header) {
   if (body) body.classList.toggle('collapsed');
 }
 
-function attachFileToggleHandlers() {
-  // Handlers are inline onclick — nothing extra needed
-}
-
 /** @param {string} file */
 function scrollToFile(file) {
   const block = /** @type {HTMLElement|null} */ (
@@ -335,33 +405,6 @@ function scrollToFile(file) {
   );
   block?.scrollIntoView({ behavior: 'smooth', block: 'start' });
 }
-
-function copyAgentPrompt() {
-  vscode.postMessage({ type: 'copyAgentPrompt' });
-}
-
-function exportReviews() {
-  vscode.postMessage({ type: 'exportReviews' });
-}
-
-// ── Commit select change ──────────────────────────────────────────────────
-
-document.addEventListener('DOMContentLoaded', () => {
-  const sel = document.getElementById('commit-select');
-  if (sel) {
-    sel.addEventListener('change', (e) => {
-      selectCommit(/** @type {HTMLSelectElement} */(e.target).value);
-    });
-  }
-
-  // Close composer on outside click
-  document.addEventListener('click', (e) => {
-    const composer = document.getElementById('comment-composer');
-    if (composer && !composer.contains(/** @type {Node} */(e.target))) {
-      composer.style.display = 'none';
-    }
-  });
-});
 
 // ── Helpers ───────────────────────────────────────────────────────────────
 

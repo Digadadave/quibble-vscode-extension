@@ -205,23 +205,23 @@ export class ReviewPanel implements vscode.Disposable {
 <!-- Top bar -->
 <div id="top-bar">
   <div class="commit-select-wrap">
-    <button class="nav-btn" title="Previous commit" onclick="navigateCommit('prev')">‹</button>
+    <button class="nav-btn" title="Previous commit" data-action="navigate-prev">&#8249;</button>
     <select id="commit-select" title="Select commit"></select>
-    <button class="nav-btn" title="Next commit" onclick="navigateCommit('next')">›</button>
+    <button class="nav-btn" title="Next commit" data-action="navigate-next">&#8250;</button>
   </div>
   <div class="summary-badges">
     <span class="badge open" id="badge-open">0 open</span>
     <span class="badge replied" id="badge-replied">0 in review</span>
     <span class="badge addressed" id="badge-addressed">0 addressed</span>
   </div>
-  <button id="mark-reviewed-btn" onclick="toggleMarkReviewed()">Mark as reviewed</button>
+  <button id="mark-reviewed-btn" data-action="toggle-reviewed">Mark as reviewed</button>
 </div>
 
 <!-- Diff content -->
 <div id="main">
   <div class="empty-state">
     <h2>Commit Review</h2>
-    <p>Loading commits…</p>
+    <p>Loading commits&#8230;</p>
   </div>
 </div>
 
@@ -230,16 +230,16 @@ export class ReviewPanel implements vscode.Disposable {
   <h4>Add comment</h4>
   <textarea placeholder="Leave a comment…"></textarea>
   <div class="composer-actions">
-    <button class="btn" onclick="closeComposer()">Cancel</button>
-    <button class="btn primary" onclick="submitComment()">Submit</button>
+    <button class="btn" data-action="close-composer">Cancel</button>
+    <button class="btn primary" data-action="submit-comment">Submit</button>
   </div>
 </div>
 
 <!-- Footer -->
 <div id="footer">
   <span class="footer-path" id="footer-path">.code-review/reviews.json</span>
-  <button class="btn" onclick="exportReviews()">Open reviews.json</button>
-  <button class="btn primary" onclick="copyAgentPrompt()">Copy Agent Prompt</button>
+  <button class="btn" data-action="export-reviews">Open reviews.json</button>
+  <button class="btn primary" data-action="copy-agent-prompt">Copy Agent Prompt</button>
 </div>
 
 <script nonce="${nonce}" src="${jsUri}"></script>
