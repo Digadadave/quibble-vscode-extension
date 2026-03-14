@@ -1,0 +1,83 @@
+{
+  "name": "vscode-commit-review",
+  "displayName": "Commit Review",
+  "description": "Review local git commits with GitHub-style comments. Agent-friendly metadata for Claude Code.",
+  "version": "0.0.1",
+  "publisher": "local",
+  "engines": {
+    "vscode": "^1.85.0"
+  },
+  "categories": ["Other"],
+  "activationEvents": ["onStartupFinished"],
+  "main": "./out/extension.js",
+  "contributes": {
+    "commands": [
+      {
+        "command": "commitReview.openPanel",
+        "title": "Open Commit Review Panel",
+        "icon": "$(git-pull-request)",
+        "category": "Commit Review"
+      },
+      {
+        "command": "commitReview.refreshTree",
+        "title": "Refresh",
+        "icon": "$(refresh)",
+        "category": "Commit Review"
+      },
+      {
+        "command": "commitReview.copyAgentPrompt",
+        "title": "Copy Agent Prompt",
+        "icon": "$(copy)",
+        "category": "Commit Review"
+      }
+    ],
+    "viewsContainers": {
+      "activitybar": [
+        {
+          "id": "commitReview",
+          "title": "Commit Review",
+          "icon": "$(git-pull-request)"
+        }
+      ]
+    },
+    "views": {
+      "commitReview": [
+        {
+          "id": "commitReview.tree",
+          "name": "Commits",
+          "icon": "$(git-commit)",
+          "contextualTitle": "Commit Review"
+        }
+      ]
+    },
+    "menus": {
+      "view/title": [
+        {
+          "command": "commitReview.openPanel",
+          "when": "view == commitReview.tree",
+          "group": "navigation"
+        },
+        {
+          "command": "commitReview.refreshTree",
+          "when": "view == commitReview.tree",
+          "group": "navigation"
+        },
+        {
+          "command": "commitReview.copyAgentPrompt",
+          "when": "view == commitReview.tree",
+          "group": "navigation"
+        }
+      ]
+    }
+  },
+  "scripts": {
+    "vscode:prepublish": "npm run compile",
+    "compile": "tsc -p ./",
+    "watch": "tsc -watch -p ./"
+  },
+  "devDependencies": {
+    "@types/vscode": "^1.85.0",
+    "@types/node": "^20.0.0",
+    "typescript": "^5.3.0"
+  }
+}
