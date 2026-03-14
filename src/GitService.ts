@@ -7,6 +7,8 @@ export interface GitCommit {
   message: string;
   date: string;
   author: string;
+  /** Branch / tag names pointing at this commit, e.g. ["HEAD -> main", "origin/main"] */
+  refs: string[];
 }
 
 export interface ChangedFile {
@@ -48,7 +50,8 @@ export class GitService {
   getLog(limit = 30): GitCommit[] {
     const sep = '\x1f';
     const rs = '\x1e';
-    const format = `--format=%H${sep}%h${sep}%s${sep}%ai${sep}%an${rs}`;
+    // %D = ref names (branch/tag decorations), empty string when none
+    const format = `--format=%H${sep}%h${sep}%s${sep}%ai${sep}%an${sep}%D${rs}`;
     const raw = exec(`git log ${format} -${limit}`, this.repoPath);
     if (!raw) return [];
 
@@ -57,8 +60,14 @@ export class GitService {
       .map(s => s.trim())
       .filter(Boolean)
       .map(record => {
-        const [hash, shortHash, message, date, author] = record.split(sep);
-        return { hash, shortHash, message, date, author };
+        const parts = record.split(sep);
+        const [hash, shortHash, message, date, author, decoration = ''] = parts;
+        // %D gives e.g. "HEAD -> main, origin/main, tag: v1.0"
+        const refs = decoration
+          .split(',')
+          .map(r => r.trim())
+          .filter(Boolean);
+        return { hash, shortHash, message, date, author, refs };
       });
   }
 
