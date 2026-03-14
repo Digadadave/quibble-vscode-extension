@@ -1,10 +1,10 @@
 import * as vscode from 'vscode';
 import * as path from 'path';
-import { GitService, GitCommit, ParsedDiff, ChangedFile } from './GitService';
+import { GitService, GitCommit, ChangedFile } from './GitService';
 import { CommentManager, ReviewComment } from './CommentManager';
 
-interface CommitPayload extends GitCommit {
-  parsedDiff: ParsedDiff[];
+/** Lightweight commit metadata sent on initial load (no diff content). */
+interface CommitMeta extends GitCommit {
   changedFiles: ChangedFile[];
 }
 
@@ -97,6 +97,45 @@ export class ReviewPanel implements vscode.Disposable {
         );
         break;
       }
+
+      /**
+       * Webview sends this whenever the selected commit set changes.
+       * We find the oldest and newest selected commits in git-log order,
+       * then return a single cumulative diff (git diff oldest^..newest).
+       */
+      case 'requestDiff': {
+        const hashes = msg.hashes as string[];
+        if (!hashes || hashes.length === 0) break;
+
+        // git log is newest-first; find positions to determine oldest/newest
+        const log = this.git.getLog(200);
+        const logIndex = new Map(log.map((c, i) => [c.hash, i]));
+
+        // Sort selected hashes by log index — lowest index = newest
+        const sorted = [...hashes].sort((a, b) => {
+          const ia = logIndex.get(a) ?? 9999;
+          const ib = logIndex.get(b) ?? 9999;
+          return ia - ib; // ascending: newest first
+        });
+
+        const newestHash = sorted[0];
+        const oldestHash = sorted[sorted.length - 1];
+
+        const rawDiff = this.git.getRangeDiff(oldestHash, newestHash);
+        const parsedDiff = this.git.parseDiff(rawDiff);
+        const changedFiles = this.git.getChangedFilesInRange(oldestHash, newestHash);
+
+        this.panel.webview.postMessage({
+          type: 'diffResult',
+          parsedDiff,
+          changedFiles,
+          oldestHash,
+          newestHash,
+          oldestShort: log.find(c => c.hash === oldestHash)?.shortHash ?? oldestHash.slice(0, 7),
+          newestShort: log.find(c => c.hash === newestHash)?.shortHash ?? newestHash.slice(0, 7),
+        });
+        break;
+      }
     }
   }
 
@@ -108,18 +147,15 @@ export class ReviewPanel implements vscode.Disposable {
       this.selectedHash = commits[0].hash;
     }
 
-    const payloads: CommitPayload[] = commits.map(c => {
-      const rawDiff = this.git.getRawDiff(c.hash);
-      return {
-        ...c,
-        parsedDiff: this.git.parseDiff(rawDiff),
-        changedFiles: this.git.getChangedFiles(c.hash),
-      };
-    });
+    // Send lightweight metadata only — diffs are fetched on-demand via requestDiff
+    const metas: CommitMeta[] = commits.map(c => ({
+      ...c,
+      changedFiles: this.git.getChangedFiles(c.hash),
+    }));
 
     this.panel.webview.postMessage({
       type: 'load',
-      commits: payloads,
+      commits: metas,
       comments: this.comments.load(),
       selectedHash: this.selectedHash,
     });
