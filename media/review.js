@@ -6,24 +6,39 @@ const vscode = acquireVsCodeApi();
 // ── State ─────────────────────────────────────────────────────────────────
 
 const state = {
-  /** @type {any[]} */
+  /** @type {any[]} commit metadata (no diff content) */
   commits: [],
   /** @type {any[]} */
   comments: [],
   /** @type {Set<string>} selected commit hashes */
   selectedHashes: new Set(),
-  /** @type {Set<string>} manually expanded commit messages */
+  /** @type {Set<string>} commits with expanded full messages */
   expandedMessages: new Set(),
-  /** @type {Set<string>} commits marked as reviewed */
+  /** @type {Set<string>} commits marked reviewed */
   reviewedCommits: new Set(),
   /** 'selected' | 'all' */
   commentView: 'selected',
+
+  // Current rendered diff result
+  /** @type {any[]} parsedDiff from last diffResult */
+  currentDiff: [],
+  /** @type {any[]} changedFiles from last diffResult */
+  currentChangedFiles: [],
+  /** @type {string} */
+  currentOldestShort: '',
+  /** @type {string} */
+  currentNewestShort: '',
+  /** whether a diff request is in flight */
+  diffLoading: false,
 };
 
 // Pending comment placement
 let pendingCommentFile = '';
 let pendingCommentLine = 0;
 let pendingCommentCommitHash = '';
+
+// Debounce timer for diff requests
+let diffRequestTimer = /** @type {ReturnType<typeof setTimeout>|null} */ (null);
 
 // ── VSCode message handler ────────────────────────────────────────────────
 
@@ -37,7 +52,19 @@ window.addEventListener('message', (/** @type {MessageEvent} */ event) => {
       if (state.selectedHashes.size === 0 && state.commits.length > 0) {
         state.selectedHashes.add(state.commits[0].hash);
       }
-      renderAll();
+      renderCommitList();
+      renderCommentList();
+      renderTopBar();
+      requestDiff();   // fetch diff for the initial selection
+      break;
+    }
+    case 'diffResult': {
+      state.diffLoading = false;
+      state.currentDiff = msg.parsedDiff ?? [];
+      state.currentChangedFiles = msg.changedFiles ?? [];
+      state.currentOldestShort = msg.oldestShort ?? '';
+      state.currentNewestShort = msg.newestShort ?? '';
+      renderDiff();
       break;
     }
     case 'focusFile':
@@ -47,7 +74,10 @@ window.addEventListener('message', (/** @type {MessageEvent} */ event) => {
       if (msg.hash) {
         state.selectedHashes.clear();
         state.selectedHashes.add(msg.hash);
-        renderAll();
+        renderCommitList();
+        renderTopBar();
+        renderCommentList();
+        requestDiff();
       }
       break;
   }
@@ -61,8 +91,8 @@ document.addEventListener('click', (/** @type {MouseEvent} */ e) => {
   // Close composer on outside click
   const composer = document.getElementById('comment-composer');
   if (composer && composer.style.display === 'block' && !composer.contains(target)) {
-    const btn = target.closest('[data-action]');
-    if (!btn || btn.getAttribute('data-action') !== 'add-comment') {
+    const actionEl = target.closest('[data-action]');
+    if (!actionEl || actionEl.getAttribute('data-action') !== 'add-comment') {
       composer.style.display = 'none';
       return;
     }
@@ -72,8 +102,6 @@ document.addEventListener('click', (/** @type {MouseEvent} */ e) => {
   if (!btn) return;
 
   const action = btn.getAttribute('data-action') ?? '';
-
-  // Don't stop propagation for checkbox — let the change event handle it
   if (action !== 'toggle-commit-checkbox') {
     e.stopPropagation();
   }
@@ -86,29 +114,37 @@ document.addEventListener('click', (/** @type {MouseEvent} */ e) => {
     }
     case 'toggle-message': {
       const hash = btn.getAttribute('data-hash') ?? '';
-      toggleCommitMessage(hash);
+      if (state.expandedMessages.has(hash)) {
+        state.expandedMessages.delete(hash);
+      } else {
+        state.expandedMessages.add(hash);
+      }
+      renderCommitList();
       break;
     }
     case 'select-all-commits':
       state.commits.forEach(c => state.selectedHashes.add(c.hash));
-      renderAll();
+      renderCommitList();
+      renderTopBar();
+      renderCommentList();
+      requestDiff();
       break;
     case 'select-no-commits':
       state.selectedHashes.clear();
-      renderAll();
+      state.currentDiff = [];
+      renderCommitList();
+      renderTopBar();
+      renderCommentList();
+      renderDiff();
       break;
     case 'view-selected':
       state.commentView = 'selected';
-      document.querySelectorAll('[data-action="view-selected"],[data-action="view-all-comments"]')
-        .forEach(b => b.classList.remove('active'));
-      btn.classList.add('active');
+      syncCommentViewBtns('view-selected');
       renderCommentList();
       break;
     case 'view-all-comments':
       state.commentView = 'all';
-      document.querySelectorAll('[data-action="view-selected"],[data-action="view-all-comments"]')
-        .forEach(b => b.classList.remove('active'));
-      btn.classList.add('active');
+      syncCommentViewBtns('view-all-comments');
       renderCommentList();
       break;
     case 'sidebar-comment-jump': {
@@ -116,9 +152,12 @@ document.addEventListener('click', (/** @type {MouseEvent} */ e) => {
       const file = btn.getAttribute('data-file') ?? '';
       if (!state.selectedHashes.has(hash)) {
         state.selectedHashes.add(hash);
-        renderAll();
+        renderCommitList();
+        renderTopBar();
+        renderCommentList();
+        requestDiff();
       }
-      if (file) setTimeout(() => scrollToFile(file), 100);
+      if (file) setTimeout(() => scrollToFile(file), 150);
       break;
     }
     case 'toggle-reviewed':
@@ -176,7 +215,7 @@ document.addEventListener('click', (/** @type {MouseEvent} */ e) => {
   }
 });
 
-// Checkbox change handler
+// Checkbox change — keep in sync with row click
 document.addEventListener('change', (e) => {
   const target = /** @type {HTMLInputElement} */ (e.target);
   if (target.classList.contains('commit-checkbox')) {
@@ -186,20 +225,36 @@ document.addEventListener('change', (e) => {
     } else {
       state.selectedHashes.delete(hash);
     }
-    renderDiff();
+    renderCommitList();
     renderTopBar();
     renderCommentList();
+    requestDiff();
   }
 });
 
-// ── Rendering ─────────────────────────────────────────────────────────────
+// ── Diff request ───────────────────────────────────────────────────────────
 
-function renderAll() {
-  renderCommitList();
-  renderCommentList();
-  renderTopBar();
-  renderDiff();
+/**
+ * Ask the extension for a cumulative diff across all selected commits.
+ * Debounced so rapid checkbox changes don't flood the extension.
+ */
+function requestDiff() {
+  if (diffRequestTimer !== null) clearTimeout(diffRequestTimer);
+  diffRequestTimer = setTimeout(() => {
+    diffRequestTimer = null;
+    const hashes = [...state.selectedHashes];
+    if (hashes.length === 0) {
+      state.currentDiff = [];
+      renderDiff();
+      return;
+    }
+    state.diffLoading = true;
+    renderDiffLoading();
+    vscode.postMessage({ type: 'requestDiff', hashes });
+  }, 120);
 }
+
+// ── Rendering ─────────────────────────────────────────────────────────────
 
 // ── Sidebar: commit list ───────────────────────────────────────────────────
 
@@ -215,11 +270,14 @@ function renderCommitList() {
   container.innerHTML = state.commits.map(commit => {
     const isSelected = state.selectedHashes.has(commit.hash);
     const isExpanded = state.expandedMessages.has(commit.hash);
-    const commentCount = state.comments.filter(c => c.commitHash === commit.hash).length;
-    const openCount = state.comments.filter(c => c.commitHash === commit.hash && (c.status === 'open' || c.status === 'agent-replied')).length;
+    const openCount = state.comments.filter(
+      c => c.commitHash === commit.hash && (c.status === 'open' || c.status === 'agent-replied')
+    ).length;
+    const resolvedCount = state.comments.filter(
+      c => c.commitHash === commit.hash && (c.status === 'addressed' || c.status === 'resolved')
+    ).length;
     const fileCount = commit.changedFiles?.length ?? 0;
-
-    const dateStr = commit.date ? formatDate(commit.date) : '';
+    const dateStr = formatDate(commit.date);
 
     return `
 <div class="commit-item${isSelected ? ' selected' : ''}${isExpanded ? ' expanded' : ''}"
@@ -233,15 +291,15 @@ function renderCommitList() {
       <div class="commit-meta">${esc(commit.author)} &middot; ${esc(dateStr)}</div>
     </div>
     <button class="sidebar-btn" data-action="toggle-message" data-hash="${esc(commit.hash)}"
-            title="${isExpanded ? 'Hide' : 'Show'} full message" style="flex-shrink:0">
+            title="${isExpanded ? 'Collapse' : 'Expand'} message" style="flex-shrink:0">
       ${isExpanded ? '&#8679;' : '&#8675;'}
     </button>
   </div>
   <div class="commit-full-msg">${esc(commit.message)}${commit.body ? '\n\n' + esc(commit.body) : ''}</div>
   <div class="commit-badges">
     ${fileCount > 0 ? `<span class="commit-file-count">${fileCount} file${fileCount !== 1 ? 's' : ''}</span>` : ''}
-    ${openCount > 0 ? `<span class="commit-comment-badge">${openCount} comment${openCount !== 1 ? 's' : ''}</span>` : ''}
-    ${commentCount > 0 && openCount === 0 ? `<span class="commit-file-count">${commentCount} resolved</span>` : ''}
+    ${openCount > 0 ? `<span class="commit-comment-badge">${openCount} open</span>` : ''}
+    ${resolvedCount > 0 && openCount === 0 ? `<span class="commit-file-count">${resolvedCount} resolved</span>` : ''}
   </div>
 </div>`;
   }).join('');
@@ -280,7 +338,9 @@ function renderTopBar() {
   const selectedComments = state.comments.filter(c => state.selectedHashes.has(c.commitHash));
   const open = selectedComments.filter(c => c.status === 'open').length;
   const replied = selectedComments.filter(c => c.status === 'agent-replied').length;
-  const addressed = selectedComments.filter(c => c.status === 'addressed' || c.status === 'resolved').length;
+  const addressed = selectedComments.filter(
+    c => c.status === 'addressed' || c.status === 'resolved'
+  ).length;
 
   setEl('badge-open', `${open} open`);
   setEl('badge-replied', `${replied} in review`);
@@ -297,6 +357,15 @@ function renderTopBar() {
   }
 }
 
+// ── Diff loading spinner ───────────────────────────────────────────────────
+
+function renderDiffLoading() {
+  const main = document.getElementById('main');
+  if (main) {
+    main.innerHTML = '<div class="empty-state"><p>Computing diff\u2026</p></div>';
+  }
+}
+
 // ── Main diff area ─────────────────────────────────────────────────────────
 
 function renderDiff() {
@@ -308,43 +377,61 @@ function renderDiff() {
     return;
   }
 
-  // Render in order of the commits array
-  const selected = state.commits.filter(c => state.selectedHashes.has(c.hash));
-  const html = selected.map(commit => renderCommitSection(commit)).join('');
-  main.innerHTML = html || '<div class="empty-state"><h2>No diff available</h2></div>';
-}
+  if (state.currentDiff.length === 0) {
+    main.innerHTML = '<div class="empty-state"><h2>No diff available</h2><p>This selection has no changed files.</p></div>';
+    return;
+  }
 
-/** @param {any} commit */
-function renderCommitSection(commit) {
-  const forCommit = state.comments.filter(c => c.commitHash === commit.hash);
+  // Build a lookup of file→status from changedFiles
+  const fileStatus = new Map(
+    (state.currentChangedFiles ?? []).map(/** @param {any} f */ f => [f.path, f.status])
+  );
 
-  const fileBlocks = (commit.parsedDiff ?? []).map(
-    /** @param {any} fd */ fd => renderFileBlock(fd, forCommit, commit)
+  // Determine range label
+  const n = state.selectedHashes.size;
+  let rangeLabel = '';
+  if (n === 1) {
+    rangeLabel = `Commit ${state.currentNewestShort}`;
+  } else {
+    rangeLabel = `${state.currentOldestShort} \u2192 ${state.currentNewestShort} (${n} commits)`;
+  }
+
+  // All comments for any selected commit
+  const relevantComments = state.comments.filter(c => state.selectedHashes.has(c.commitHash));
+
+  const fileBlocks = state.currentDiff.map(
+    fd => renderFileBlock(fd, relevantComments, fileStatus)
   ).join('');
 
-  return `
-<div class="commit-section" data-hash="${esc(commit.hash)}">
-  <div class="commit-section-header">
-    <span class="commit-section-hash">${esc(commit.shortHash)}</span>
-    <span class="commit-section-msg">${esc(commit.message)}</span>
-    <span class="commit-section-meta">${esc(commit.author)} &middot; ${formatDate(commit.date)}</span>
-  </div>
-  ${fileBlocks || '<div style="padding:12px;color:var(--fg-muted);font-size:12px">No changed files</div>'}
-</div>`;
+  main.innerHTML = `
+<div class="range-header">
+  <span class="range-label">${esc(rangeLabel)}</span>
+  <span class="range-file-count">${state.currentDiff.length} file${state.currentDiff.length !== 1 ? 's' : ''} changed</span>
+</div>
+${fileBlocks}`;
 }
 
 /**
  * @param {{ file: string, hunks: any[] }} fileDiff
- * @param {any[]} comments
- * @param {any} commit
+ * @param {any[]} comments  all comments for selected commits
+ * @param {Map<string, string>} fileStatus
  */
-function renderFileBlock(fileDiff, comments, commit) {
+function renderFileBlock(fileDiff, comments, fileStatus) {
   const fileComments = comments.filter(c => c.file === fileDiff.file);
-  const status = commit.changedFiles?.find(/** @param {any} f */ f => f.path === fileDiff.file)?.status ?? 'M';
-  const openFileComments = fileComments.filter(c => c.status === 'open' || c.status === 'agent-replied').length;
+  const status = fileStatus.get(fileDiff.file) ?? 'M';
+  const openCount = fileComments.filter(
+    c => c.status === 'open' || c.status === 'agent-replied'
+  ).length;
+
+  // Use the newest selected commit hash for new comments (best guess)
+  const newestHash = [...state.selectedHashes].reduce((best, h) => {
+    const idxBest = state.commits.findIndex(c => c.hash === best);
+    const idxH    = state.commits.findIndex(c => c.hash === h);
+    return idxH < idxBest ? h : best; // lower index = newer
+  }, [...state.selectedHashes][0] ?? '');
 
   const rows = fileDiff.hunks.map(
-    /** @param {any} hunk */ hunk => renderHunk(hunk, fileDiff.file, fileComments, commit.hash)
+    /** @param {any} hunk */ hunk => renderHunk(hunk, fileDiff.file, fileComments, newestHash)
   ).join('');
 
   return `
@@ -353,7 +440,7 @@ function renderFileBlock(fileDiff, comments, commit) {
     <span class="chevron">\u25be</span>
     <span class="file-name">${esc(fileDiff.file)}</span>
     <span class="file-status ${esc(status)}">${esc(status)}</span>
-    ${openFileComments > 0 ? `<span class="badge open">${openFileComments} comment${openFileComments !== 1 ? 's' : ''}</span>` : ''}
+    ${openCount > 0 ? `<span class="badge open">${openCount} comment${openCount !== 1 ? 's' : ''}</span>` : ''}
   </div>
   <div class="file-body">
     <table class="diff-table"><tbody>${rows}</tbody></table>
@@ -375,8 +462,8 @@ function renderHunk(hunk, file, comments, commitHash) {
     const cls = line.type === 'add' ? 'add-line' : line.type === 'delete' ? 'del-line' : '';
     const prefix = line.type === 'add' ? '+' : line.type === 'delete' ? '-' : ' ';
 
-    const lineComments = comments.filter(c =>
-      c.line === line.newLineNum || c.line === line.oldLineNum
+    const lineComments = comments.filter(
+      c => c.line === line.newLineNum || c.line === line.oldLineNum
     );
     const commentRows = lineComments.map(c => renderThreadRow(c)).join('');
 
@@ -447,7 +534,6 @@ function renderThreadRow(comment) {
 
 /** @param {string} hash */
 function toggleCommitSelection(hash) {
-  // Clicking the row toggles selection (checkbox handles its own change event)
   if (state.selectedHashes.has(hash)) {
     state.selectedHashes.delete(hash);
   } else {
@@ -455,18 +541,8 @@ function toggleCommitSelection(hash) {
   }
   renderCommitList();
   renderTopBar();
-  renderDiff();
   renderCommentList();
-}
-
-/** @param {string} hash */
-function toggleCommitMessage(hash) {
-  if (state.expandedMessages.has(hash)) {
-    state.expandedMessages.delete(hash);
-  } else {
-    state.expandedMessages.add(hash);
-  }
-  renderCommitList();
+  requestDiff();
 }
 
 /**
@@ -493,7 +569,6 @@ function openComposer(commitHash, file, line, event) {
   const y = Math.min(event.clientY + 10, window.innerHeight - 200);
   composer.style.left = `${x}px`;
   composer.style.top = `${y}px`;
-
   if (ta) ta.focus();
 }
 
@@ -508,7 +583,6 @@ function submitComment() {
   );
   const body = ta?.value?.trim();
   if (!body) return;
-
   vscode.postMessage({
     type: 'addComment',
     commitHash: pendingCommentCommitHash,
@@ -567,6 +641,14 @@ function scrollToFile(file) {
   block?.scrollIntoView({ behavior: 'smooth', block: 'start' });
 }
 
+/** @param {string} activeAction */
+function syncCommentViewBtns(activeAction) {
+  document.querySelectorAll('[data-action="view-selected"],[data-action="view-all-comments"]')
+    .forEach(b => {
+      b.classList.toggle('active', b.getAttribute('data-action') === activeAction);
+    });
+}
+
 // ── Helpers ───────────────────────────────────────────────────────────────
 
 /** @param {string} s */
@@ -597,7 +679,7 @@ function formatDate(iso) {
   if (!iso) return '';
   try {
     return new Date(iso).toLocaleString(undefined, {
-      month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit'
+      month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit',
     });
   } catch { return iso; }
 }
