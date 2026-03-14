@@ -129,6 +129,42 @@ export class GitService {
     return files;
   }
 
+  /**
+   * Cumulative diff from just before `oldestHash` to the tip of `newestHash`.
+   * This mirrors how GitHub shows a PR diff — intermediate states that were
+   * later overwritten simply don't appear.
+   *
+   * `git diff <oldestHash>^..<newestHash>`
+   */
+  getRangeDiff(oldestHash: string, newestHash: string): string {
+    // When oldest === newest, fall back to the single-commit diff
+    if (oldestHash === newestHash) {
+      return this.getRawDiff(oldestHash);
+    }
+    return exec(`git diff ${oldestHash}^..${newestHash}`, this.repoPath);
+  }
+
+  /**
+   * Files changed across a range (same range as getRangeDiff).
+   */
+  getChangedFilesInRange(oldestHash: string, newestHash: string): ChangedFile[] {
+    if (oldestHash === newestHash) {
+      return this.getChangedFiles(newestHash);
+    }
+    const raw = exec(
+      `git diff --name-status ${oldestHash}^..${newestHash}`,
+      this.repoPath
+    );
+    if (!raw) return [];
+    return raw
+      .split('\n')
+      .filter(Boolean)
+      .map(line => {
+        const [status, ...parts] = line.split('\t');
+        return { path: parts[parts.length - 1], status: status[0] };
+      });
+  }
+
   getCurrentBranch(): string {
     return exec('git rev-parse --abbrev-ref HEAD', this.repoPath) || 'HEAD';
   }
