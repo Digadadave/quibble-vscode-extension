@@ -5,12 +5,19 @@ const vscode = acquireVsCodeApi();
 
 // ── State ─────────────────────────────────────────────────────────────────
 
-/** @type {{ commits: any[], comments: any[], selectedHash: string, reviewedCommits: Set<string> }} */
 const state = {
+  /** @type {any[]} */
   commits: [],
+  /** @type {any[]} */
   comments: [],
-  selectedHash: '',
+  /** @type {Set<string>} selected commit hashes */
+  selectedHashes: new Set(),
+  /** @type {Set<string>} manually expanded commit messages */
+  expandedMessages: new Set(),
+  /** @type {Set<string>} commits marked as reviewed */
   reviewedCommits: new Set(),
+  /** 'selected' | 'all' */
+  commentView: 'selected',
 };
 
 // Pending comment placement
@@ -23,43 +30,97 @@ let pendingCommentCommitHash = '';
 window.addEventListener('message', (/** @type {MessageEvent} */ event) => {
   const msg = event.data;
   switch (msg.type) {
-    case 'load':
+    case 'load': {
       state.commits = msg.commits ?? [];
       state.comments = msg.comments ?? [];
-      state.selectedHash = msg.selectedHash ?? (state.commits[0]?.hash ?? '');
+      // Auto-select the first commit on initial load
+      if (state.selectedHashes.size === 0 && state.commits.length > 0) {
+        state.selectedHashes.add(state.commits[0].hash);
+      }
       renderAll();
       break;
+    }
     case 'focusFile':
       if (msg.file) scrollToFile(msg.file);
+      break;
+    case 'selectCommit':
+      if (msg.hash) {
+        state.selectedHashes.clear();
+        state.selectedHashes.add(msg.hash);
+        renderAll();
+      }
       break;
   }
 });
 
 // ── Event delegation ──────────────────────────────────────────────────────
-// All click handling goes through this single listener (CSP-safe).
 
 document.addEventListener('click', (/** @type {MouseEvent} */ e) => {
   const target = /** @type {HTMLElement} */ (e.target);
-  const btn = target.closest('[data-action]');
-  if (!btn) {
-    // Close composer on outside click
-    const composer = document.getElementById('comment-composer');
-    if (composer && composer.style.display === 'block' && !composer.contains(target)) {
+
+  // Close composer on outside click
+  const composer = document.getElementById('comment-composer');
+  if (composer && composer.style.display === 'block' && !composer.contains(target)) {
+    const btn = target.closest('[data-action]');
+    if (!btn || btn.getAttribute('data-action') !== 'add-comment') {
       composer.style.display = 'none';
+      return;
     }
-    return;
   }
 
-  const action = btn.getAttribute('data-action');
-  e.stopPropagation();
+  const btn = target.closest('[data-action]');
+  if (!btn) return;
+
+  const action = btn.getAttribute('data-action') ?? '';
+
+  // Don't stop propagation for checkbox — let the change event handle it
+  if (action !== 'toggle-commit-checkbox') {
+    e.stopPropagation();
+  }
 
   switch (action) {
-    case 'navigate-prev':
-      navigateCommit('prev');
+    case 'toggle-commit-row': {
+      const hash = btn.getAttribute('data-hash') ?? '';
+      toggleCommitSelection(hash);
       break;
-    case 'navigate-next':
-      navigateCommit('next');
+    }
+    case 'toggle-message': {
+      const hash = btn.getAttribute('data-hash') ?? '';
+      toggleCommitMessage(hash);
       break;
+    }
+    case 'select-all-commits':
+      state.commits.forEach(c => state.selectedHashes.add(c.hash));
+      renderAll();
+      break;
+    case 'select-no-commits':
+      state.selectedHashes.clear();
+      renderAll();
+      break;
+    case 'view-selected':
+      state.commentView = 'selected';
+      document.querySelectorAll('[data-action="view-selected"],[data-action="view-all-comments"]')
+        .forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      renderCommentList();
+      break;
+    case 'view-all-comments':
+      state.commentView = 'all';
+      document.querySelectorAll('[data-action="view-selected"],[data-action="view-all-comments"]')
+        .forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      renderCommentList();
+      break;
+    case 'sidebar-comment-jump': {
+      const hash = btn.getAttribute('data-hash') ?? '';
+      const file = btn.getAttribute('data-file') ?? '';
+      if (!state.selectedHashes.has(hash)) {
+        state.selectedHashes.add(hash);
+        renderAll();
+      }
+      if (file) setTimeout(() => scrollToFile(file), 100);
+      break;
+    }
     case 'toggle-reviewed':
       toggleMarkReviewed();
       break;
@@ -115,71 +176,161 @@ document.addEventListener('click', (/** @type {MouseEvent} */ e) => {
   }
 });
 
-// Also handle commit select change
+// Checkbox change handler
 document.addEventListener('change', (e) => {
-  const target = /** @type {HTMLElement} */ (e.target);
-  if (target.id === 'commit-select') {
-    selectCommit(/** @type {HTMLSelectElement} */(target).value);
+  const target = /** @type {HTMLInputElement} */ (e.target);
+  if (target.classList.contains('commit-checkbox')) {
+    const hash = target.getAttribute('data-hash') ?? '';
+    if (target.checked) {
+      state.selectedHashes.add(hash);
+    } else {
+      state.selectedHashes.delete(hash);
+    }
+    renderDiff();
+    renderTopBar();
+    renderCommentList();
   }
 });
 
 // ── Rendering ─────────────────────────────────────────────────────────────
 
 function renderAll() {
-  renderCommitSelect();
-  renderSummaryBadges();
+  renderCommitList();
+  renderCommentList();
+  renderTopBar();
   renderDiff();
 }
 
-function renderCommitSelect() {
-  const sel = /** @type {HTMLSelectElement} */ (document.getElementById('commit-select'));
-  if (!sel) return;
-  sel.innerHTML = '';
-  for (const c of state.commits) {
-    const opt = document.createElement('option');
-    opt.value = c.hash;
-    opt.textContent = `${c.shortHash} \u2014 ${c.message}`;
-    if (c.hash === state.selectedHash) opt.selected = true;
-    sel.appendChild(opt);
+// ── Sidebar: commit list ───────────────────────────────────────────────────
+
+function renderCommitList() {
+  const container = document.getElementById('commit-list');
+  if (!container) return;
+
+  if (state.commits.length === 0) {
+    container.innerHTML = '<div style="padding:12px;color:var(--fg-muted);font-size:12px">No commits found</div>';
+    return;
   }
+
+  container.innerHTML = state.commits.map(commit => {
+    const isSelected = state.selectedHashes.has(commit.hash);
+    const isExpanded = state.expandedMessages.has(commit.hash);
+    const commentCount = state.comments.filter(c => c.commitHash === commit.hash).length;
+    const openCount = state.comments.filter(c => c.commitHash === commit.hash && (c.status === 'open' || c.status === 'agent-replied')).length;
+    const fileCount = commit.changedFiles?.length ?? 0;
+
+    const dateStr = commit.date ? formatDate(commit.date) : '';
+
+    return `
+<div class="commit-item${isSelected ? ' selected' : ''}${isExpanded ? ' expanded' : ''}"
+     data-action="toggle-commit-row" data-hash="${esc(commit.hash)}">
+  <div class="commit-item-top">
+    <input type="checkbox" class="commit-checkbox" data-hash="${esc(commit.hash)}"
+           ${isSelected ? 'checked' : ''} title="Select commit">
+    <div class="commit-info">
+      <div class="commit-hash">${esc(commit.shortHash)}</div>
+      <div class="commit-msg" title="${esc(commit.message)}">${esc(commit.message)}</div>
+      <div class="commit-meta">${esc(commit.author)} &middot; ${esc(dateStr)}</div>
+    </div>
+    <button class="sidebar-btn" data-action="toggle-message" data-hash="${esc(commit.hash)}"
+            title="${isExpanded ? 'Hide' : 'Show'} full message" style="flex-shrink:0">
+      ${isExpanded ? '&#8679;' : '&#8675;'}
+    </button>
+  </div>
+  <div class="commit-full-msg">${esc(commit.message)}${commit.body ? '\n\n' + esc(commit.body) : ''}</div>
+  <div class="commit-badges">
+    ${fileCount > 0 ? `<span class="commit-file-count">${fileCount} file${fileCount !== 1 ? 's' : ''}</span>` : ''}
+    ${openCount > 0 ? `<span class="commit-comment-badge">${openCount} comment${openCount !== 1 ? 's' : ''}</span>` : ''}
+    ${commentCount > 0 && openCount === 0 ? `<span class="commit-file-count">${commentCount} resolved</span>` : ''}
+  </div>
+</div>`;
+  }).join('');
 }
 
-function renderSummaryBadges() {
-  const forCommit = state.comments.filter(c => c.commitHash === state.selectedHash);
-  const open = forCommit.filter(c => c.status === 'open').length;
-  const replied = forCommit.filter(c => c.status === 'agent-replied').length;
-  const addressed = forCommit.filter(c => c.status === 'addressed' || c.status === 'resolved').length;
+// ── Sidebar: comment list ──────────────────────────────────────────────────
+
+function renderCommentList() {
+  const container = document.getElementById('comment-list');
+  if (!container) return;
+
+  const visible = state.commentView === 'all'
+    ? state.comments
+    : state.comments.filter(c => state.selectedHashes.has(c.commitHash));
+
+  if (visible.length === 0) {
+    container.innerHTML = `<div style="padding:10px;color:var(--fg-muted);font-size:11px">No comments${state.commentView === 'selected' ? ' for selected commits' : ''}</div>`;
+    return;
+  }
+
+  container.innerHTML = visible.map(c => {
+    const short = c.body.length > 55 ? c.body.slice(0, 55) + '\u2026' : c.body;
+    return `
+<div class="sidebar-comment" data-action="sidebar-comment-jump"
+     data-hash="${esc(c.commitHash)}" data-file="${esc(c.file)}">
+  <div class="sidebar-comment-loc">${esc(c.file)}:${c.line}</div>
+  <div class="sidebar-comment-body">${esc(short)}</div>
+  <span class="sidebar-comment-status ${c.status}">${esc(c.status)}</span>
+</div>`;
+  }).join('');
+}
+
+// ── Top bar ────────────────────────────────────────────────────────────────
+
+function renderTopBar() {
+  const selectedComments = state.comments.filter(c => state.selectedHashes.has(c.commitHash));
+  const open = selectedComments.filter(c => c.status === 'open').length;
+  const replied = selectedComments.filter(c => c.status === 'agent-replied').length;
+  const addressed = selectedComments.filter(c => c.status === 'addressed' || c.status === 'resolved').length;
 
   setEl('badge-open', `${open} open`);
   setEl('badge-replied', `${replied} in review`);
   setEl('badge-addressed', `${addressed} addressed`);
 
+  const n = state.selectedHashes.size;
+  setEl('selected-count', `${n} commit${n !== 1 ? 's' : ''} selected`);
+
+  const allReviewed = n > 0 && [...state.selectedHashes].every(h => state.reviewedCommits.has(h));
   const btn = document.getElementById('mark-reviewed-btn');
   if (btn) {
-    const isReviewed = state.reviewedCommits.has(state.selectedHash);
-    btn.textContent = isReviewed ? '\u2713 Reviewed' : 'Mark as reviewed';
-    btn.classList.toggle('reviewed', isReviewed);
+    btn.textContent = allReviewed ? '\u2713 Reviewed' : 'Mark as reviewed';
+    btn.classList.toggle('reviewed', allReviewed);
   }
 }
+
+// ── Main diff area ─────────────────────────────────────────────────────────
 
 function renderDiff() {
   const main = document.getElementById('main');
   if (!main) return;
 
-  const commit = state.commits.find(c => c.hash === state.selectedHash);
-  if (!commit) {
-    main.innerHTML = '<div class="empty-state"><h2>No commit selected</h2><p>Select a commit from the dropdown above.</p></div>';
+  if (state.selectedHashes.size === 0) {
+    main.innerHTML = '<div class="empty-state"><h2>No commits selected</h2><p>Check commits in the left panel to review their diffs.</p></div>';
     return;
   }
 
-  const forCommit = state.comments.filter(c => c.commitHash === state.selectedHash);
+  // Render in order of the commits array
+  const selected = state.commits.filter(c => state.selectedHashes.has(c.hash));
+  const html = selected.map(commit => renderCommitSection(commit)).join('');
+  main.innerHTML = html || '<div class="empty-state"><h2>No diff available</h2></div>';
+}
 
-  if (!commit.parsedDiff || commit.parsedDiff.length === 0) {
-    main.innerHTML = '<div class="empty-state"><h2>No diff available</h2><p>This commit has no changed files, or the diff could not be loaded.</p></div>';
-    return;
-  }
+/** @param {any} commit */
+function renderCommitSection(commit) {
+  const forCommit = state.comments.filter(c => c.commitHash === commit.hash);
 
-  main.innerHTML = commit.parsedDiff.map(fileDiff => renderFileBlock(fileDiff, forCommit, commit)).join('');
+  const fileBlocks = (commit.parsedDiff ?? []).map(
+    /** @param {any} fd */ fd => renderFileBlock(fd, forCommit, commit)
+  ).join('');
+
+  return `
+<div class="commit-section" data-hash="${esc(commit.hash)}">
+  <div class="commit-section-header">
+    <span class="commit-section-hash">${esc(commit.shortHash)}</span>
+    <span class="commit-section-msg">${esc(commit.message)}</span>
+    <span class="commit-section-meta">${esc(commit.author)} &middot; ${formatDate(commit.date)}</span>
+  </div>
+  ${fileBlocks || '<div style="padding:12px;color:var(--fg-muted);font-size:12px">No changed files</div>'}
+</div>`;
 }
 
 /**
@@ -189,9 +340,12 @@ function renderDiff() {
  */
 function renderFileBlock(fileDiff, comments, commit) {
   const fileComments = comments.filter(c => c.file === fileDiff.file);
-  const status = commit.changedFiles?.find(/** @param {any} f */ (f) => f.path === fileDiff.file)?.status ?? 'M';
+  const status = commit.changedFiles?.find(/** @param {any} f */ f => f.path === fileDiff.file)?.status ?? 'M';
+  const openFileComments = fileComments.filter(c => c.status === 'open' || c.status === 'agent-replied').length;
 
-  const rows = fileDiff.hunks.map(/** @param {any} hunk */ (hunk) => renderHunk(hunk, fileDiff.file, fileComments, commit.hash)).join('');
+  const rows = fileDiff.hunks.map(
+    /** @param {any} hunk */ hunk => renderHunk(hunk, fileDiff.file, fileComments, commit.hash)
+  ).join('');
 
   return `
 <div class="file-block" data-file="${esc(fileDiff.file)}">
@@ -199,7 +353,7 @@ function renderFileBlock(fileDiff, comments, commit) {
     <span class="chevron">\u25be</span>
     <span class="file-name">${esc(fileDiff.file)}</span>
     <span class="file-status ${esc(status)}">${esc(status)}</span>
-    ${fileComments.length > 0 ? `<span class="badge open">${fileComments.filter(c => c.status === 'open' || c.status === 'agent-replied').length} comments</span>` : ''}
+    ${openFileComments > 0 ? `<span class="badge open">${openFileComments} comment${openFileComments !== 1 ? 's' : ''}</span>` : ''}
   </div>
   <div class="file-body">
     <table class="diff-table"><tbody>${rows}</tbody></table>
@@ -216,20 +370,19 @@ function renderFileBlock(fileDiff, comments, commit) {
 function renderHunk(hunk, file, comments, commitHash) {
   const headerRow = `<tr class="hunk-header"><td colspan="4">${esc(hunk.header)}</td></tr>`;
 
-  const lineRows = hunk.lines.map(/** @param {any} line */ (line) => {
+  const lineRows = hunk.lines.map(/** @param {any} line */ line => {
     const lineNum = line.newLineNum ?? line.oldLineNum ?? 0;
     const cls = line.type === 'add' ? 'add-line' : line.type === 'delete' ? 'del-line' : '';
     const prefix = line.type === 'add' ? '+' : line.type === 'delete' ? '-' : ' ';
 
-    const lineComments = comments.filter(c => {
-      return c.line === line.newLineNum || c.line === line.oldLineNum;
-    });
-
+    const lineComments = comments.filter(c =>
+      c.line === line.newLineNum || c.line === line.oldLineNum
+    );
     const commentRows = lineComments.map(c => renderThreadRow(c)).join('');
 
-    // Only show "+" button for added/context lines (right side)
     const addBtn = line.type !== 'delete'
-      ? `<button class="line-add-btn" title="Add comment" data-action="add-comment" data-commit="${esc(commitHash)}" data-file="${esc(file)}" data-line="${lineNum}">+</button>`
+      ? `<button class="line-add-btn" title="Add comment" data-action="add-comment"
+           data-commit="${esc(commitHash)}" data-file="${esc(file)}" data-line="${lineNum}">+</button>`
       : '';
 
     return `
@@ -246,7 +399,7 @@ function renderHunk(hunk, file, comments, commitHash) {
 
 /** @param {any} comment */
 function renderThreadRow(comment) {
-  const replies = (comment.thread ?? []).map(/** @param {any} r */ (r) => `
+  const replies = (comment.thread ?? []).map(/** @param {any} r */ r => `
 <div class="thread-comment ${r.author !== 'reviewer' ? 'agent-comment' : ''}">
   <div class="thread-header">
     <span class="thread-author ${r.author !== 'reviewer' ? 'agent' : ''}">${esc(r.author)}</span>
@@ -290,25 +443,30 @@ function renderThreadRow(comment) {
 </tr>`;
 }
 
-// ── Actions ───────────────────────────────────────────────────────────────
+// ── Actions ────────────────────────────────────────────────────────────────
 
 /** @param {string} hash */
-function selectCommit(hash) {
-  state.selectedHash = hash;
-  renderSummaryBadges();
+function toggleCommitSelection(hash) {
+  // Clicking the row toggles selection (checkbox handles its own change event)
+  if (state.selectedHashes.has(hash)) {
+    state.selectedHashes.delete(hash);
+  } else {
+    state.selectedHashes.add(hash);
+  }
+  renderCommitList();
+  renderTopBar();
   renderDiff();
+  renderCommentList();
 }
 
-function navigateCommit(/** @type {'prev'|'next'} */ direction) {
-  const idx = state.commits.findIndex(c => c.hash === state.selectedHash);
-  const next = direction === 'prev' ? idx - 1 : idx + 1;
-  if (next >= 0 && next < state.commits.length) {
-    state.selectedHash = state.commits[next].hash;
-    const sel = /** @type {HTMLSelectElement} */ (document.getElementById('commit-select'));
-    if (sel) sel.value = state.selectedHash;
-    renderSummaryBadges();
-    renderDiff();
+/** @param {string} hash */
+function toggleCommitMessage(hash) {
+  if (state.expandedMessages.has(hash)) {
+    state.expandedMessages.delete(hash);
+  } else {
+    state.expandedMessages.add(hash);
   }
+  renderCommitList();
 }
 
 /**
@@ -325,13 +483,12 @@ function openComposer(commitHash, file, line, event) {
   const composer = document.getElementById('comment-composer');
   if (!composer) return;
   const ta = /** @type {HTMLTextAreaElement} */ (composer.querySelector('textarea'));
-  if (ta) { ta.value = ''; }
+  if (ta) ta.value = '';
 
   const h4 = composer.querySelector('h4');
   if (h4) h4.textContent = `Comment on ${file}:${line}`;
 
   composer.style.display = 'block';
-  // Position near the click
   const x = Math.min(event.clientX, window.innerWidth - 440);
   const y = Math.min(event.clientY + 10, window.innerHeight - 200);
   composer.style.left = `${x}px`;
@@ -383,12 +540,16 @@ function submitReply(id) {
 }
 
 function toggleMarkReviewed() {
-  if (state.reviewedCommits.has(state.selectedHash)) {
-    state.reviewedCommits.delete(state.selectedHash);
-  } else {
-    state.reviewedCommits.add(state.selectedHash);
+  const allReviewed = [...state.selectedHashes].every(h => state.reviewedCommits.has(h));
+  for (const h of state.selectedHashes) {
+    if (allReviewed) {
+      state.reviewedCommits.delete(h);
+    } else {
+      state.reviewedCommits.add(h);
+    }
   }
-  renderSummaryBadges();
+  renderTopBar();
+  renderCommitList();
 }
 
 /** @param {HTMLElement} header */
@@ -433,7 +594,10 @@ function setEl(id, text) {
 
 /** @param {string} iso */
 function formatDate(iso) {
+  if (!iso) return '';
   try {
-    return new Date(iso).toLocaleString(undefined, { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
+    return new Date(iso).toLocaleString(undefined, {
+      month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit'
+    });
   } catch { return iso; }
 }

@@ -202,44 +202,67 @@ export class ReviewPanel implements vscode.Disposable {
 </head>
 <body>
 
-<!-- Top bar -->
-<div id="top-bar">
-  <div class="commit-select-wrap">
-    <button class="nav-btn" title="Previous commit" data-action="navigate-prev">&#8249;</button>
-    <select id="commit-select" title="Select commit"></select>
-    <button class="nav-btn" title="Next commit" data-action="navigate-next">&#8250;</button>
-  </div>
-  <div class="summary-badges">
-    <span class="badge open" id="badge-open">0 open</span>
-    <span class="badge replied" id="badge-replied">0 in review</span>
-    <span class="badge addressed" id="badge-addressed">0 addressed</span>
-  </div>
-  <button id="mark-reviewed-btn" data-action="toggle-reviewed">Mark as reviewed</button>
-</div>
+<div id="layout">
 
-<!-- Diff content -->
-<div id="main">
-  <div class="empty-state">
-    <h2>Commit Review</h2>
-    <p>Loading commits&#8230;</p>
+  <!-- Left sidebar: commit list -->
+  <div id="sidebar">
+    <div id="sidebar-header">
+      <h3>Commits</h3>
+      <div class="sidebar-actions">
+        <button class="sidebar-btn" data-action="select-all-commits" title="Select all">All</button>
+        <button class="sidebar-btn" data-action="select-no-commits" title="Select none">None</button>
+      </div>
+    </div>
+    <div id="commit-list"></div>
+    <div id="sidebar-comments-header">
+      <h3>Comments</h3>
+      <div class="sidebar-actions">
+        <button class="sidebar-btn active" data-action="view-selected" title="Comments for selected commits">Selected</button>
+        <button class="sidebar-btn" data-action="view-all-comments" title="All comments">All</button>
+      </div>
+    </div>
+    <div id="comment-list"></div>
   </div>
+
+  <!-- Right: main review area -->
+  <div id="right-panel">
+    <!-- Top bar -->
+    <div id="top-bar">
+      <div class="summary-badges">
+        <span class="badge open" id="badge-open">0 open</span>
+        <span class="badge replied" id="badge-replied">0 in review</span>
+        <span class="badge addressed" id="badge-addressed">0 addressed</span>
+        <span id="selected-count" class="selected-label">0 commits selected</span>
+      </div>
+      <button id="mark-reviewed-btn" data-action="toggle-reviewed">Mark as reviewed</button>
+    </div>
+
+    <!-- Diff content -->
+    <div id="main">
+      <div class="empty-state">
+        <h2>Commit Review</h2>
+        <p>Select commits from the left panel to begin reviewing.</p>
+      </div>
+    </div>
+
+    <!-- Footer -->
+    <div id="footer">
+      <span class="footer-path" id="footer-path">.code-review/reviews.json</span>
+      <button class="btn" data-action="export-reviews">Open reviews.json</button>
+      <button class="btn primary" data-action="copy-agent-prompt">Copy Agent Prompt</button>
+    </div>
+  </div>
+
 </div>
 
 <!-- Floating comment composer -->
 <div id="comment-composer">
   <h4>Add comment</h4>
-  <textarea placeholder="Leave a comment…"></textarea>
+  <textarea placeholder="Leave a comment..."></textarea>
   <div class="composer-actions">
     <button class="btn" data-action="close-composer">Cancel</button>
     <button class="btn primary" data-action="submit-comment">Submit</button>
   </div>
-</div>
-
-<!-- Footer -->
-<div id="footer">
-  <span class="footer-path" id="footer-path">.code-review/reviews.json</span>
-  <button class="btn" data-action="export-reviews">Open reviews.json</button>
-  <button class="btn primary" data-action="copy-agent-prompt">Copy Agent Prompt</button>
 </div>
 
 <script nonce="${nonce}" src="${jsUri}"></script>
