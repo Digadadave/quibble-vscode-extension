@@ -305,7 +305,7 @@ const GRAPH_DOT_R  = 4.5;     // radius of the commit dot
 const GRAPH_LINE_COLOR = '#4a9eff';
 const GRAPH_DOT_COLOR  = '#4a9eff';
 const GRAPH_HEAD_COLOR = '#ffffff';
-const ROW_HEIGHT = 36;         // must match min-height in CSS
+const ROW_HEIGHT = 24;         // must match min-height in CSS
 
 function renderGraph() {
   const container = document.getElementById('graph-list');
@@ -385,7 +385,6 @@ function renderGraph() {
   </div>
   <div class="graph-info">
     <div class="graph-msg">${esc(commit.message)}</div>
-    <div class="graph-meta">${esc(commit.author)} &middot; ${esc(formatDate(commit.date))}</div>
     ${refs ? `<div class="graph-refs">${refs}</div>` : ''}
   </div>
   ${openCount > 0 ? `<div class="graph-comment-dot" title="${openCount} open comment${openCount !== 1 ? 's' : ''}"></div>` : ''}

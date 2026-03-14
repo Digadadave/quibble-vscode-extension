@@ -24,7 +24,7 @@ export class ReviewPanel implements vscode.Disposable {
     this.panel = vscode.window.createWebviewPanel(
       ReviewPanel.viewType,
       'Commit Review',
-      vscode.ViewColumn.One,
+      vscode.ViewColumn.Beside,
       {
         enableScripts: true,
         localResourceRoots: [vscode.Uri.file(path.join(context.extensionPath, 'media'))],
@@ -48,7 +48,7 @@ export class ReviewPanel implements vscode.Disposable {
     focusFile?: string
   ): ReviewPanel {
     if (ReviewPanel.instance) {
-      ReviewPanel.instance.panel.reveal(vscode.ViewColumn.One);
+      ReviewPanel.instance.panel.reveal(vscode.ViewColumn.Beside);
       if (focusHash) ReviewPanel.instance.selectedHash = focusHash;
       ReviewPanel.instance.sendLoadMessage(focusFile);
       return ReviewPanel.instance;
