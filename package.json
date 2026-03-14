@@ -29,6 +29,12 @@
         "title": "Copy Agent Prompt",
         "icon": "$(copy)",
         "category": "Commit Review"
+      },
+      {
+        "command": "commitReview.selectRepo",
+        "title": "Select Repository",
+        "icon": "$(repo)",
+        "category": "Commit Review"
       }
     ],
     "viewsContainers": {

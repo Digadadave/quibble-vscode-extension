@@ -149,4 +149,35 @@ export class GitService {
       return undefined;
     }
   }
+
+  /**
+   * Discover git repos within a directory (one level deep).
+   * Checks each immediate subdirectory for a .git folder.
+   */
+  static discoverRepos(rootDir: string): string[] {
+    const fs = require('fs') as typeof import('fs');
+    const repos: string[] = [];
+
+    // Check if rootDir itself is a git repo
+    if (GitService.getRepoRoot(rootDir)) {
+      repos.push(path.normalize(rootDir));
+    }
+
+    // Check immediate subdirectories
+    try {
+      const entries = fs.readdirSync(rootDir, { withFileTypes: true });
+      for (const entry of entries) {
+        if (!entry.isDirectory() || entry.name.startsWith('.')) continue;
+        const sub = path.join(rootDir, entry.name);
+        const repoRoot = GitService.getRepoRoot(sub);
+        if (repoRoot && !repos.includes(repoRoot)) {
+          repos.push(repoRoot);
+        }
+      }
+    } catch {
+      // Can't read directory — just return what we have
+    }
+
+    return repos;
+  }
 }
