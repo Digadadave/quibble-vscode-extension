@@ -1,0 +1,247 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>review.json — Code Review Metadata Format</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: 'SF Mono', 'Fira Code', monospace; background: #0d1117; color: #c9d1d9; font-size: 13px; line-height: 1.7; padding: 32px; }
+  h1 { font-family: -apple-system, sans-serif; color: #e6edf3; font-size: 20px; margin-bottom: 8px; }
+  h2 { font-family: -apple-system, sans-serif; color: #e6edf3; font-size: 14px; margin: 32px 0 12px; text-transform: uppercase; letter-spacing: 0.06em; padding-bottom: 6px; border-bottom: 1px solid #21262d; }
+  .subtitle { font-family: -apple-system, sans-serif; font-size: 13px; color: #8b949e; margin-bottom: 24px; }
+  .code-block { background: #161b22; border: 1px solid #30363d; border-radius: 8px; padding: 20px 24px; overflow-x: auto; }
+  .kw { color: #ff7b72; }
+  .str { color: #a5d6ff; }
+  .num { color: #79c0ff; }
+  .bool { color: #79c0ff; }
+  .null { color: #79c0ff; }
+  .key { color: #7ee787; }
+  .cm { color: #8b949e; font-style: italic; }
+  .annotation { background: rgba(31, 111, 235, 0.1); border-left: 3px solid #388bfd; padding: 4px 12px; margin: 4px 0; border-radius: 0 4px 4px 0; }
+  .annotation .ann-label { color: #388bfd; font-size: 11px; }
+  .section { margin-bottom: 40px; }
+  .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-top: 16px; }
+  .card { background: #161b22; border: 1px solid #30363d; border-radius: 8px; padding: 16px; }
+  .card h3 { font-family: -apple-system, sans-serif; font-size: 13px; color: #e6edf3; margin-bottom: 10px; }
+  .card p { font-family: -apple-system, sans-serif; font-size: 12px; color: #8b949e; line-height: 1.6; }
+  .tag { display: inline-block; padding: 2px 8px; border-radius: 10px; font-size: 11px; font-weight: 600; font-family: -apple-system, sans-serif; }
+  .tag-open { background: rgba(248, 81, 73, 0.15); color: #f85149; }
+  .tag-addressed { background: rgba(63, 185, 80, 0.15); color: #3fb950; }
+  .tag-resolved { background: rgba(56, 139, 253, 0.15); color: #388bfd; }
+  .tag-pending { background: rgba(210, 153, 34, 0.15); color: #d29922; }
+  .flow { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; margin-top: 12px; }
+  .flow-step { background: #21262d; border: 1px solid #30363d; border-radius: 6px; padding: 8px 14px; font-family: -apple-system, sans-serif; font-size: 12px; color: #c9d1d9; text-align: center; min-width: 120px; }
+  .flow-arrow { color: #388bfd; font-size: 16px; }
+  .flow-step.agent { border-color: rgba(56, 239, 125, 0.3); color: #38ef7d; background: rgba(17, 153, 142, 0.1); }
+  table { width: 100%; border-collapse: collapse; font-family: -apple-system, sans-serif; font-size: 12px; }
+  th { text-align: left; padding: 8px 12px; background: #21262d; color: #8b949e; font-weight: 600; border-bottom: 1px solid #30363d; }
+  td { padding: 8px 12px; border-bottom: 1px solid #21262d; color: #c9d1d9; vertical-align: top; }
+  td:first-child { font-family: monospace; color: #7ee787; }
+  td:nth-child(2) { color: #79c0ff; }
+  td code { background: rgba(110,118,129,0.15); padding: 1px 5px; border-radius: 3px; }
+</style>
+</head>
+<body>
+
+<h1>Code Review — Metadata Format & Architecture</h1>
+<p class="subtitle">Schema for .code-review/reviews.json — readable by both the VSCode extension and AI agents</p>
+
+<div class="section">
+<h2>reviews.json Schema</h2>
+<div class="code-block">
+<pre>{
+  <span class="key">"$schema"</span>: <span class="str">"https://local/code-review/schema/v1"</span>,
+  <span class="key">"version"</span>: <span class="str">"1"</span>,
+  <span class="key">"repo"</span>: <span class="str">"netflix-controller"</span>,
+  <span class="key">"updatedAt"</span>: <span class="str">"2026-03-14T16:42:00Z"</span>,
+
+  <span class="cm">// Summary counts — easy for agents to check at a glance</span>
+  <span class="key">"summary"</span>: {
+    <span class="key">"open"</span>: <span class="num">2</span>,
+    <span class="key">"addressed"</span>: <span class="num">1</span>,
+    <span class="key">"resolved"</span>: <span class="num">0</span>
+  },
+
+  <span class="key">"reviews"</span>: [
+    {
+      <span class="key">"id"</span>: <span class="str">"cr_a1b2c3d4"</span>,                <span class="cm">// stable UUID</span>
+      <span class="key">"status"</span>: <span class="str">"open"</span>,                  <span class="cm">// open | addressed | resolved</span>
+      <span class="key">"commitHash"</span>: <span class="str">"36e524713f"</span>,
+      <span class="key">"commitMessage"</span>: <span class="str">"scaffolding"</span>,
+
+      <span class="cm">// Location</span>
+      <span class="key">"file"</span>: <span class="str">"src/extension.ts"</span>,
+      <span class="key">"line"</span>: <span class="num">42</span>,
+      <span class="key">"lineEnd"</span>: <span class="null">null</span>,                 <span class="cm">// for range comments</span>
+      <span class="key">"side"</span>: <span class="str">"right"</span>,                  <span class="cm">// "left" (before) | "right" (after)</span>
+
+      <span class="cm">// Comment content</span>
+      <span class="key">"body"</span>: <span class="str">"This activate() function should handle the case where context is undefined or the workspace has no git repository. Right now it'll throw if git isn't initialized."</span>,
+      <span class="key">"author"</span>: <span class="str">"davekriebel"</span>,
+      <span class="key">"createdAt"</span>: <span class="str">"2026-03-14T14:00:00Z"</span>,
+
+      <span class="cm">// Agent response thread</span>
+      <span class="key">"thread"</span>: [],
+
+      <span class="cm">// Resolution</span>
+      <span class="key">"addressedAt"</span>: <span class="null">null</span>,
+      <span class="key">"addressedByCommit"</span>: <span class="null">null</span>    <span class="cm">// commit hash when agent fixed it</span>
+    },
+    {
+      <span class="key">"id"</span>: <span class="str">"cr_e5f6g7h8"</span>,
+      <span class="key">"status"</span>: <span class="str">"open"</span>,
+      <span class="key">"commitHash"</span>: <span class="str">"36e524713f"</span>,
+      <span class="key">"commitMessage"</span>: <span class="str">"scaffolding"</span>,
+      <span class="key">"file"</span>: <span class="str">"src/extension.ts"</span>,
+      <span class="key">"line"</span>: <span class="num">67</span>,
+      <span class="key">"lineEnd"</span>: <span class="null">null</span>,
+      <span class="key">"side"</span>: <span class="str">"right"</span>,
+      <span class="key">"body"</span>: <span class="str">"The disposable returned here is never pushed to context.subscriptions. Memory leak — won't clean up on deactivation."</span>,
+      <span class="key">"author"</span>: <span class="str">"davekriebel"</span>,
+      <span class="key">"createdAt"</span>: <span class="str">"2026-03-14T15:00:00Z"</span>,
+      <span class="key">"thread"</span>: [],
+      <span class="key">"addressedAt"</span>: <span class="null">null</span>,
+      <span class="key">"addressedByCommit"</span>: <span class="null">null</span>
+    },
+    {
+      <span class="key">"id"</span>: <span class="str">"cr_i9j0k1l2"</span>,
+      <span class="key">"status"</span>: <span class="str">"addressed"</span>,
+      <span class="key">"commitHash"</span>: <span class="str">"36e524713f"</span>,
+      <span class="key">"commitMessage"</span>: <span class="str">"scaffolding"</span>,
+      <span class="key">"file"</span>: <span class="str">"package.json"</span>,
+      <span class="key">"line"</span>: <span class="num">10</span>,
+      <span class="key">"lineEnd"</span>: <span class="null">null</span>,
+      <span class="key">"side"</span>: <span class="str">"right"</span>,
+      <span class="key">"body"</span>: <span class="str">"Move the view registration from 'scm' to 'explorer' so it's always visible."</span>,
+      <span class="key">"author"</span>: <span class="str">"davekriebel"</span>,
+      <span class="key">"createdAt"</span>: <span class="str">"2026-03-14T13:00:00Z"</span>,
+      <span class="key">"thread"</span>: [
+        {
+          <span class="key">"id"</span>: <span class="str">"reply_m3n4o5"</span>,
+          <span class="key">"author"</span>: <span class="str">"claude-agent"</span>,
+          <span class="key">"role"</span>: <span class="str">"agent"</span>,
+          <span class="key">"body"</span>: <span class="str">"Done — moved view to explorer and renamed id from reviewTree to codeReview for consistency."</span>,
+          <span class="key">"createdAt"</span>: <span class="str">"2026-03-14T14:30:00Z"</span>
+        }
+      ],
+      <span class="key">"addressedAt"</span>: <span class="str">"2026-03-14T14:30:00Z"</span>,
+      <span class="key">"addressedByCommit"</span>: <span class="str">"c3b3204a7b"</span>
+    }
+  ]
+}</pre>
+</div>
+</div>
+
+<div class="section">
+<h2>Comment Status Lifecycle</h2>
+<div class="flow">
+  <div class="flow-step">
+    <div style="font-size:10px; color:#8b949e; margin-bottom:4px;">You add comment</div>
+    <span class="tag tag-open">open</span>
+  </div>
+  <div class="flow-arrow">→</div>
+  <div class="flow-step agent">
+    <div style="font-size:10px; color:#8b949e; margin-bottom:4px;">Agent fixes + replies</div>
+    <span class="tag tag-pending">agent-replied</span>
+  </div>
+  <div class="flow-arrow">→</div>
+  <div class="flow-step">
+    <div style="font-size:10px; color:#8b949e; margin-bottom:4px;">You confirm in UI</div>
+    <span class="tag tag-addressed">addressed</span>
+  </div>
+  <div class="flow-arrow">→</div>
+  <div class="flow-step">
+    <div style="font-size:10px; color:#8b949e; margin-bottom:4px;">Closed / archived</div>
+    <span class="tag tag-resolved">resolved</span>
+  </div>
+</div>
+</div>
+
+<div class="section">
+<h2>Extension Architecture</h2>
+<div class="grid">
+  <div class="card">
+    <h3>📁 File Structure</h3>
+    <pre style="font-size:11px; color:#8b949e; line-height:1.8;">vscode-code-review/
+├── src/
+│   ├── extension.ts          <span style="color:#6e7681;">← entry point</span>
+│   ├── ReviewPanel.ts        <span style="color:#6e7681;">← WebView panel</span>
+│   ├── ReviewTreeProvider.ts <span style="color:#6e7681;">← sidebar tree</span>
+│   ├── CommentManager.ts     <span style="color:#6e7681;">← read/write JSON</span>
+│   ├── GitService.ts         <span style="color:#6e7681;">← git log / diff</span>
+│   └── DiffDecorator.ts      <span style="color:#6e7681;">← inline gutters</span>
+├── webview/
+│   ├── review.html           <span style="color:#6e7681;">← panel HTML</span>
+│   ├── review.css
+│   └── review.js             <span style="color:#6e7681;">← panel scripts</span>
+└── .code-review/             <span style="color:#6e7681;">← per-repo</span>
+    └── reviews.json</pre>
+  </div>
+  <div class="card">
+    <h3>⚡ Key Interactions</h3>
+    <p style="line-height:2;">
+      <strong style="color:#7ee787;">Git log</strong> → parse commits for sidebar<br>
+      <strong style="color:#7ee787;">git diff &lt;hash&gt;</strong> → render in WebView<br>
+      <strong style="color:#7ee787;">Click + icon</strong> → open comment compose<br>
+      <strong style="color:#7ee787;">Submit comment</strong> → write to reviews.json<br>
+      <strong style="color:#7ee787;">Agent reads</strong> reviews.json at session start<br>
+      <strong style="color:#7ee787;">Agent writes</strong> thread reply + status update<br>
+      <strong style="color:#7ee787;">FileWatcher</strong> → extension refreshes on change<br>
+      <strong style="color:#7ee787;">Mark addressed</strong> → update status in JSON
+    </p>
+  </div>
+</div>
+</div>
+
+<div class="section">
+<h2>Agent-Readable Prompt Block</h2>
+<p style="font-family: -apple-system, sans-serif; font-size: 12px; color: #8b949e; margin-bottom: 12px;">
+  The "Copy agent prompt" button generates this block, which you paste into Claude Code:
+</p>
+<div class="code-block">
+<pre><span class="cm">## Code Review — Open Comments to Address
+
+There are 2 open review comments in .code-review/reviews.json.
+Please address each one and update the file accordingly.
+
+### [cr_a1b2c3d4] src/extension.ts line 42 — OPEN
+> This activate() function should handle the case where context
+> is undefined or the workspace has no git repository.
+
+### [cr_e5f6g7h8] src/extension.ts line 67 — OPEN
+> The disposable returned here is never pushed to
+> context.subscriptions. Memory leak on deactivation.
+
+For each comment:
+1. Fix the issue in the relevant file
+2. In .code-review/reviews.json, set status to "addressed",
+   add addressedAt timestamp, and append a thread reply
+   with role "agent" explaining what you changed
+3. Do NOT mark as "resolved" — that's for the human reviewer</span></pre>
+</div>
+</div>
+
+<div class="section">
+<h2>reviews.json Field Reference</h2>
+<div class="code-block" style="padding:0;">
+<table>
+  <tr>
+    <th>Field</th><th>Type</th><th>Description</th>
+  </tr>
+  <tr><td>id</td><td>string</td><td>Stable <code>cr_XXXXXXXX</code> ID. Used by agent to find the right comment.</td></tr>
+  <tr><td>status</td><td>enum</td><td><code>open</code> → <code>addressed</code> → <code>resolved</code>. Agent sets <code>addressed</code>; human sets <code>resolved</code>.</td></tr>
+  <tr><td>commitHash</td><td>string</td><td>Full SHA of the commit being reviewed. Lets the extension show the right diff context.</td></tr>
+  <tr><td>file</td><td>string</td><td>Repo-relative path. Used for navigation and diff lookup.</td></tr>
+  <tr><td>line</td><td>number</td><td>Line number in the <em>after</em> version of the diff (right side).</td></tr>
+  <tr><td>lineEnd</td><td>number|null</td><td>For multi-line range comments. <code>null</code> for single-line.</td></tr>
+  <tr><td>side</td><td>"left"|"right"</td><td>Which side of the diff. Usually "right" (new code).</td></tr>
+  <tr><td>body</td><td>string</td><td>Markdown-supported comment text.</td></tr>
+  <tr><td>thread</td><td>Reply[]</td><td>Ordered list of replies. Agent appends here.</td></tr>
+  <tr><td>addressedAt</td><td>ISO date|null</td><td>When agent marked it addressed.</td></tr>
+  <tr><td>addressedByCommit</td><td>string|null</td><td>The commit hash where the fix landed.</td></tr>
+</table>
+</div>
+</div>
+
+</body>
+</html>

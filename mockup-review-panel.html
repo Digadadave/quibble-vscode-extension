@@ -1,0 +1,828 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Code Review - VSCode Extension Mockup</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --vsc-bg: #1e1e1e;
+    --vsc-sidebar: #252526;
+    --vsc-panel: #1e1e1e;
+    --vsc-activitybar: #333333;
+    --vsc-border: #3e3e3e;
+    --vsc-text: #cccccc;
+    --vsc-text-dim: #858585;
+    --vsc-blue: #4fc3f7;
+    --vsc-blue-dark: #007acc;
+    --vsc-green: #4caf50;
+    --vsc-yellow: #ffb900;
+    --vsc-red: #f44747;
+    --vsc-orange: #ce9178;
+    --vsc-purple: #c586c0;
+    --vsc-header: #323233;
+    --vsc-hover: #2a2d2e;
+    --vsc-selected: #094771;
+    --vsc-tab: #2d2d2d;
+    --vsc-tab-active: #1e1e1e;
+
+    --diff-add: rgba(40, 100, 40, 0.35);
+    --diff-add-gutter: rgba(40, 160, 40, 0.2);
+    --diff-del: rgba(120, 40, 40, 0.35);
+    --diff-del-gutter: rgba(200, 40, 40, 0.2);
+    --comment-bg: #1a2332;
+    --comment-border: #1f6feb;
+    --comment-thread-bg: #161b22;
+  }
+
+  body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: var(--vsc-bg); color: var(--vsc-text); font-size: 13px; height: 100vh; overflow: hidden; display: flex; flex-direction: column; }
+
+  /* ─── Title Bar ─────────────────────────────────────── */
+  .titlebar { height: 30px; background: #323233; display: flex; align-items: center; padding: 0 12px; font-size: 12px; color: #ccc; gap: 8px; border-bottom: 1px solid #111; flex-shrink: 0; user-select: none; }
+  .titlebar-dots { display: flex; gap: 6px; }
+  .dot { width: 12px; height: 12px; border-radius: 50%; }
+  .dot-red { background: #ff5f56; }
+  .dot-yellow { background: #ffbd2e; }
+  .dot-green { background: #27c93f; }
+  .titlebar-title { flex: 1; text-align: center; font-size: 12px; color: #999; }
+
+  /* ─── App Layout ─────────────────────────────────────── */
+  .app { display: flex; flex: 1; overflow: hidden; }
+
+  /* ─── Activity Bar ───────────────────────────────────── */
+  .activitybar { width: 48px; background: var(--vsc-activitybar); display: flex; flex-direction: column; align-items: center; padding-top: 8px; gap: 4px; flex-shrink: 0; border-right: 1px solid #222; }
+  .activity-icon { width: 36px; height: 36px; display: flex; align-items: center; justify-content: center; border-radius: 4px; cursor: pointer; color: #858585; font-size: 18px; transition: color 0.15s; border: 2px solid transparent; }
+  .activity-icon:hover { color: #ccc; }
+  .activity-icon.active { color: #fff; border-left: 2px solid var(--vsc-blue-dark); border-radius: 0; }
+  .activity-icon svg { width: 22px; height: 22px; fill: currentColor; }
+
+  /* ─── Sidebar ────────────────────────────────────────── */
+  .sidebar { width: 280px; background: var(--vsc-sidebar); display: flex; flex-direction: column; flex-shrink: 0; border-right: 1px solid var(--vsc-border); overflow: hidden; }
+  .sidebar-header { padding: 12px 16px 8px; font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.08em; color: var(--vsc-text); border-bottom: 1px solid var(--vsc-border); display: flex; align-items: center; justify-content: space-between; }
+  .sidebar-header-icons { display: flex; gap: 8px; color: var(--vsc-text-dim); }
+  .sidebar-header-icons span { cursor: pointer; font-size: 14px; }
+  .sidebar-header-icons span:hover { color: var(--vsc-text); }
+  .sidebar-section { padding: 6px 0; }
+  .sidebar-section-title { padding: 4px 16px; font-size: 11px; text-transform: uppercase; letter-spacing: 0.06em; color: var(--vsc-text-dim); display: flex; align-items: center; gap: 6px; cursor: pointer; user-select: none; }
+  .sidebar-section-title::before { content: '▾'; font-size: 9px; transition: transform 0.15s; }
+  .sidebar-section-title.collapsed::before { transform: rotate(-90deg); }
+
+  .commit-item { padding: 6px 16px; cursor: pointer; display: flex; align-items: center; gap: 8px; transition: background 0.1s; border-left: 2px solid transparent; }
+  .commit-item:hover { background: var(--vsc-hover); }
+  .commit-item.active { background: var(--vsc-selected); border-left-color: var(--vsc-blue-dark); }
+  .commit-hash { font-family: 'SF Mono', 'Fira Code', monospace; font-size: 11px; color: var(--vsc-blue); flex-shrink: 0; }
+  .commit-info { flex: 1; min-width: 0; }
+  .commit-msg { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-size: 12px; }
+  .commit-meta { font-size: 11px; color: var(--vsc-text-dim); margin-top: 1px; }
+  .commit-badge { flex-shrink: 0; display: flex; align-items: center; gap: 4px; }
+  .badge { padding: 1px 6px; border-radius: 10px; font-size: 10px; font-weight: 600; }
+  .badge-open { background: rgba(248, 81, 73, 0.15); color: #f85149; border: 1px solid rgba(248, 81, 73, 0.4); }
+  .badge-done { background: rgba(63, 185, 80, 0.15); color: #3fb950; border: 1px solid rgba(63, 185, 80, 0.4); }
+  .badge-partial { background: rgba(210, 153, 34, 0.15); color: #d29922; border: 1px solid rgba(210, 153, 34, 0.4); }
+
+  .file-item { padding: 4px 16px 4px 32px; cursor: pointer; display: flex; align-items: center; gap: 8px; transition: background 0.1s; font-size: 12px; }
+  .file-item:hover { background: var(--vsc-hover); }
+  .file-item.active { background: rgba(9, 71, 113, 0.5); }
+  .file-status { font-size: 10px; font-weight: 700; flex-shrink: 0; width: 14px; text-align: center; }
+  .file-status.M { color: var(--vsc-yellow); }
+  .file-status.A { color: var(--vsc-green); }
+  .file-status.D { color: var(--vsc-red); }
+  .file-name { flex: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .file-comments { font-size: 10px; color: var(--vsc-text-dim); display: flex; align-items: center; gap: 3px; }
+  .comment-dot { width: 6px; height: 6px; border-radius: 50%; background: #f85149; }
+  .comment-dot.resolved { background: #3fb950; }
+
+  .sidebar-footer { margin-top: auto; padding: 8px; border-top: 1px solid var(--vsc-border); display: flex; flex-direction: column; gap: 4px; }
+  .sidebar-btn { padding: 5px 10px; border-radius: 4px; font-size: 12px; cursor: pointer; text-align: center; border: 1px solid var(--vsc-border); background: transparent; color: var(--vsc-text); transition: background 0.15s; }
+  .sidebar-btn:hover { background: var(--vsc-hover); }
+  .sidebar-btn.primary { background: var(--vsc-blue-dark); border-color: var(--vsc-blue-dark); color: #fff; }
+  .sidebar-btn.primary:hover { background: #1a8bc4; }
+
+  /* ─── Main Area ──────────────────────────────────────── */
+  .main { flex: 1; display: flex; flex-direction: column; overflow: hidden; }
+
+  /* Tabs */
+  .tabs { height: 35px; background: var(--vsc-tab); display: flex; align-items: flex-end; border-bottom: 1px solid var(--vsc-border); flex-shrink: 0; overflow: hidden; }
+  .tab { padding: 0 16px; height: 35px; display: flex; align-items: center; gap: 8px; font-size: 12px; color: var(--vsc-text-dim); cursor: pointer; border-right: 1px solid var(--vsc-border); white-space: nowrap; transition: background 0.1s; }
+  .tab:hover { color: var(--vsc-text); }
+  .tab.active { background: var(--vsc-tab-active); color: var(--vsc-text); border-top: 1px solid var(--vsc-blue-dark); }
+  .tab-icon { font-size: 14px; }
+
+  /* Review Panel */
+  .review-panel { flex: 1; overflow-y: auto; padding: 0; }
+
+  /* Commit Header */
+  .commit-header { padding: 16px 24px; background: var(--vsc-panel); border-bottom: 1px solid var(--vsc-border); position: sticky; top: 0; z-index: 10; }
+  .commit-header-top { display: flex; align-items: flex-start; gap: 12px; margin-bottom: 8px; }
+  .commit-avatar { width: 32px; height: 32px; border-radius: 50%; background: linear-gradient(135deg, #667eea, #764ba2); display: flex; align-items: center; justify-content: center; font-size: 13px; font-weight: 700; color: white; flex-shrink: 0; }
+  .commit-header-info { flex: 1; }
+  .commit-header-msg { font-size: 15px; font-weight: 600; color: #e6edf3; margin-bottom: 4px; }
+  .commit-header-meta { font-size: 12px; color: var(--vsc-text-dim); display: flex; gap: 12px; align-items: center; }
+  .commit-header-hash { font-family: monospace; color: var(--vsc-blue); }
+  .commit-stats { display: flex; gap: 16px; }
+  .stat-item { display: flex; align-items: center; gap: 4px; font-size: 12px; color: var(--vsc-text-dim); }
+  .stat-add { color: #3fb950; }
+  .stat-del { color: #f85149; }
+
+  /* File Block */
+  .file-block { margin: 8px 16px; border: 1px solid var(--vsc-border); border-radius: 6px; overflow: hidden; }
+  .file-block-header { padding: 8px 14px; background: #252526; display: flex; align-items: center; gap: 10px; border-bottom: 1px solid var(--vsc-border); cursor: pointer; user-select: none; }
+  .file-block-header:hover { background: #2a2d2e; }
+  .file-block-chevron { font-size: 10px; color: var(--vsc-text-dim); transition: transform 0.15s; }
+  .file-path { font-family: 'SF Mono', 'Fira Code', monospace; font-size: 12px; color: #e6edf3; flex: 1; }
+  .file-path .dir { color: var(--vsc-text-dim); }
+  .file-block-meta { display: flex; align-items: center; gap: 8px; }
+  .diff-stat-bar { display: flex; gap: 2px; }
+  .diff-square { width: 9px; height: 9px; border-radius: 1px; }
+  .diff-square.add { background: #3fb950; }
+  .diff-square.del { background: #f85149; }
+  .diff-square.empty { background: #30363d; }
+
+  /* Diff Table */
+  .diff-table { width: 100%; border-collapse: collapse; font-family: 'SF Mono', 'Fira Code', 'Cascadia Code', monospace; font-size: 12px; line-height: 1.6; }
+  .diff-table tr { display: flex; }
+  .diff-table tr:hover .diff-add-comment { opacity: 1; }
+  .diff-table tr.hover-active .diff-add-comment { opacity: 1; }
+
+  .ln { width: 44px; flex-shrink: 0; padding: 0 8px; text-align: right; color: #6e7681; background: var(--vsc-sidebar); user-select: none; display: flex; align-items: center; justify-content: flex-end; font-size: 11px; cursor: default; }
+  .ln.ln-add { background: var(--diff-add-gutter); }
+  .ln.ln-del { background: var(--diff-del-gutter); }
+  .code-cell { flex: 1; padding: 0 12px; white-space: pre; display: flex; align-items: center; min-width: 0; overflow: hidden; }
+  .code-cell.add { background: var(--diff-add); }
+  .code-cell.del { background: var(--diff-del); }
+  .diff-prefix { width: 12px; flex-shrink: 0; user-select: none; }
+  .diff-prefix.plus { color: #3fb950; }
+  .diff-prefix.minus { color: #f85149; }
+  .code-content { flex: 1; overflow: hidden; text-overflow: ellipsis; }
+
+  .diff-add-comment { opacity: 0; width: 24px; height: 24px; display: flex; align-items: center; justify-content: center; cursor: pointer; border-radius: 4px; color: var(--vsc-text-dim); font-size: 14px; transition: opacity 0.15s, background 0.15s; flex-shrink: 0; margin-right: 4px; }
+  .diff-add-comment:hover { background: rgba(255,255,255,0.1); color: #fff; }
+
+  .diff-hunk { background: rgba(31, 111, 235, 0.08); padding: 3px 12px; font-size: 11px; color: #6e7681; border-top: 1px solid #21262d; border-bottom: 1px solid #21262d; font-family: monospace; display: flex; align-items: center; }
+  .diff-hunk span { color: #388bfd; }
+
+  /* Comment Thread */
+  .comment-thread { background: var(--comment-thread-bg); border-top: 1px solid #21262d; border-bottom: 1px solid #21262d; padding: 12px 16px; display: flex; flex-direction: column; gap: 10px; }
+  .comment-thread-new { background: rgba(31, 111, 235, 0.05); border-top: 2px solid var(--comment-border); }
+  .comment-item { display: flex; gap: 10px; }
+  .comment-avatar { width: 28px; height: 28px; border-radius: 50%; flex-shrink: 0; display: flex; align-items: center; justify-content: center; font-size: 11px; font-weight: 700; color: white; }
+  .av-user { background: linear-gradient(135deg, #667eea, #764ba2); }
+  .av-agent { background: linear-gradient(135deg, #11998e, #38ef7d); }
+  .comment-body { flex: 1; min-width: 0; }
+  .comment-header { display: flex; align-items: center; gap: 8px; margin-bottom: 4px; }
+  .comment-author { font-size: 12px; font-weight: 600; color: #e6edf3; }
+  .comment-time { font-size: 11px; color: var(--vsc-text-dim); }
+  .comment-role { font-size: 10px; padding: 1px 5px; border-radius: 10px; background: rgba(31, 111, 235, 0.2); color: #388bfd; border: 1px solid rgba(56, 139, 253, 0.3); }
+  .comment-role.agent { background: rgba(17, 153, 142, 0.15); color: #38ef7d; border-color: rgba(56, 239, 125, 0.3); }
+  .comment-text { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; font-size: 12.5px; line-height: 1.6; color: #c9d1d9; }
+  .comment-text code { font-family: monospace; background: rgba(110, 118, 129, 0.15); padding: 1px 5px; border-radius: 3px; font-size: 11px; }
+  .comment-actions { display: flex; gap: 10px; margin-top: 6px; }
+  .comment-btn { font-size: 11px; color: var(--vsc-text-dim); cursor: pointer; background: none; border: none; padding: 0; display: flex; align-items: center; gap: 3px; }
+  .comment-btn:hover { color: var(--vsc-text); }
+  .comment-status-tag { padding: 2px 8px; border-radius: 10px; font-size: 10px; font-weight: 600; }
+  .status-open { background: rgba(248, 81, 73, 0.15); color: #f85149; border: 1px solid rgba(248, 81, 73, 0.4); }
+  .status-addressed { background: rgba(63, 185, 80, 0.15); color: #3fb950; border: 1px solid rgba(63, 185, 80, 0.4); }
+  .status-pending { background: rgba(210, 153, 34, 0.15); color: #d29922; border: 1px solid rgba(210, 153, 34, 0.4); }
+
+  .resolve-btn { margin-left: auto; padding: 3px 10px; border-radius: 4px; font-size: 11px; border: 1px solid #30363d; background: #21262d; color: #c9d1d9; cursor: pointer; transition: background 0.15s; }
+  .resolve-btn:hover { background: #30363d; }
+  .resolve-btn.resolved { background: rgba(63, 185, 80, 0.1); border-color: rgba(63, 185, 80, 0.4); color: #3fb950; }
+
+  .comment-compose { background: #0d1117; border: 1px solid #30363d; border-radius: 6px; overflow: hidden; }
+  .compose-header { padding: 6px 10px; border-bottom: 1px solid #21262d; display: flex; gap: 8px; font-size: 11px; color: var(--vsc-text-dim); }
+  .compose-tab { padding: 3px 8px; border-radius: 4px; cursor: pointer; }
+  .compose-tab.active { background: #21262d; color: var(--vsc-text); }
+  .compose-body { padding: 10px; font-family: -apple-system, sans-serif; font-size: 12.5px; color: #c9d1d9; min-height: 60px; outline: none; line-height: 1.6; }
+  .compose-body[placeholder]:empty::before { content: attr(placeholder); color: #6e7681; }
+  .compose-footer { padding: 6px 10px; border-top: 1px solid #21262d; display: flex; align-items: center; gap: 8px; justify-content: flex-end; }
+  .compose-footer-btn { padding: 4px 12px; border-radius: 5px; font-size: 12px; cursor: pointer; border: 1px solid; transition: background 0.15s; }
+  .btn-cancel { background: transparent; border-color: #30363d; color: #c9d1d9; }
+  .btn-cancel:hover { background: #21262d; }
+  .btn-submit { background: #238636; border-color: #2ea043; color: #fff; }
+  .btn-submit:hover { background: #2ea043; }
+
+  /* Review Summary Bar */
+  .review-summary { padding: 10px 24px; background: #161b22; border-bottom: 1px solid var(--vsc-border); display: flex; align-items: center; gap: 16px; flex-shrink: 0; }
+  .summary-label { font-size: 12px; font-weight: 600; color: #e6edf3; }
+  .summary-pills { display: flex; gap: 8px; }
+  .pill { padding: 2px 10px; border-radius: 10px; font-size: 11px; font-weight: 600; }
+  .pill-open { background: rgba(248, 81, 73, 0.15); color: #f85149; }
+  .pill-addressed { background: rgba(63, 185, 80, 0.15); color: #3fb950; }
+  .pill-total { background: rgba(110, 118, 129, 0.15); color: #8b949e; }
+  .summary-spacer { flex: 1; }
+  .mark-reviewed-btn { padding: 5px 14px; border-radius: 6px; font-size: 12px; font-weight: 600; cursor: pointer; border: 1px solid #30363d; background: #21262d; color: #c9d1d9; transition: background 0.15s; display: flex; align-items: center; gap: 6px; }
+  .mark-reviewed-btn:hover { background: #30363d; }
+  .mark-reviewed-btn.done { background: rgba(63, 185, 80, 0.1); border-color: rgba(63, 185, 80, 0.4); color: #3fb950; }
+
+  .context-line { color: #6e7681; }
+  .token-kw { color: #ff7b72; }
+  .token-fn { color: #d2a8ff; }
+  .token-str { color: #a5d6ff; }
+  .token-cm { color: #8b949e; font-style: italic; }
+  .token-num { color: #79c0ff; }
+  .token-type { color: #ffa657; }
+
+  .review-panel::-webkit-scrollbar { width: 10px; }
+  .review-panel::-webkit-scrollbar-track { background: #1e1e1e; }
+  .review-panel::-webkit-scrollbar-thumb { background: #424242; border-radius: 5px; }
+
+  .jump-nav { display: flex; gap: 4px; }
+  .jump-btn { padding: 3px 8px; border-radius: 4px; font-size: 11px; background: #21262d; border: 1px solid #30363d; color: #c9d1d9; cursor: pointer; }
+  .jump-btn:hover { background: #30363d; }
+
+  .inline-add-row { display: none; }
+  .inline-add-row.visible { display: flex; }
+</style>
+</head>
+<body>
+
+<div class="titlebar">
+  <div class="titlebar-dots">
+    <div class="dot dot-red"></div>
+    <div class="dot dot-yellow"></div>
+    <div class="dot dot-green"></div>
+  </div>
+  <div class="titlebar-title">netflix-controller — Code Review</div>
+</div>
+
+<div class="app">
+
+  <!-- Activity Bar -->
+  <div class="activitybar">
+    <div class="activity-icon" title="Explorer">
+      <svg viewBox="0 0 24 24"><path d="M3 3h6v2H5v14h14v-4h2v6H3V3zm16 0v8h-2V6.414l-9.293 9.293-1.414-1.414L15.586 5H12V3h7z"/></svg>
+    </div>
+    <div class="activity-icon" title="Source Control">
+      <svg viewBox="0 0 24 24"><path d="M7 6a1 1 0 1 0 0-2 1 1 0 0 0 0 2zm0 2a3 3 0 1 1 0-6 3 3 0 0 1 0 6zm5 10a1 1 0 1 0 0-2 1 1 0 0 0 0 2zm0 2a3 3 0 1 1 0-6 3 3 0 0 1 0 6zm5-12a1 1 0 1 0 0-2 1 1 0 0 0 0 2zm0 2a3 3 0 1 1 0-6 3 3 0 0 1 0 6zM8.5 8H10v2H8.5a3.5 3.5 0 0 0 0 7H10v2H8.5a5.5 5.5 0 0 1 0-11zm7 0H14v2h1.5a3.5 3.5 0 0 1 0 7H14v2h1.5a5.5 5.5 0 0 0 0-11z"/></svg>
+    </div>
+    <!-- Code Review Icon - Active -->
+    <div class="activity-icon active" title="Code Review" style="position:relative">
+      <svg viewBox="0 0 24 24"><path d="M12 2C6.477 2 2 6.477 2 12s4.477 10 10 10 10-4.477 10-10S17.523 2 12 2zm-1 15v-4H7l5-8v4h4l-5 8z"/></svg>
+      <span style="position:absolute; top:2px; right:2px; width:8px; height:8px; border-radius:50%; background:#f85149; border:2px solid #333;"></span>
+    </div>
+    <div class="activity-icon" title="Extensions">
+      <svg viewBox="0 0 24 24"><path d="M9 7v2h6V7h2v2h2v6h-2v-2h-2v4h-2v-2H9v2H7v-4H5V9h2V7h2zm0 4H7v2h2v-2zm8 0h-2v2h2v-2z"/></svg>
+    </div>
+  </div>
+
+  <!-- Sidebar: Review Navigator -->
+  <div class="sidebar">
+    <div class="sidebar-header">
+      Code Review
+      <div class="sidebar-header-icons">
+        <span title="Refresh">⟳</span>
+        <span title="New Review">+</span>
+        <span title="Settings">⚙</span>
+      </div>
+    </div>
+
+    <div style="padding: 6px 8px; border-bottom: 1px solid var(--vsc-border);">
+      <input style="width:100%; padding: 4px 8px; background: #3c3c3c; border: 1px solid #555; border-radius: 4px; color: #ccc; font-size: 12px; outline: none;" placeholder="🔍 Filter commits..." />
+    </div>
+
+    <div style="flex:1; overflow-y:auto;">
+
+      <!-- Branch Section -->
+      <div class="sidebar-section">
+        <div class="sidebar-section-title">Current Branch (scaffolding)</div>
+
+        <!-- Commit 1 - active -->
+        <div class="commit-item active" onclick="selectCommit(this)">
+          <div>
+            <div class="commit-hash">36e5247</div>
+          </div>
+          <div class="commit-info">
+            <div class="commit-msg">scaffolding</div>
+            <div class="commit-meta">2 hours ago · 3 comments</div>
+          </div>
+          <div class="commit-badge">
+            <span class="badge badge-open">2 open</span>
+          </div>
+        </div>
+
+        <!-- Files under commit 1 -->
+        <div id="files-36e5247" style="display:block;">
+          <div class="file-item active" onclick="selectFile('extension.ts')">
+            <span class="file-status M">M</span>
+            <span class="file-name">extension.ts</span>
+            <div class="file-comments"><div class="comment-dot"></div> 2</div>
+          </div>
+          <div class="file-item" onclick="selectFile('package.json')">
+            <span class="file-status M">M</span>
+            <span class="file-name">package.json</span>
+            <div class="file-comments"><div class="comment-dot resolved"></div> 1</div>
+          </div>
+          <div class="file-item" onclick="selectFile('reviewProvider.ts')">
+            <span class="file-status A">A</span>
+            <span class="file-name">reviewProvider.ts</span>
+          </div>
+        </div>
+
+        <!-- Commit 2 -->
+        <div class="commit-item" onclick="selectCommit(this)">
+          <div>
+            <div class="commit-hash">c3b3204</div>
+          </div>
+          <div class="commit-info">
+            <div class="commit-msg">first commit</div>
+            <div class="commit-meta">3 hours ago · 1 comment</div>
+          </div>
+          <div class="commit-badge">
+            <span class="badge badge-done">resolved</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- All Open Comments -->
+      <div class="sidebar-section">
+        <div class="sidebar-section-title">Open Comments (2)</div>
+        <div class="file-item" style="flex-direction:column; align-items:flex-start; gap:2px;">
+          <div style="display:flex; gap:6px; align-items:center; width:100%;">
+            <div class="comment-dot"></div>
+            <span style="font-family:monospace; font-size:11px; color:var(--vsc-blue);">extension.ts:42</span>
+          </div>
+          <div style="font-size:11px; color:var(--vsc-text-dim); padding-left:12px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; width:100%;">Handle null case in activate()</div>
+        </div>
+        <div class="file-item" style="flex-direction:column; align-items:flex-start; gap:2px;">
+          <div style="display:flex; gap:6px; align-items:center; width:100%;">
+            <div class="comment-dot"></div>
+            <span style="font-family:monospace; font-size:11px; color:var(--vsc-blue);">extension.ts:67</span>
+          </div>
+          <div style="font-size:11px; color:var(--vsc-text-dim); padding-left:12px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; width:100%;">Disposable should be added to subscriptions</div>
+        </div>
+      </div>
+
+    </div>
+
+    <!-- Sidebar Footer -->
+    <div class="sidebar-footer">
+      <button class="sidebar-btn primary" onclick="exportReview()">Export review.json</button>
+      <button class="sidebar-btn" onclick="copyAgentPrompt()">Copy agent prompt</button>
+    </div>
+  </div>
+
+  <!-- Main Area -->
+  <div class="main">
+    <!-- Tabs -->
+    <div class="tabs">
+      <div class="tab active">
+        <span class="tab-icon">📋</span>
+        Review: scaffolding (36e5247)
+      </div>
+      <div class="tab" style="color:#858585; font-size:11px;">
+        + compare range…
+      </div>
+    </div>
+
+    <!-- Review Summary Bar -->
+    <div class="review-summary">
+      <span class="summary-label">scaffolding</span>
+      <span style="font-family:monospace; font-size:11px; color:var(--vsc-blue);">36e5247</span>
+      <div class="summary-pills">
+        <span class="pill pill-open">2 open</span>
+        <span class="pill pill-addressed">1 addressed</span>
+        <span class="pill pill-total">3 total</span>
+      </div>
+      <div class="jump-nav">
+        <button class="jump-btn" onclick="prevComment()">↑ prev</button>
+        <button class="jump-btn" onclick="nextComment()">↓ next</button>
+      </div>
+      <div class="summary-spacer"></div>
+      <button class="mark-reviewed-btn" id="reviewBtn" onclick="toggleReviewed()">
+        ✓ Mark as reviewed
+      </button>
+    </div>
+
+    <!-- Review Diff Panel -->
+    <div class="review-panel" id="reviewPanel">
+
+      <!-- ── File 1: extension.ts ── -->
+      <div class="file-block" id="file-extension">
+        <div class="file-block-header" onclick="toggleFile('file-extension')">
+          <span class="file-block-chevron">▾</span>
+          <span class="file-path"><span class="dir">src/</span>extension.ts</span>
+          <div class="file-block-meta">
+            <span style="font-size:11px; color:var(--vsc-text-dim);">+48 −12</span>
+            <div class="diff-stat-bar">
+              <div class="diff-square add"></div><div class="diff-square add"></div>
+              <div class="diff-square add"></div><div class="diff-square add"></div>
+              <div class="diff-square del"></div>
+            </div>
+            <span class="badge badge-open" style="font-size:10px;">2 open</span>
+          </div>
+        </div>
+
+        <div id="file-extension-body">
+          <table class="diff-table">
+            <tbody>
+              <!-- hunk header -->
+              <tr class="diff-hunk"><td colspan="4">@@ <span>-1,8 +1,10</span> @@ import * as vscode...</td></tr>
+
+              <!-- context lines -->
+              <tr onmouseenter="showAddBtn(this)" onmouseleave="hideAddBtn(this)">
+                <td class="ln">1</td><td class="ln">1</td>
+                <td class="code-cell"><span class="diff-prefix"> </span><span class="code-content context-line"><span class="token-kw">import</span> * <span class="token-kw">as</span> vscode <span class="token-kw">from</span> <span class="token-str">'vscode'</span>;</span></td>
+                <td style="width:28px;background:var(--vsc-bg);"><div class="diff-add-comment" onclick="openCommentBox(this, 1)">＋</div></td>
+              </tr>
+              <tr onmouseenter="showAddBtn(this)" onmouseleave="hideAddBtn(this)">
+                <td class="ln">2</td><td class="ln">2</td>
+                <td class="code-cell"><span class="diff-prefix"> </span><span class="code-content context-line"><span class="token-kw">import</span> { ReviewProvider } <span class="token-kw">from</span> <span class="token-str">'./reviewProvider'</span>;</span></td>
+                <td style="width:28px;background:var(--vsc-bg);"><div class="diff-add-comment" onclick="openCommentBox(this, 2)">＋</div></td>
+              </tr>
+
+              <!-- added lines -->
+              <tr onmouseenter="showAddBtn(this)" onmouseleave="hideAddBtn(this)">
+                <td class="ln"></td><td class="ln ln-add">3</td>
+                <td class="code-cell add"><span class="diff-prefix plus">+</span><span class="code-content"><span class="token-kw">import</span> { CommentManager } <span class="token-kw">from</span> <span class="token-str">'./commentManager'</span>;</span></td>
+                <td style="width:28px;background:var(--diff-add-gutter);"><div class="diff-add-comment" onclick="openCommentBox(this, 3)">＋</div></td>
+              </tr>
+              <tr onmouseenter="showAddBtn(this)" onmouseleave="hideAddBtn(this)">
+                <td class="ln"></td><td class="ln ln-add">4</td>
+                <td class="code-cell add"><span class="diff-prefix plus">+</span><span class="code-content"><span class="token-kw">import</span> { DiffDecorator } <span class="token-kw">from</span> <span class="token-str">'./diffDecorator'</span>;</span></td>
+                <td style="width:28px;background:var(--diff-add-gutter);"><div class="diff-add-comment" onclick="openCommentBox(this, 4)">＋</div></td>
+              </tr>
+
+              <tr onmouseenter="showAddBtn(this)" onmouseleave="hideAddBtn(this)">
+                <td class="ln">3</td><td class="ln">5</td>
+                <td class="code-cell"><span class="diff-prefix"> </span><span class="code-content context-line"></span></td>
+                <td style="width:28px;background:var(--vsc-bg);"><div class="diff-add-comment">＋</div></td>
+              </tr>
+
+              <tr class="diff-hunk"><td colspan="4">@@ <span>-38,12 +42,18</span> @@ export function activate(context: vscode...</td></tr>
+
+              <tr onmouseenter="showAddBtn(this)" onmouseleave="hideAddBtn(this)">
+                <td class="ln">38</td><td class="ln">42</td>
+                <td class="code-cell"><span class="diff-prefix"> </span><span class="code-content context-line"><span class="token-kw">export</span> <span class="token-kw">function</span> <span class="token-fn">activate</span>(context: vscode.ExtensionContext) {</span></td>
+                <td style="width:28px;background:var(--vsc-bg);"><div class="diff-add-comment" onclick="openCommentBox(this, 42)">＋</div></td>
+              </tr>
+
+              <!-- deleted line -->
+              <tr onmouseenter="showAddBtn(this)" onmouseleave="hideAddBtn(this)">
+                <td class="ln ln-del">39</td><td class="ln"></td>
+                <td class="code-cell del"><span class="diff-prefix minus">-</span><span class="code-content">  <span class="token-kw">const</span> provider = <span class="token-kw">new</span> <span class="token-fn">ReviewProvider</span>();</span></td>
+                <td style="width:28px;background:var(--diff-del-gutter);"><div class="diff-add-comment" onclick="openCommentBox(this, 39)">＋</div></td>
+              </tr>
+
+              <!-- added lines -->
+              <tr onmouseenter="showAddBtn(this)" onmouseleave="hideAddBtn(this)">
+                <td class="ln"></td><td class="ln ln-add">43</td>
+                <td class="code-cell add"><span class="diff-prefix plus">+</span><span class="code-content">  <span class="token-kw">const</span> manager = <span class="token-kw">new</span> <span class="token-fn">CommentManager</span>(context);</span></td>
+                <td style="width:28px;background:var(--diff-add-gutter);"><div class="diff-add-comment" onclick="openCommentBox(this, 43)">＋</div></td>
+              </tr>
+              <tr onmouseenter="showAddBtn(this)" onmouseleave="hideAddBtn(this)">
+                <td class="ln"></td><td class="ln ln-add">44</td>
+                <td class="code-cell add"><span class="diff-prefix plus">+</span><span class="code-content">  <span class="token-kw">const</span> provider = <span class="token-kw">new</span> <span class="token-fn">ReviewProvider</span>(manager);</span></td>
+                <td style="width:28px;background:var(--diff-add-gutter);"><div class="diff-add-comment" onclick="openCommentBox(this, 44)">＋</div></td>
+              </tr>
+              <tr onmouseenter="showAddBtn(this)" onmouseleave="hideAddBtn(this)">
+                <td class="ln"></td><td class="ln ln-add">45</td>
+                <td class="code-cell add"><span class="diff-prefix plus">+</span><span class="code-content">  <span class="token-kw">const</span> decorator = <span class="token-kw">new</span> <span class="token-fn">DiffDecorator</span>(manager);</span></td>
+                <td style="width:28px;background:var(--diff-add-gutter);"><div class="diff-add-comment" onclick="openCommentBox(this, 45)">＋</div></td>
+              </tr>
+
+              <tr onmouseenter="showAddBtn(this)" onmouseleave="hideAddBtn(this)">
+                <td class="ln">40</td><td class="ln">46</td>
+                <td class="code-cell"><span class="diff-prefix"> </span><span class="code-content context-line"></span></td>
+                <td style="width:28px;background:var(--vsc-bg);"><div class="diff-add-comment">＋</div></td>
+              </tr>
+
+              <!-- deleted -->
+              <tr onmouseenter="showAddBtn(this)" onmouseleave="hideAddBtn(this)">
+                <td class="ln ln-del">41</td><td class="ln"></td>
+                <td class="code-cell del"><span class="diff-prefix minus">-</span><span class="code-content">  vscode.window.<span class="token-fn">registerTreeDataProvider</span>(<span class="token-str">'reviewTree'</span>, provider);</span></td>
+                <td style="width:28px;background:var(--diff-del-gutter);"><div class="diff-add-comment">＋</div></td>
+              </tr>
+
+              <!-- added with existing comment -->
+              <tr onmouseenter="showAddBtn(this)" onmouseleave="hideAddBtn(this)" style="background: rgba(31,111,235,0.04);">
+                <td class="ln"></td><td class="ln ln-add">47</td>
+                <td class="code-cell add"><span class="diff-prefix plus">+</span><span class="code-content">  vscode.window.<span class="token-fn">registerTreeDataProvider</span>(<span class="token-str">'codeReview'</span>, provider);</span></td>
+                <td style="width:28px;background:var(--diff-add-gutter);"><div class="diff-add-comment" onclick="openCommentBox(this, 47)">＋</div></td>
+              </tr>
+            </tbody>
+          </table>
+
+          <!-- ── COMMENT THREAD: line 42 ── -->
+          <div class="comment-thread">
+            <div style="font-size:11px; color:#6e7681; margin-bottom:4px; display:flex; align-items:center; gap:6px;">
+              <span style="color:#388bfd; font-family:monospace;">line 42</span>
+              <span>·</span>
+              <span class="comment-status-tag status-open">open</span>
+              <div style="margin-left:auto; display:flex; gap:6px;">
+                <button class="resolve-btn" onclick="resolveThread(this)">Mark addressed</button>
+              </div>
+            </div>
+
+            <!-- User comment -->
+            <div class="comment-item">
+              <div class="comment-avatar av-user">D</div>
+              <div class="comment-body">
+                <div class="comment-header">
+                  <span class="comment-author">davekriebel</span>
+                  <span class="comment-time">2 hours ago</span>
+                  <span class="comment-role">reviewer</span>
+                </div>
+                <div class="comment-text">
+                  This <code>activate</code> function should handle the case where <code>context</code> is undefined or the workspace has no git repository. Right now it'll throw if git isn't initialized.
+                </div>
+                <div class="comment-actions">
+                  <button class="comment-btn">↩ reply</button>
+                  <button class="comment-btn">✏ edit</button>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- More diff lines -->
+          <table class="diff-table">
+            <tbody>
+              <tr class="diff-hunk"><td colspan="4">@@ <span>-62,8 +67,15</span> @@ function registerCommands(context: vscode...</td></tr>
+
+              <tr onmouseenter="showAddBtn(this)" onmouseleave="hideAddBtn(this)">
+                <td class="ln">62</td><td class="ln">67</td>
+                <td class="code-cell"><span class="diff-prefix"> </span><span class="code-content context-line"><span class="token-kw">function</span> <span class="token-fn">registerCommands</span>(context: vscode.ExtensionContext) {</span></td>
+                <td style="width:28px;background:var(--vsc-bg);"><div class="diff-add-comment" onclick="openCommentBox(this, 67)">＋</div></td>
+              </tr>
+              <tr onmouseenter="showAddBtn(this)" onmouseleave="hideAddBtn(this)">
+                <td class="ln"></td><td class="ln ln-add">68</td>
+                <td class="code-cell add"><span class="diff-prefix plus">+</span><span class="code-content">  <span class="token-kw">const</span> disposable = vscode.commands.<span class="token-fn">registerCommand</span>(</span></td>
+                <td style="width:28px;background:var(--diff-add-gutter);"><div class="diff-add-comment" onclick="openCommentBox(this, 68)">＋</div></td>
+              </tr>
+              <tr onmouseenter="showAddBtn(this)" onmouseleave="hideAddBtn(this)">
+                <td class="ln"></td><td class="ln ln-add">69</td>
+                <td class="code-cell add"><span class="diff-prefix plus">+</span><span class="code-content">    <span class="token-str">'codeReview.addComment'</span>,</span></td>
+                <td style="width:28px;background:var(--diff-add-gutter);"><div class="diff-add-comment">＋</div></td>
+              </tr>
+              <tr onmouseenter="showAddBtn(this)" onmouseleave="hideAddBtn(this)" style="background: rgba(31,111,235,0.04);">
+                <td class="ln"></td><td class="ln ln-add">70</td>
+                <td class="code-cell add"><span class="diff-prefix plus">+</span><span class="code-content">    () => manager.<span class="token-fn">addComment</span>()</span></td>
+                <td style="width:28px;background:var(--diff-add-gutter);"><div class="diff-add-comment" onclick="openCommentBox(this, 70)">＋</div></td>
+              </tr>
+              <tr onmouseenter="showAddBtn(this)" onmouseleave="hideAddBtn(this)">
+                <td class="ln"></td><td class="ln ln-add">71</td>
+                <td class="code-cell add"><span class="diff-prefix plus">+</span><span class="code-content">  );</span></td>
+                <td style="width:28px;background:var(--diff-add-gutter);"><div class="diff-add-comment">＋</div></td>
+              </tr>
+            </tbody>
+          </table>
+
+          <!-- ── COMMENT THREAD: line 67 (open) ── -->
+          <div class="comment-thread">
+            <div style="font-size:11px; color:#6e7681; margin-bottom:4px; display:flex; align-items:center; gap:6px;">
+              <span style="color:#388bfd; font-family:monospace;">line 67</span>
+              <span>·</span>
+              <span class="comment-status-tag status-open">open</span>
+              <div style="margin-left:auto; display:flex; gap:6px;">
+                <button class="resolve-btn" onclick="resolveThread(this)">Mark addressed</button>
+              </div>
+            </div>
+
+            <div class="comment-item">
+              <div class="comment-avatar av-user">D</div>
+              <div class="comment-body">
+                <div class="comment-header">
+                  <span class="comment-author">davekriebel</span>
+                  <span class="comment-time">1 hour ago</span>
+                  <span class="comment-role">reviewer</span>
+                </div>
+                <div class="comment-text">
+                  The <code>disposable</code> returned here is never added to <code>context.subscriptions</code>. This will cause a memory leak — the command won't be cleaned up when the extension is deactivated.
+                </div>
+                <div class="comment-actions">
+                  <button class="comment-btn">↩ reply</button>
+                  <button class="comment-btn">✏ edit</button>
+                </div>
+              </div>
+            </div>
+
+            <!-- Reply box (collapsed) -->
+            <div style="padding-left:38px;">
+              <div class="comment-compose">
+                <div class="compose-header">
+                  <span class="compose-tab active">Write</span>
+                  <span class="compose-tab">Preview</span>
+                </div>
+                <div class="compose-body" contenteditable="true" placeholder="Leave a reply..."></div>
+                <div class="compose-footer">
+                  <button class="compose-footer-btn btn-cancel">Cancel</button>
+                  <button class="compose-footer-btn btn-submit">Reply</button>
+                </div>
+              </div>
+            </div>
+          </div>
+
+        </div><!-- end file-extension-body -->
+      </div><!-- end file-block -->
+
+      <!-- ── File 2: package.json ── -->
+      <div class="file-block" id="file-package">
+        <div class="file-block-header" onclick="toggleFile('file-package')">
+          <span class="file-block-chevron">▾</span>
+          <span class="file-path">package.json</span>
+          <div class="file-block-meta">
+            <span style="font-size:11px; color:var(--vsc-text-dim);">+6 −2</span>
+            <div class="diff-stat-bar">
+              <div class="diff-square add"></div><div class="diff-square add"></div>
+              <div class="diff-square add"></div><div class="diff-square del"></div>
+              <div class="diff-square empty"></div>
+            </div>
+            <span class="badge badge-done" style="font-size:10px;">1 resolved</span>
+          </div>
+        </div>
+
+        <div id="file-package-body">
+          <table class="diff-table">
+            <tbody>
+              <tr class="diff-hunk"><td colspan="4">@@ <span>-8,12 +8,16</span> @@ "contributes": {</td></tr>
+
+              <tr onmouseenter="showAddBtn(this)" onmouseleave="hideAddBtn(this)">
+                <td class="ln">8</td><td class="ln">8</td>
+                <td class="code-cell"><span class="diff-prefix"> </span><span class="code-content context-line">  <span class="token-str">"contributes"</span>: {</span></td>
+                <td style="width:28px;background:var(--vsc-bg);"><div class="diff-add-comment">＋</div></td>
+              </tr>
+              <tr onmouseenter="showAddBtn(this)" onmouseleave="hideAddBtn(this)">
+                <td class="ln">9</td><td class="ln">9</td>
+                <td class="code-cell"><span class="diff-prefix"> </span><span class="code-content context-line">    <span class="token-str">"views"</span>: {</span></td>
+                <td style="width:28px;background:var(--vsc-bg);"><div class="diff-add-comment">＋</div></td>
+              </tr>
+              <tr onmouseenter="showAddBtn(this)" onmouseleave="hideAddBtn(this)">
+                <td class="ln ln-del">10</td><td class="ln"></td>
+                <td class="code-cell del"><span class="diff-prefix minus">-</span><span class="code-content">      <span class="token-str">"scm"</span>: [{ <span class="token-str">"id"</span>: <span class="token-str">"reviewTree"</span>, <span class="token-str">"name"</span>: <span class="token-str">"Review"</span> }]</span></td>
+                <td style="width:28px;background:var(--diff-del-gutter);"><div class="diff-add-comment">＋</div></td>
+              </tr>
+              <tr onmouseenter="showAddBtn(this)" onmouseleave="hideAddBtn(this)">
+                <td class="ln"></td><td class="ln ln-add">10</td>
+                <td class="code-cell add"><span class="diff-prefix plus">+</span><span class="code-content">      <span class="token-str">"explorer"</span>: [</span></td>
+                <td style="width:28px;background:var(--diff-add-gutter);"><div class="diff-add-comment">＋</div></td>
+              </tr>
+              <tr onmouseenter="showAddBtn(this)" onmouseleave="hideAddBtn(this)">
+                <td class="ln"></td><td class="ln ln-add">11</td>
+                <td class="code-cell add"><span class="diff-prefix plus">+</span><span class="code-content">        { <span class="token-str">"id"</span>: <span class="token-str">"codeReview"</span>, <span class="token-str">"name"</span>: <span class="token-str">"Code Review"</span> }</span></td>
+                <td style="width:28px;background:var(--diff-add-gutter);"><div class="diff-add-comment">＋</div></td>
+              </tr>
+              <tr onmouseenter="showAddBtn(this)" onmouseleave="hideAddBtn(this)">
+                <td class="ln"></td><td class="ln ln-add">12</td>
+                <td class="code-cell add"><span class="diff-prefix plus">+</span><span class="code-content">      ]</span></td>
+                <td style="width:28px;background:var(--diff-add-gutter);"><div class="diff-add-comment">＋</div></td>
+              </tr>
+            </tbody>
+          </table>
+
+          <!-- RESOLVED COMMENT THREAD -->
+          <div class="comment-thread" style="opacity:0.7;">
+            <div style="font-size:11px; color:#6e7681; margin-bottom:4px; display:flex; align-items:center; gap:6px;">
+              <span style="color:#388bfd; font-family:monospace;">line 10</span>
+              <span>·</span>
+              <span class="comment-status-tag status-addressed">addressed</span>
+              <div style="margin-left:auto;">
+                <button class="resolve-btn resolved">✓ Addressed</button>
+              </div>
+            </div>
+            <div class="comment-item">
+              <div class="comment-avatar av-user">D</div>
+              <div class="comment-body">
+                <div class="comment-header">
+                  <span class="comment-author">davekriebel</span>
+                  <span class="comment-time">3 hours ago</span>
+                  <span class="comment-role">reviewer</span>
+                </div>
+                <div class="comment-text">Move the view registration from <code>scm</code> to <code>explorer</code> so it's always visible, not just when git is active.</div>
+              </div>
+            </div>
+            <div class="comment-item">
+              <div class="comment-avatar av-agent">AI</div>
+              <div class="comment-body">
+                <div class="comment-header">
+                  <span class="comment-author">Claude (agent)</span>
+                  <span class="comment-time">2 hours ago</span>
+                  <span class="comment-role agent">agent</span>
+                </div>
+                <div class="comment-text">Done — moved the view to <code>explorer</code> and renamed the id from <code>reviewTree</code> to <code>codeReview</code> for consistency. The view is now registered under the Explorer container.</div>
+              </div>
+            </div>
+          </div>
+
+          <table class="diff-table">
+            <tbody>
+              <tr onmouseenter="showAddBtn(this)" onmouseleave="hideAddBtn(this)">
+                <td class="ln">11</td><td class="ln">13</td>
+                <td class="code-cell"><span class="diff-prefix"> </span><span class="code-content context-line">    }</span></td>
+                <td style="width:28px;background:var(--vsc-bg);"><div class="diff-add-comment">＋</div></td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- New file: reviewProvider.ts -->
+      <div class="file-block" id="file-provider">
+        <div class="file-block-header" onclick="toggleFile('file-provider')">
+          <span class="file-block-chevron">▾</span>
+          <span class="file-path"><span class="dir">src/</span>reviewProvider.ts <span style="font-size:10px; color:var(--vsc-green); background:rgba(63,185,80,0.1); padding:1px 5px; border-radius:3px; margin-left:4px;">new file</span></span>
+          <div class="file-block-meta">
+            <span style="font-size:11px; color:var(--vsc-text-dim);">+84 −0</span>
+            <div class="diff-stat-bar">
+              <div class="diff-square add"></div><div class="diff-square add"></div>
+              <div class="diff-square add"></div><div class="diff-square add"></div>
+              <div class="diff-square add"></div>
+            </div>
+          </div>
+        </div>
+        <div id="file-provider-body" style="padding: 8px 0; display:flex; align-items:center; justify-content:center; color:var(--vsc-text-dim); font-size:12px; gap:8px; background:#161b22; border-top: 1px solid var(--vsc-border);">
+          <span>84 lines added —</span>
+          <a href="#" onclick="expandFile('file-provider')" style="color:var(--vsc-blue); text-decoration:none;">Load diff</a>
+        </div>
+      </div>
+
+      <!-- Bottom padding -->
+      <div style="height:48px;"></div>
+    </div><!-- end review-panel -->
+  </div><!-- end main -->
+</div>
+
+<!-- Inline comment compose that floats in -->
+<div id="floatingCompose" style="display:none; position:fixed; right:80px; bottom:40px; width:440px; z-index:100; box-shadow: 0 8px 32px rgba(0,0,0,0.6);">
+  <div class="comment-compose" style="border:1px solid var(--comment-border);">
+    <div style="padding:8px 12px; border-bottom:1px solid #21262d; font-size:11px; color:#6e7681; display:flex; justify-content:space-between;">
+      <span>Add comment on line <span id="floatLineNum" style="color:#388bfd; font-family:monospace;"></span></span>
+      <span onclick="closeFloat()" style="cursor:pointer;">✕</span>
+    </div>
+    <div class="compose-body" contenteditable="true" placeholder="Leave a comment… (supports Markdown)" style="min-height:80px;"></div>
+    <div class="compose-footer" style="justify-content:space-between; align-items:center;">
+      <span style="font-size:11px; color:#6e7681;">Markdown supported</span>
+      <div style="display:flex;gap:6px;">
+        <button class="compose-footer-btn btn-cancel" onclick="closeFloat()">Cancel</button>
+        <button class="compose-footer-btn btn-submit" onclick="submitComment()">Add comment</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+  function showAddBtn(row) {
+    const btn = row.querySelector('.diff-add-comment');
+    if (btn) btn.style.opacity = '1';
+  }
+  function hideAddBtn(row) {
+    const btn = row.querySelector('.diff-add-comment');
+    if (btn) btn.style.opacity = '0';
+  }
+  function openCommentBox(btn, lineNum) {
+    const fc = document.getElementById('floatingCompose');
+    document.getElementById('floatLineNum').textContent = lineNum;
+    fc.style.display = 'block';
+    fc.querySelector('.compose-body').focus();
+  }
+  function closeFloat() {
+    document.getElementById('floatingCompose').style.display = 'none';
+  }
+  function submitComment() {
+    closeFloat();
+  }
+  function toggleFile(id) {
+    const body = document.getElementById(id + '-body');
+    const chevron = document.querySelector('#' + id + ' .file-block-chevron');
+    if (body.style.display === 'none') {
+      body.style.display = 'block';
+      chevron.textContent = '▾';
+    } else {
+      body.style.display = 'none';
+      chevron.textContent = '▸';
+    }
+  }
+  function resolveThread(btn) {
+    const thread = btn.closest('.comment-thread');
+    const tag = thread.querySelector('.comment-status-tag');
+    btn.textContent = '✓ Addressed';
+    btn.classList.add('resolved');
+    tag.textContent = 'addressed';
+    tag.className = 'comment-status-tag status-addressed';
+    thread.style.opacity = '0.7';
+  }
+  function toggleReviewed() {
+    const btn = document.getElementById('reviewBtn');
+    btn.classList.toggle('done');
+    btn.textContent = btn.classList.contains('done') ? '✓ Reviewed' : '✓ Mark as reviewed';
+  }
+  function selectCommit(el) {
+    document.querySelectorAll('.commit-item').forEach(i => i.classList.remove('active'));
+    el.classList.add('active');
+  }
+  function selectFile(name) {
+    document.querySelectorAll('.file-item').forEach(i => i.classList.remove('active'));
+    event.currentTarget.classList.add('active');
+  }
+  function exportReview() {
+    alert('review.json exported to .code-review/ directory');
+  }
+  function copyAgentPrompt() {
+    alert('Copied agent prompt to clipboard! Paste into Claude Code to address comments.');
+  }
+  function prevComment() {}
+  function nextComment() {}
+  function expandFile() {}
+</script>
+</body>
+</html>
