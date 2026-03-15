@@ -471,7 +471,8 @@ body {
 /* ── Diff table ──────────────────────────────────────────────────────────── */
 
 .diff-table {
-  width: 100%;
+  min-width: 100%;      /* at least fill the container, but grow if lines are long */
+  width: max-content;   /* let long code lines push the table wider (file-body scrolls) */
   border-collapse: collapse;
   font-family: var(--font-mono);
   font-size: 12px;
@@ -497,9 +498,9 @@ body {
 
 .line-content {
   padding: 0 8px 0 4px;
-  white-space: pre-wrap;
-  word-break: break-all;
+  white-space: pre;        /* never soft-wrap code — scroll horizontally */
   vertical-align: top;
+  overflow: hidden;        /* clip rather than wrap; table scrolls as a whole */
 }
 
 tr.add-line .line-num, tr.add-line .line-content { background: var(--add-bg); }
@@ -863,10 +864,11 @@ tr.inline-composer-row td {
 .branch-remote-name { color: var(--fg-muted); font-size: 11px; }
 
 /* ── Side-by-side diff ────────────────────────────────────────────────────── */
-.diff-table.split { table-layout: fixed; }
-.diff-table.split .line-num  { width: 46px; }
-.diff-table.split .line-content.old { width: calc(var(--split-old-w, 50%) - 50px); }
-.diff-table.split .line-content.new { width: auto; }
+/* table-layout: auto lets code lines drive the width; file-body scrolls horizontally */
+.diff-table.split .line-num { width: 46px; }
+/* The old-content column takes the configured fraction; new-content takes the rest */
+.diff-table.split .line-content.old { width: var(--split-old-w, 45%); min-width: 120px; }
+.diff-table.split .line-content.new { min-width: 120px; }
 
 /* Draggable gutter between old and new */
 .split-gutter {
