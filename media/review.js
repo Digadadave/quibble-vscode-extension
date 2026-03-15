@@ -36,6 +36,10 @@ let submittingComment = false;
 /** Set true by mouseup-open to stop the subsequent click from closing the composer. */
 let composerJustOpened = false;
 
+/** Split-view drag state */
+let splitPct = 0.5;        // fraction of table width for old (left) side
+let splitDragging = false;
+
 // ── Message handler ────────────────────────────────────────────────────────
 
 window.addEventListener('message', (/** @type {MessageEvent} */ event) => {
@@ -112,7 +116,7 @@ document.addEventListener('click', (/** @type {MouseEvent} */ e) => {
 
       case 'toggle-file': {
         const header = btn.closest('.file-header');
-        if (header) toggleFile(/** @type {HTMLElement} */ (header));
+        if (header) toggleFile(/** @type {HTMLElement} */ (header), e.altKey);
         break;
       }
 
@@ -221,6 +225,32 @@ document.addEventListener('mouseup', () => {
 
   openComposer(commitHash, file, startLine, endLine, selText, insertAfter);
   composerJustOpened = true;
+});
+
+// ── Split-pane drag ────────────────────────────────────────────────────────
+
+document.addEventListener('mousedown', (/** @type {MouseEvent} */ e) => {
+  if (!(/** @type {HTMLElement} */ (e.target)).closest('.split-gutter')) return;
+  splitDragging = true;
+  document.body.classList.add('split-resizing');
+  e.preventDefault();
+});
+
+document.addEventListener('mousemove', (/** @type {MouseEvent} */ e) => {
+  if (!splitDragging) return;
+  const table = /** @type {HTMLElement|null} */ (document.querySelector('.diff-table.split'));
+  if (!table) return;
+  const rect = table.getBoundingClientRect();
+  const pct = Math.max(0.25, Math.min(0.75, (e.clientX - rect.left) / rect.width));
+  splitPct = pct;
+  document.documentElement.style.setProperty('--split-old-w', (pct * 100).toFixed(1) + '%');
+});
+
+document.addEventListener('mouseup', () => {
+  if (splitDragging) {
+    splitDragging = false;
+    document.body.classList.remove('split-resizing');
+  }
 });
 
 // ── Top bar ────────────────────────────────────────────────────────────────
@@ -374,7 +404,7 @@ function renderHunk(hunk, file, comments, commitHash) {
  * @param {string} commitHash
  */
 function renderHunkSplit(hunk, file, comments, commitHash) {
-  const headerRow = `<tr class="hunk-header"><td colspan="4">${esc(hunk.header)}</td></tr>`;
+  const headerRow = `<tr class="hunk-header"><td colspan="5">${esc(hunk.header)}</td></tr>`;
 
   const pairs = buildSideBySidePairs(hunk.lines);
 
@@ -393,12 +423,13 @@ function renderHunkSplit(hunk, file, comments, commitHash) {
     const lineComments = comments.filter(
       c => c.line === (right?.newLineNum) || c.line === (left?.oldLineNum)
     );
-    const commentRows = lineComments.map(c => renderThreadRow(c, 4)).join('');
+    const commentRows = lineComments.map(c => renderThreadRow(c, 5)).join('');
 
     return `
 <tr class="${trClass}" data-line="${lineNum}" data-file="${esc(file)}">
   <td class="line-num old">${leftLineNum}</td>
   <td class="line-content old">${leftContent}</td>
+  <td class="split-gutter" rowspan="1"></td>
   <td class="line-num new">${rightLineNum}</td>
   <td class="line-content new">${rightContent}</td>
 </tr>${commentRows}`;
@@ -557,7 +588,7 @@ function openComposer(commitHash, file, startLine, endLine, snippet, anchorRow) 
   pendingCommentSnippet    = snippet;
   submittingComment        = false;
 
-  const colCount = state.diffMode === 'split' ? 4 : 3;
+  const colCount = state.diffMode === 'split' ? 5 : 3;
   const lineLabel = endLine > startLine ? `${startLine}–${endLine}` : `${startLine}`;
   const snippetHtml = snippet
     ? `<pre class="inline-composer-snippet">${esc(snippet.length > 400 ? snippet.slice(0, 400) + '\u2026' : snippet)}</pre>`
@@ -643,11 +674,24 @@ function toggleMarkReviewed() {
   renderTopBar();
 }
 
-/** @param {HTMLElement} header */
-function toggleFile(header) {
-  header.classList.toggle('collapsed');
-  const body = header.nextElementSibling;
-  if (body) body.classList.toggle('collapsed');
+/**
+ * @param {HTMLElement} header
+ * @param {boolean} [allFiles]  true when Alt/Option held — collapse/expand every file
+ */
+function toggleFile(header, allFiles = false) {
+  if (allFiles) {
+    const willCollapse = !header.classList.contains('collapsed');
+    document.querySelectorAll('.file-header').forEach(h => {
+      const hEl = /** @type {HTMLElement} */ (h);
+      hEl.classList.toggle('collapsed', willCollapse);
+      const body = hEl.nextElementSibling;
+      if (body) /** @type {HTMLElement} */ (body).classList.toggle('collapsed', willCollapse);
+    });
+  } else {
+    header.classList.toggle('collapsed');
+    const body = header.nextElementSibling;
+    if (body) body.classList.toggle('collapsed');
+  }
 }
 
 /** @param {string} file */

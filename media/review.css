@@ -8,10 +8,10 @@
   --border: var(--vscode-panel-border, #333);
   --accent: var(--vscode-button-background, #0e639c);
   --accent-fg: var(--vscode-button-foreground, #fff);
-  --add-bg: rgba(40, 120, 60, 0.25);
-  --del-bg: rgba(160, 40, 40, 0.25);
-  --add-num: rgba(40, 120, 60, 0.5);
-  --del-num: rgba(160, 40, 40, 0.5);
+  --add-bg: var(--vscode-diffEditor-insertedLineBackground, rgba(35, 134, 54, 0.18));
+  --del-bg: var(--vscode-diffEditor-removedLineBackground, rgba(218, 54, 51, 0.18));
+  --add-num: var(--vscode-diffEditor-insertedLineBackground, rgba(35, 134, 54, 0.3));
+  --del-num: var(--vscode-diffEditor-removedLineBackground, rgba(218, 54, 51, 0.3));
   --thread-bg: var(--vscode-editorWidget-background, #252526);
   --agent-accent: #2ea043;
   --status-open: #da3633;
@@ -483,16 +483,17 @@ body {
 .diff-table td.line-content *::selection { background: rgba(56,139,253,0.3); }
 
 .line-num {
-  width: 44px;
-  min-width: 44px;
+  width: 46px;
+  min-width: 46px;
   text-align: right;
-  padding: 0 8px;
-  color: var(--fg-muted);
+  padding: 0 10px 0 4px;
+  color: var(--vscode-editorLineNumber-foreground, #858585);
   user-select: none;
   vertical-align: top;
   white-space: nowrap;
+  font-size: 11px;
 }
-.line-num.old { background: rgba(0,0,0,0.1); }
+.line-num.old { background: transparent; }
 
 .line-content {
   padding: 0 8px 0 4px;
@@ -501,42 +502,18 @@ body {
   vertical-align: top;
 }
 
-.line-add-cell {
-  width: 28px;
-  min-width: 28px;
-  text-align: center;
-  vertical-align: middle;
-  padding: 0;
-}
-
-.line-add-btn {
-  opacity: 0;
-  background: var(--accent);
-  color: var(--accent-fg);
-  border: none;
-  border-radius: 50%;
-  width: 20px;
-  height: 20px;
-  font-size: 14px;
-  line-height: 1;
-  cursor: pointer;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  transition: opacity 0.1s;
-}
-.line-add-btn:hover { background: #1177bb; }
-
-tr.add-line .line-num, tr.add-line .line-content, tr.add-line .line-add-cell { background: var(--add-bg); }
-tr.del-line .line-num, tr.del-line .line-content, tr.del-line .line-add-cell { background: var(--del-bg); }
+tr.add-line .line-num, tr.add-line .line-content { background: var(--add-bg); }
+tr.del-line .line-num, tr.del-line .line-content { background: var(--del-bg); }
 tr.add-line .line-num.new { background: var(--add-num); }
 tr.del-line .line-num.old { background: var(--del-num); }
 
 .hunk-header td {
-  background: rgba(100,130,200,0.1);
-  color: var(--fg-muted);
-  padding: 2px 8px;
+  background: var(--vscode-diffEditor-unchangedRegionBackground, rgba(30, 60, 100, 0.12));
+  color: var(--vscode-descriptionForeground, #6a9fd8);
+  padding: 1px 8px;
   font-size: 11px;
+  border-top: 1px solid var(--vscode-diffEditor-unchangedRegionShadow, rgba(30,60,100,0.2));
+  border-bottom: 1px solid var(--vscode-diffEditor-unchangedRegionShadow, rgba(30,60,100,0.2));
 }
 
 /* ── Comment thread ──────────────────────────────────────────────────────── */
@@ -886,16 +863,39 @@ tr.inline-composer-row td {
 .branch-remote-name { color: var(--fg-muted); font-size: 11px; }
 
 /* ── Side-by-side diff ────────────────────────────────────────────────────── */
-.diff-table.split .line-content { width: 45%; max-width: 45%; }
-.diff-table.split .line-content.old { border-right: 1px solid var(--border); }
+.diff-table.split { table-layout: fixed; }
+.diff-table.split .line-num  { width: 46px; }
+.diff-table.split .line-content.old { width: calc(var(--split-old-w, 50%) - 50px); }
+.diff-table.split .line-content.new { width: auto; }
+
+/* Draggable gutter between old and new */
+.split-gutter {
+  width: 5px;
+  min-width: 5px;
+  padding: 0;
+  cursor: col-resize;
+  background: var(--border);
+  user-select: none;
+  position: relative;
+}
+.split-gutter::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  transition: background 0.1s;
+}
+.split-gutter:hover::after,
+body.split-resizing .split-gutter::after { background: var(--accent); opacity: 0.7; }
+body.split-resizing { cursor: col-resize !important; user-select: none; }
+
 tr.split-del .line-num.old,
 tr.split-del .line-content.old { background: var(--del-bg); }
 tr.split-add .line-num.new,
 tr.split-add .line-content.new { background: var(--add-bg); }
 tr.split-del .line-num.new,
-tr.split-del .line-content.new { background: rgba(0,0,0,0.05); }
+tr.split-del .line-content.new { background: transparent; }
 tr.split-add .line-num.old,
-tr.split-add .line-content.old { background: rgba(0,0,0,0.05); }
+tr.split-add .line-content.old { background: transparent; }
 
 /* ── Question form (in thread) ────────────────────────────────────────────── */
 .thread-question-form {
