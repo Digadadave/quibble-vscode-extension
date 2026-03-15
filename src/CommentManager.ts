@@ -3,7 +3,7 @@ import * as path from 'path';
 import * as crypto from 'crypto';
 import * as vscode from 'vscode';
 
-export type CommentStatus = 'open' | 'agent-replied' | 'addressed' | 'resolved';
+export type CommentStatus = 'open' | 'question' | 'agent-replied' | 'addressed';
 
 export interface ThreadEntry {
   author: string;
@@ -34,29 +34,45 @@ interface ReviewStore {
   reviews: ReviewComment[];
 }
 
-const REVIEWS_DIR = '.code-review';
-const REVIEWS_FILE = 'reviews.json';
+const DEFAULT_REVIEWS_RELPATH = '.vscode/commit-reviews.json';
 
 export class CommentManager implements vscode.Disposable {
   private reviewsPath: string;
   private watcher: vscode.FileSystemWatcher | undefined;
+  /** Prevents the file watcher from echoing back our own saves. */
+  private suppressNextWatchEvent = false;
 
   private _onDidChange = new vscode.EventEmitter<void>();
   readonly onDidChange = this._onDidChange.event;
 
-  constructor(private repoPath: string) {
-    this.reviewsPath = path.join(repoPath, REVIEWS_DIR, REVIEWS_FILE);
+  /**
+   * @param repoPath  Absolute path to the repository root.
+   * @param relPath   Path to reviews file relative to repoPath.
+   *                  Defaults to the `commitReview.reviewsPath` setting,
+   *                  falling back to `.vscode/commit-reviews.json`.
+   */
+  constructor(
+    private repoPath: string,
+    relPath?: string
+  ) {
+    const configured = relPath
+      ?? vscode.workspace.getConfiguration('commitReview').get<string>('reviewsPath')
+      ?? DEFAULT_REVIEWS_RELPATH;
+    this.reviewsPath = path.join(repoPath, configured);
   }
 
-  /** Start watching reviews.json for external changes (e.g. agent writes). */
+  /** Start watching the reviews file for external changes (e.g. agent writes). */
   startWatching(): void {
-    const pattern = new vscode.RelativePattern(
-      this.repoPath,
-      `${REVIEWS_DIR}/${REVIEWS_FILE}`
-    );
+    if (!this.repoPath) return;
+    const rel = path.relative(this.repoPath, this.reviewsPath).replace(/\\/g, '/');
+    const pattern = new vscode.RelativePattern(this.repoPath, rel);
     this.watcher = vscode.workspace.createFileSystemWatcher(pattern);
-    this.watcher.onDidChange(() => this._onDidChange.fire());
-    this.watcher.onDidCreate(() => this._onDidChange.fire());
+    const maybefire = () => {
+      if (this.suppressNextWatchEvent) { this.suppressNextWatchEvent = false; return; }
+      this._onDidChange.fire();
+    };
+    this.watcher.onDidChange(maybefire);
+    this.watcher.onDidCreate(maybefire);
   }
 
   load(): ReviewComment[] {
@@ -72,9 +88,12 @@ export class CommentManager implements vscode.Disposable {
   save(comments: ReviewComment[]): void {
     const dir = path.dirname(this.reviewsPath);
     if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
+    // Suppress the file-watcher echo so we don't trigger a second refreshAll
+    this.suppressNextWatchEvent = true;
     const store: ReviewStore = { version: 1, reviews: comments };
     fs.writeFileSync(this.reviewsPath, JSON.stringify(store, null, 2), 'utf8');
-    this._onDidChange.fire();
+    // Do NOT fire _onDidChange here — internal mutations use onCommentMutation callback.
+    // External/agent changes use the file watcher.
   }
 
   addComment(params: {
@@ -114,7 +133,7 @@ export class CommentManager implements vscode.Disposable {
     const comment = comments.find(c => c.id === id);
     if (!comment) return false;
     comment.status = status;
-    if (status === 'addressed' || status === 'resolved') {
+    if (status === 'addressed') {
       comment.addressedAt = new Date().toISOString();
     }
     this.save(comments);
@@ -133,8 +152,19 @@ export class CommentManager implements vscode.Disposable {
     return true;
   }
 
+  /** Add a question thread entry with author='reviewer' and set status to 'question'. */
+  askQuestion(id: string, questionBody: string): boolean {
+    const comments = this.load();
+    const comment = comments.find(c => c.id === id);
+    if (!comment) return false;
+    comment.thread.push({ author: 'reviewer', body: questionBody, createdAt: new Date().toISOString() });
+    comment.status = 'question';
+    this.save(comments);
+    return true;
+  }
+
   getOpenComments(): ReviewComment[] {
-    return this.load().filter(c => c.status === 'open' || c.status === 'agent-replied');
+    return this.load().filter(c => c.status === 'open' || c.status === 'question' || c.status === 'agent-replied');
   }
 
   getCommentsForCommit(hash: string): ReviewComment[] {

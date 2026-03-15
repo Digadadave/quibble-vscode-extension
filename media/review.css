@@ -325,6 +325,7 @@ body {
   border: 1px solid transparent;
 }
 .badge.open     { background: rgba(218,54,51,0.15);  border-color: var(--status-open);      color: var(--status-open); }
+.badge.question { background: rgba(88,130,255,0.15); border-color: #8ab4ff;                 color: #8ab4ff; }
 .badge.replied  { background: rgba(227,179,65,0.15); border-color: var(--status-replied);   color: var(--status-replied); }
 .badge.addressed{ background: rgba(46,160,67,0.15);  border-color: var(--status-addressed); color: var(--status-addressed); }
 
@@ -477,7 +478,9 @@ body {
   tab-size: 4;
 }
 
-.diff-table tr:hover .line-add-btn { opacity: 1; }
+/* Highlight selected diff text to invite commenting */
+.diff-table td.line-content::selection,
+.diff-table td.line-content *::selection { background: rgba(56,139,253,0.3); }
 
 .line-num {
   width: 44px;
@@ -583,6 +586,7 @@ tr.del-line .line-num.old { background: var(--del-num); }
   border-radius: 3px;
 }
 .thread-status.open          { background: rgba(218,54,51,0.2);  color: var(--status-open); }
+.thread-status.question      { background: rgba(88,130,255,0.2); color: #8ab4ff; }
 .thread-status.agent-replied { background: rgba(227,179,65,0.2); color: var(--status-replied); }
 .thread-status.addressed     { background: rgba(46,160,67,0.2);  color: var(--status-addressed); }
 .thread-status.resolved      { background: rgba(128,128,128,0.2); color: var(--status-resolved); }
@@ -657,45 +661,62 @@ tr.del-line .line-num.old { background: var(--del-num); }
 .btn.success { border-color: var(--status-addressed); color: var(--status-addressed); }
 .btn.success:hover { background: rgba(46,160,67,0.15); }
 
-/* ── Floating comment composer ───────────────────────────────────────────── */
+/* ── Inline comment composer ─────────────────────────────────────────────── */
 
-#comment-composer {
-  display: none;
-  position: fixed;
-  z-index: 100;
+tr.inline-composer-row td {
+  padding: 0;
   background: var(--bg-sidebar);
-  border: 1px solid var(--border);
-  border-radius: 6px;
-  padding: 12px;
-  width: 420px;
-  box-shadow: 0 4px 20px rgba(0,0,0,0.5);
+  border-top: 1px solid var(--accent);
+  border-bottom: 1px solid var(--accent);
 }
 
-#comment-composer h4 {
-  font-size: 12px;
+.inline-composer {
+  padding: 10px 14px 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.inline-composer-header {
+  font-size: 11px;
   color: var(--fg-muted);
-  margin-bottom: 8px;
+  font-family: var(--font-mono);
 }
 
-#comment-composer textarea {
+.inline-composer-ta {
   width: 100%;
+  box-sizing: border-box;
   background: var(--bg);
   color: var(--fg);
   border: 1px solid var(--border);
   border-radius: 4px;
-  padding: 8px;
+  padding: 8px 10px;
   font-family: var(--font-ui);
   font-size: 13px;
   resize: vertical;
-  min-height: 80px;
+  min-height: 90px;
 }
-#comment-composer textarea:focus { outline: 1px solid var(--accent); border-color: var(--accent); }
+.inline-composer-ta:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 2px rgba(14,99,156,0.25); }
 
-#comment-composer .composer-actions {
+.inline-composer-snippet {
+  margin: 0;
+  padding: 6px 10px;
+  background: var(--bg);
+  border-left: 3px solid var(--accent);
+  border-radius: 0 4px 4px 0;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--fg-muted);
+  white-space: pre-wrap;
+  overflow-x: auto;
+  max-height: 120px;
+  overflow-y: auto;
+}
+
+.inline-composer-actions {
   display: flex;
   gap: 8px;
   justify-content: flex-end;
-  margin-top: 8px;
 }
 
 /* ── Bottom footer ───────────────────────────────────────────────────────── */
@@ -736,3 +757,171 @@ tr.del-line .line-num.old { background: var(--del-num); }
 ::-webkit-scrollbar-track { background: transparent; }
 ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 4px; }
 ::-webkit-scrollbar-thumb:hover { background: var(--fg-muted); }
+
+
+/* ── Commit list — git graph layout ──────────────────────────────────────── */
+#commits-list { overflow-y: auto; flex: 1; }
+
+.commit-item {
+  display: flex;
+  align-items: stretch;
+  cursor: pointer;
+  user-select: none;
+  min-width: 0;
+}
+.commit-item:hover    .commit-body { background: var(--bg-hover); }
+.commit-item.selected .commit-body { background: rgba(14,99,156,0.18); }
+
+/* ── Graph column (line + dot) ── */
+.commit-graph-col {
+  width: 24px;
+  flex-shrink: 0;
+  position: relative;
+  display: flex;
+  justify-content: center;
+  align-items: flex-start;
+  padding-top: 10px;
+}
+/* Vertical connecting line — full height by default */
+.commit-graph-col::before {
+  content: '';
+  position: absolute;
+  left: 50%;
+  top: 0;
+  bottom: 0;
+  width: 2px;
+  transform: translateX(-50%);
+  background: #388bfd;
+  opacity: 0.45;
+}
+/* First commit: line starts at the dot, not above it */
+.commit-item:first-child .commit-graph-col::before { top: 14px; }
+/* Last commit: line ends at the dot */
+.commit-graph-col.last::before { height: 14px; bottom: auto; }
+
+/* The circle */
+.commit-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: #388bfd;
+  position: relative;
+  z-index: 1;
+  flex-shrink: 0;
+  box-shadow: 0 0 0 2px var(--bg-sidebar);
+}
+/* HEAD commit: hollow circle */
+.commit-dot.head {
+  background: var(--bg-sidebar);
+  border: 2px solid #388bfd;
+}
+.commit-item.selected .commit-dot {
+  background: #fff;
+  box-shadow: 0 0 0 2px #388bfd;
+}
+.commit-item.selected .commit-dot.head {
+  background: #388bfd;
+}
+
+/* ── Commit body (message + date + refs + files) ── */
+.commit-body {
+  flex: 1;
+  min-width: 0;
+  padding: 5px 10px 5px 4px;
+  border-bottom: 1px solid var(--border);
+}
+.commit-row-top { display: flex; justify-content: space-between; align-items: baseline; gap: 6px; }
+.commit-date    { font-size: 10px; color: var(--fg-muted); flex-shrink: 0; }
+.commit-msg     { font-size: 11px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; flex: 1; min-width: 0; }
+
+/* Ref tags (branch / HEAD labels) */
+.commit-refs-row { display: flex; flex-wrap: wrap; gap: 3px; margin-top: 3px; }
+.commit-ref-tag  {
+  font-size: 9px; font-family: var(--font-mono); padding: 1px 5px;
+  border-radius: 10px; background: rgba(56,139,253,0.15);
+  color: #388bfd; border: 1px solid rgba(56,139,253,0.3);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 160px;
+}
+
+/* ── Commit file list (expanded under selected commit) ───────────────────── */
+.commit-file-list { padding: 4px 0 6px; }
+.commit-file-row {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  padding: 2px 6px 2px 2px;
+  font-size: 11px;
+  white-space: nowrap;
+  overflow: hidden;
+}
+.commit-file-status {
+  font-size: 10px; font-weight: 700; font-family: var(--font-mono);
+  flex-shrink: 0; width: 12px; text-align: center;
+}
+.commit-file-status.status-added    { color: #3fb950; }
+.commit-file-status.status-deleted  { color: #f85149; }
+.commit-file-status.status-modified { color: #d29922; }
+.commit-file-name   { flex-shrink: 0; font-weight: 500; }
+.commit-file-folder { color: var(--fg-muted); font-size: 10px; flex: 1; overflow: hidden; text-overflow: ellipsis; }
+.file-stats         { flex-shrink: 0; display: flex; gap: 4px; margin-left: auto; font-family: var(--font-mono); font-size: 10px; }
+.stat-ins           { color: #3fb950; }
+.stat-del           { color: #f85149; }
+
+/* ── Branch list (sidebar, legacy kept for safety) ───────────────────────── */
+#branch-list { overflow-y: auto; flex: 1; }
+.branch-section-label {
+  padding: 4px 10px 2px; font-size: 10px; font-weight: 700;
+  text-transform: uppercase; letter-spacing: 0.05em;
+  color: var(--fg-muted); background: var(--bg-sidebar);
+}
+.branch-item {
+  display: flex; align-items: center; gap: 6px;
+  padding: 5px 10px; cursor: pointer; font-size: 12px;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.branch-item:hover { background: var(--bg-hover); }
+.branch-item.selected { background: rgba(14, 99, 156, 0.25); }
+.branch-current-indicator { color: var(--accent); font-weight: 700; flex-shrink: 0; }
+.branch-name { flex: 1; overflow: hidden; text-overflow: ellipsis; }
+.branch-remote-name { color: var(--fg-muted); font-size: 11px; }
+
+/* ── Side-by-side diff ────────────────────────────────────────────────────── */
+.diff-table.split .line-content { width: 45%; max-width: 45%; }
+.diff-table.split .line-content.old { border-right: 1px solid var(--border); }
+tr.split-del .line-num.old,
+tr.split-del .line-content.old { background: var(--del-bg); }
+tr.split-add .line-num.new,
+tr.split-add .line-content.new { background: var(--add-bg); }
+tr.split-del .line-num.new,
+tr.split-del .line-content.new { background: rgba(0,0,0,0.05); }
+tr.split-add .line-num.old,
+tr.split-add .line-content.old { background: rgba(0,0,0,0.05); }
+
+/* ── Question form (in thread) ────────────────────────────────────────────── */
+.thread-question-form {
+  padding: 10px 14px; background: var(--bg); display: flex;
+  flex-direction: column; gap: 8px;
+}
+.thread-question-form textarea {
+  background: var(--bg-sidebar); color: var(--fg);
+  border: 1px solid var(--accent); border-radius: 4px;
+  padding: 8px; font-family: var(--font-ui); font-size: 13px;
+  resize: vertical; min-height: 60px; width: 100%;
+}
+.thread-question-form textarea:focus { outline: 1px solid var(--accent); }
+.thread-question-actions { display: flex; gap: 8px; justify-content: flex-end; }
+
+/* ── Question status indicator ────────────────────────────────────────────── */
+.thread-status.question { background: rgba(88,130,255,0.2); color: #8ab4ff; }
+.badge.question { background: rgba(88,130,255,0.15); border-color: #8ab4ff; color: #8ab4ff; }
+.sidebar-comment-status.question { background: rgba(88,130,255,0.2); color: #8ab4ff; }
+.sidebar-comment-status.agent-replied { background: rgba(227,179,65,0.2); color: var(--status-replied); }
+
+/* ── Diff mode toggle ─────────────────────────────────────────────────────── */
+#diff-mode-btn {
+  background: none; border: 1px solid var(--border); border-radius: 4px;
+  color: var(--fg-muted); padding: 3px 8px; font-size: 11px; cursor: pointer;
+  white-space: nowrap;
+}
+#diff-mode-btn:hover { border-color: var(--accent); color: var(--accent); }
+#diff-mode-btn.active { background: rgba(14,99,156,0.2); border-color: var(--accent); color: var(--accent); }

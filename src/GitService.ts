@@ -11,10 +11,21 @@ export interface GitCommit {
   refs: string[];
 }
 
+export interface GitBranch {
+  name: string;
+  current: boolean;
+  remote: boolean;
+}
+
 export interface ChangedFile {
   path: string;
   /** M = modified, A = added, D = deleted, R = renamed */
   status: string;
+}
+
+export interface FileWithStats extends ChangedFile {
+  insertions: number;
+  deletions: number;
 }
 
 export interface ParsedDiff {
@@ -47,11 +58,14 @@ function exec(cmd: string, cwd: string): string {
 export class GitService {
   constructor(private repoPath: string) {}
 
+  getRepoPath(): string { return this.repoPath; }
+
   getLog(limit = 30): GitCommit[] {
     const sep = '\x1f';
     const rs = '\x1e';
     // %D = ref names (branch/tag decorations), empty string when none
-    const format = `--format=%H${sep}%h${sep}%s${sep}%ai${sep}%an${sep}%D${rs}`;
+    // Use %x1f/%x1e so git outputs the control chars — avoids shell mangling
+    const format = '--format=%H%x1f%h%x1f%s%x1f%ai%x1f%an%x1f%D%x1e';
     const raw = exec(`git log ${format} -${limit}`, this.repoPath);
     if (!raw) return [];
 
@@ -63,6 +77,59 @@ export class GitService {
         const parts = record.split(sep);
         const [hash, shortHash, message, date, author, decoration = ''] = parts;
         // %D gives e.g. "HEAD -> main, origin/main, tag: v1.0"
+        const refs = decoration
+          .split(',')
+          .map(r => r.trim())
+          .filter(Boolean);
+        return { hash, shortHash, message, date, author, refs };
+      });
+  }
+
+  getBranches(): GitBranch[] {
+    const branches: GitBranch[] = [];
+
+    // Determine current branch name
+    const currentBranch = exec('git rev-parse --abbrev-ref HEAD', this.repoPath);
+
+    // Local branches — one name per line
+    const localRaw = exec("git branch --format='%(refname:short)'", this.repoPath);
+    if (localRaw) {
+      for (const line of localRaw.split('\n').filter(Boolean)) {
+        const name = line.trim();
+        if (name) {
+          branches.push({ name, current: name === currentBranch, remote: false });
+        }
+      }
+    }
+
+    // Remote branches — one name per line (e.g. "origin/main")
+    const remoteRaw = exec("git branch -r --format='%(refname:short)'", this.repoPath);
+    if (remoteRaw) {
+      for (const line of remoteRaw.split('\n').filter(Boolean)) {
+        const name = line.trim();
+        if (!name || name.includes('->')) continue;
+        branches.push({ name, current: false, remote: true });
+      }
+    }
+
+    return branches;
+  }
+
+  getCommitsForBranch(branch: string, limit = 30): GitCommit[] {
+    const sep = '\x1f';
+    const rs = '\x1e';
+    // Use %x1f/%x1e so git outputs the control chars — avoids shell mangling
+    const format = '--format=%H%x1f%h%x1f%s%x1f%ai%x1f%an%x1f%D%x1e';
+    const raw = exec(`git log "${branch}" ${format} -${limit}`, this.repoPath);
+    if (!raw) return [];
+
+    return raw
+      .split(rs)
+      .map(s => s.trim())
+      .filter(Boolean)
+      .map(record => {
+        const parts = record.split(sep);
+        const [hash, shortHash, message, date, author, decoration = ''] = parts;
         const refs = decoration
           .split(',')
           .map(r => r.trim())
@@ -85,7 +152,28 @@ export class GitService {
       });
   }
 
+  /** Like getChangedFiles but also includes insertion/deletion line counts. */
+  getChangedFilesWithStats(hash: string): FileWithStats[] {
+    const statusMap = new Map(this.getChangedFiles(hash).map(f => [f.path, f.status]));
+    const raw = exec(`git diff-tree --no-commit-id -r --numstat ${hash}`, this.repoPath);
+    if (!raw) return [...statusMap.entries()].map(([p, s]) => ({ path: p, status: s, insertions: 0, deletions: 0 }));
+
+    return raw.split('\n').filter(Boolean).map(line => {
+      const parts = line.split('\t');
+      const insertions = parseInt(parts[0]) || 0;
+      const deletions  = parseInt(parts[1]) || 0;
+      const filePath   = parts[2] ?? '';
+      return { path: filePath, status: statusMap.get(filePath) ?? 'M', insertions, deletions };
+    });
+  }
+
   getRawDiff(hash: string): string {
+    // Check if the commit has a parent (root commit has none)
+    const hasParent = exec(`git rev-parse --verify ${hash}^`, this.repoPath) !== '';
+    if (!hasParent) {
+      // Root commit: show all files as added via git show (strip the commit header)
+      return exec(`git show --format="" ${hash}`, this.repoPath);
+    }
     return exec(`git diff ${hash}^..${hash}`, this.repoPath);
   }
 

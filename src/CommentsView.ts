@@ -1,43 +1,40 @@
 import * as vscode from 'vscode';
 import * as path from 'path';
-import { GitService, GitCommit, FileWithStats } from './GitService';
+import { CommentManager, ReviewComment } from './CommentManager';
 
-export class ReviewPanel implements vscode.WebviewViewProvider, vscode.Disposable {
-  static readonly viewType = 'commitReview.reviewView';
-  private static instance: ReviewPanel | undefined;
+export class CommentsView implements vscode.WebviewViewProvider, vscode.Disposable {
+  static readonly viewType = 'commitReview.commentsView';
+  private static instance: CommentsView | undefined;
 
   private _view?: vscode.WebviewView;
   private disposables: vscode.Disposable[] = [];
 
-  /** Called when the user changes commit selection (click or shift-click range). */
-  onSelectionChanged?: (hashes: string[]) => void;
-
-  /** Called when the user clicks the repo select button. */
-  onSelectRepo?: () => void;
+  /** Called when the user clicks a comment — jump to that file + line in the editor. */
+  onFocusComment?: (file: string, line: number) => void;
 
   private constructor(
     private context: vscode.ExtensionContext,
-    private git: GitService
+    private comments: CommentManager
   ) {}
 
   // ── Factory ───────────────────────────────────────────────────────────────
 
   static register(
     context: vscode.ExtensionContext,
-    git: GitService
-  ): ReviewPanel {
-    if (!ReviewPanel.instance) {
-      ReviewPanel.instance = new ReviewPanel(context, git);
+    comments: CommentManager
+  ): CommentsView {
+    if (!CommentsView.instance) {
+      CommentsView.instance = new CommentsView(context, comments);
     } else {
-      ReviewPanel.instance.git = git;
+      CommentsView.instance.comments = comments;
     }
-    return ReviewPanel.instance;
+    return CommentsView.instance;
   }
 
   /** Update services when the active repo changes. */
-  updateServices(git: GitService): void {
-    this.git = git;
-    this.sendCommits();
+  updateServices(comments: CommentManager): void {
+    this.comments = comments;
+    this.refresh();
   }
 
   // ── WebviewViewProvider ───────────────────────────────────────────────────
@@ -57,31 +54,23 @@ export class ReviewPanel implements vscode.WebviewViewProvider, vscode.Disposabl
     webviewView.webview.html = this.buildHtml(webviewView.webview);
 
     webviewView.webview.onDidReceiveMessage(msg => {
-      switch (msg.type) {
-        case 'selectionChanged':
-          this.onSelectionChanged?.(msg.hashes as string[]);
-          break;
-        case 'selectRepo':
-          this.onSelectRepo?.();
-          break;
+      if (msg.type === 'focusComment') {
+        this.onFocusComment?.(msg.file as string, msg.line as number);
       }
     }, null, this.disposables);
 
-    this.sendCommits();
+    this.refresh();
   }
 
   // ── Data ──────────────────────────────────────────────────────────────────
 
-  sendCommits(): void {
+  /** Push all comments to the webview. */
+  refresh(): void {
     if (!this._view) return;
-    const branch = this.git.getCurrentBranch();
-    const commits = this.git.getCommitsForBranch(branch, 100);
-    this._view.webview.postMessage({ type: 'load', branch, commits });
-  }
-
-  /** Push the file-stats list for one commit to the sidebar (to expand under that commit). */
-  sendCommitFiles(hash: string, files: FileWithStats[]): void {
-    this._view?.webview.postMessage({ type: 'commitFiles', hash, files });
+    this._view.webview.postMessage({
+      type: 'load',
+      comments: this.comments.load(),
+    });
   }
 
   // ── HTML ──────────────────────────────────────────────────────────────────
@@ -91,7 +80,7 @@ export class ReviewPanel implements vscode.WebviewViewProvider, vscode.Disposabl
       vscode.Uri.file(path.join(this.context.extensionPath, 'media', 'review.css'))
     );
     const jsUri = webview.asWebviewUri(
-      vscode.Uri.file(path.join(this.context.extensionPath, 'media', 'sidebar.js'))
+      vscode.Uri.file(path.join(this.context.extensionPath, 'media', 'comments.js'))
     );
     const nonce = generateNonce();
 
@@ -107,20 +96,18 @@ export class ReviewPanel implements vscode.WebviewViewProvider, vscode.Disposabl
   <link href="${cssUri}" rel="stylesheet">
   <style>
     body { overflow: hidden; display: flex; flex-direction: column; height: 100vh; }
-    #sidebar { width: 100% !important; max-width: 100% !important; min-width: 0 !important; height: 100%; }
+    #sidebar { width: 100% !important; max-width: 100% !important; min-width: 0 !important; height: 100%; display: flex; flex-direction: column; }
+    #comment-list { flex: 1; overflow-y: auto; }
   </style>
-  <title>Commits</title>
+  <title>Comments</title>
 </head>
 <body>
 
 <div id="sidebar">
   <div class="sidebar-section-header">
-    <span class="section-title" id="branch-label">COMMITS</span>
-    <div class="sidebar-actions">
-      <button class="sidebar-btn" data-action="select-repo" title="Select Repository">&#x22EF;</button>
-    </div>
+    <span class="section-title">COMMENTS</span>
   </div>
-  <div id="commits-list"></div>
+  <div id="comment-list"></div>
 </div>
 
 <script nonce="${nonce}" src="${jsUri}"></script>
@@ -129,7 +116,7 @@ export class ReviewPanel implements vscode.WebviewViewProvider, vscode.Disposabl
   }
 
   dispose(): void {
-    ReviewPanel.instance = undefined;
+    CommentsView.instance = undefined;
     for (const d of this.disposables) d.dispose();
     this.disposables = [];
   }

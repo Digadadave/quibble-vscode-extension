@@ -61,35 +61,15 @@ export class DiffPanel implements vscode.Disposable {
 
   // ── Public API ────────────────────────────────────────────────────────────
 
+  getCurrentHashes(): string[] {
+    return this.currentHashes;
+  }
+
   /** Called when the sidebar selection changes. Computes and sends the diff. */
   showSelection(hashes: string[]): void {
     this.currentHashes = hashes;
     this.panel.reveal(vscode.ViewColumn.One, false);
-
-    if (hashes.length === 0) {
-      this.panel.webview.postMessage({ type: 'diffResult', parsedDiff: [], changedFiles: [], selectedHashes: [] });
-      return;
-    }
-
-    const log      = this.git.getLog(200);
-    const logIndex = new Map(log.map((c, i) => [c.hash, i]));
-    const sorted   = [...hashes].sort((a, b) => (logIndex.get(a) ?? 9999) - (logIndex.get(b) ?? 9999));
-    const newestHash = sorted[0];
-    const oldestHash = sorted[sorted.length - 1];
-
-    const rawDiff    = this.git.getRangeDiff(oldestHash, newestHash);
-    const parsedDiff = this.git.parseDiff(rawDiff);
-    const changedFiles = this.git.getChangedFilesInRange(oldestHash, newestHash);
-
-    this.panel.webview.postMessage({
-      type: 'diffResult',
-      parsedDiff,
-      changedFiles,
-      selectedHashes: hashes,
-      comments: this.comments.load(),
-      oldestShort: log.find(c => c.hash === oldestHash)?.shortHash ?? oldestHash.slice(0, 7),
-      newestShort: log.find(c => c.hash === newestHash)?.shortHash ?? newestHash.slice(0, 7),
-    });
+    this.sendDiffForHashes(hashes);
   }
 
   /** Refresh comments without recomputing the diff (called after mutations). */
@@ -118,21 +98,34 @@ export class DiffPanel implements vscode.Disposable {
 
   private handleMessage(msg: { type: string; [k: string]: unknown }): void {
     switch (msg.type) {
+      case 'askQuestion':
+        this.comments.askQuestion(msg.id as string, msg.question as string);
+        this.onCommentMutation?.();
+        break;
+
       case 'addComment':
         this.comments.addComment({
-          commitHash:  msg.commitHash  as string,
-          file:        msg.file        as string,
-          line:        msg.line        as number,
-          body:        msg.body        as string,
-          codeSnippet: this.extractSnippet(msg.commitHash as string, msg.file as string, msg.line as number),
+          commitHash:  msg.commitHash as string,
+          file:        msg.file       as string,
+          line:        msg.line       as number,
+          lineEnd:     (msg.lineEnd   as number | undefined) || undefined,
+          body:        msg.body       as string,
+          // Prefer the user's highlighted text; fall back to git file content
+          codeSnippet: (msg.snippet as string)
+            || this.extractSnippet(msg.commitHash as string, msg.file as string, msg.line as number),
         });
         this.onCommentMutation?.();
         break;
 
-      case 'updateStatus':
-        this.comments.updateStatus(msg.id as string, msg.status as ReviewComment['status']);
-        this.onCommentMutation?.();
+      case 'updateStatus': {
+        const status = msg.status as ReviewComment['status'];
+        // Only handle 'addressed' (not 'resolved' which is removed)
+        if (status === 'addressed' || status === 'open' || status === 'question' || status === 'agent-replied') {
+          this.comments.updateStatus(msg.id as string, status);
+          this.onCommentMutation?.();
+        }
         break;
+      }
 
       case 'addReply':
         this.comments.addThreadReply(msg.id as string, 'reviewer', msg.body as string);
@@ -151,6 +144,41 @@ export class DiffPanel implements vscode.Disposable {
         break;
       }
     }
+  }
+
+  // ── Diff computation ──────────────────────────────────────────────────────
+
+  private sendDiffForHashes(hashes: string[]): void {
+    if (hashes.length === 0) {
+      this.panel.webview.postMessage({
+        type: 'diffResult',
+        parsedDiff: [],
+        changedFiles: [],
+        selectedHashes: [],
+        comments: this.comments.load(),
+      });
+      return;
+    }
+
+    const log      = this.git.getLog(200);
+    const logIndex = new Map(log.map((c, i) => [c.hash, i]));
+    const sorted   = [...hashes].sort((a, b) => (logIndex.get(a) ?? 9999) - (logIndex.get(b) ?? 9999));
+    const newestHash = sorted[0];
+    const oldestHash = sorted[sorted.length - 1];
+
+    const rawDiff    = this.git.getRangeDiff(oldestHash, newestHash);
+    const parsedDiff = this.git.parseDiff(rawDiff);
+    const changedFiles = this.git.getChangedFilesInRange(oldestHash, newestHash);
+
+    this.panel.webview.postMessage({
+      type: 'diffResult',
+      parsedDiff,
+      changedFiles,
+      selectedHashes: hashes,
+      comments: this.comments.load(),
+      oldestShort: log.find(c => c.hash === oldestHash)?.shortHash ?? oldestHash.slice(0, 7),
+      newestShort: log.find(c => c.hash === newestHash)?.shortHash ?? newestHash.slice(0, 7),
+    });
   }
 
   // ── Agent prompt ──────────────────────────────────────────────────────────
@@ -180,7 +208,7 @@ export class DiffPanel implements vscode.Disposable {
       const msg = hashToMsg.get(hash) ?? hash;
       prompt += `### Commit \`${hash.slice(0, 8)}\` — ${msg}\n\n`;
       for (const c of cs) {
-        prompt += `**${c.file}** line ${c.line} (id: \`${c.id}\`)\n`;
+        prompt += `**${c.file}** line ${c.line} (id: \`${c.id}\`, status: \`${c.status}\`)\n`;
         if (c.codeSnippet) prompt += `\`\`\`\n${c.codeSnippet}\n\`\`\`\n`;
         prompt += `> ${c.body}\n`;
         for (const t of c.thread) prompt += `> — **${t.author}**: ${t.body}\n`;
@@ -221,18 +249,19 @@ export class DiffPanel implements vscode.Disposable {
 
 <div id="top-bar">
   <div class="summary-badges">
-    <span class="badge open"     id="badge-open">0 open</span>
-    <span class="badge replied"  id="badge-replied">0 in review</span>
+    <span class="badge open"      id="badge-open">0 open</span>
+    <span class="badge question"  id="badge-question">0 questions</span>
     <span class="badge addressed" id="badge-addressed">0 addressed</span>
     <span id="selected-count" class="selected-label">0 commits selected</span>
   </div>
+  <button id="diff-mode-btn" data-action="toggle-diff-mode" title="Toggle inline/split diff">Split</button>
   <button id="mark-reviewed-btn" data-action="toggle-reviewed">Mark as reviewed</button>
 </div>
 
 <div id="main">
   <div class="empty-state">
     <h2>Commit Review</h2>
-    <p>Select commits in the graph to begin reviewing.</p>
+    <p>Select a commit in the sidebar to begin reviewing.</p>
   </div>
 </div>
 
@@ -240,16 +269,6 @@ export class DiffPanel implements vscode.Disposable {
   <span class="footer-path" id="footer-path">.code-review/reviews.json</span>
   <button class="btn" data-action="export-reviews">Open reviews.json</button>
   <button class="btn primary" data-action="copy-agent-prompt">Copy Agent Prompt</button>
-</div>
-
-<!-- Floating comment composer -->
-<div id="comment-composer">
-  <h4>Add comment</h4>
-  <textarea placeholder="Leave a comment..."></textarea>
-  <div class="composer-actions">
-    <button class="btn" data-action="close-composer">Cancel</button>
-    <button class="btn primary" data-action="submit-comment">Submit</button>
-  </div>
 </div>
 
 <script nonce="${nonce}" src="${jsUri}"></script>

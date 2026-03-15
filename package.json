@@ -49,34 +49,35 @@
     "views": {
       "commitReview": [
         {
-          "id": "commitReview.tree",
-          "name": "Commits",
-          "icon": "$(git-commit)",
+          "type": "webview",
+          "id": "commitReview.commentsView",
+          "name": "Comments",
           "contextualTitle": "Commit Review"
         },
         {
           "type": "webview",
           "id": "commitReview.reviewView",
-          "name": "Review",
+          "name": "Commits",
           "contextualTitle": "Commit Review"
         }
       ]
     },
+    "configuration": {
+      "title": "Commit Review",
+      "properties": {
+        "commitReview.reviewsPath": {
+          "type": "string",
+          "default": ".vscode/commit-reviews.json",
+          "description": "Path relative to the repository root where review comments are stored.",
+          "scope": "resource"
+        }
+      }
+    },
     "menus": {
       "view/title": [
         {
-          "command": "commitReview.openPanel",
-          "when": "view == commitReview.tree",
-          "group": "navigation"
-        },
-        {
-          "command": "commitReview.refreshTree",
-          "when": "view == commitReview.tree",
-          "group": "navigation"
-        },
-        {
-          "command": "commitReview.copyAgentPrompt",
-          "when": "view == commitReview.tree",
+          "command": "commitReview.selectRepo",
+          "when": "view == commitReview.reviewView",
           "group": "navigation"
         }
       ]
