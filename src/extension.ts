@@ -78,9 +78,9 @@ export function activate(context: vscode.ExtensionContext): void {
 
   // ── Shared refresh (called after any comment mutation) ──────────────────
   function refreshAll(): void {
-    activeReviewPanel?.sendCommits();
-    activeCommentsView?.refresh();
-    DiffPanel.getInstance()?.refreshComments();
+    try { activeReviewPanel?.sendCommits(); }         catch { /* ignore git errors */ }
+    try { activeCommentsView?.refresh(); }            catch { /* ignore */ }
+    try { DiffPanel.getInstance()?.refreshComments(); } catch { /* ignore */ }
     updateStatusBar();
   }
 

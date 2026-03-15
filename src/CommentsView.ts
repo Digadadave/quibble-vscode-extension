@@ -8,6 +8,8 @@ export class CommentsView implements vscode.WebviewViewProvider, vscode.Disposab
 
   private _view?: vscode.WebviewView;
   private disposables: vscode.Disposable[] = [];
+  /** Cached comments to send as soon as the view resolves (if refresh was called before it opened). */
+  private cachedComments: unknown[] | null = null;
 
   /** Called when the user clicks a comment — jump to that file + line in the editor. */
   onFocusComment?: (file: string, line: number) => void;
@@ -59,18 +61,20 @@ export class CommentsView implements vscode.WebviewViewProvider, vscode.Disposab
       }
     }, null, this.disposables);
 
-    this.refresh();
+    // Send any comments that were loaded before this view was first shown
+    const comments = this.cachedComments ?? this.comments.load();
+    this.cachedComments = null;
+    webviewView.webview.postMessage({ type: 'load', comments });
   }
 
   // ── Data ──────────────────────────────────────────────────────────────────
 
   /** Push all comments to the webview. */
   refresh(): void {
+    const comments = this.comments.load();
+    this.cachedComments = comments;          // always cache so resolveWebviewView can pick it up
     if (!this._view) return;
-    this._view.webview.postMessage({
-      type: 'load',
-      comments: this.comments.load(),
-    });
+    this._view.webview.postMessage({ type: 'load', comments });
   }
 
   // ── HTML ──────────────────────────────────────────────────────────────────

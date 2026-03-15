@@ -72,84 +72,104 @@ document.addEventListener('click', (/** @type {MouseEvent} */ e) => {
   // Close inline composer when clicking outside it
   if (composerRow && !composerRow.contains(target)) {
     if (composerJustOpened) {
-      composerJustOpened = false; // opened by mouseup — ignore this click
-    } else {
-      closeComposer();
-      const actionEl = target.closest('[data-action]');
-      if (!actionEl) return;
+      composerJustOpened = false; // opened by mouseup — ignore this click entirely
+      return;
     }
+    closeComposer();
+    // fall through — if the click was on a line row, open a new composer for it
   }
 
   const btn = /** @type {HTMLElement|null} */ (target.closest('[data-action]'));
-  if (!btn) return;
-  const action = btn.getAttribute('data-action') ?? '';
+  if (btn) {
+    const action = btn.getAttribute('data-action') ?? '';
 
-  switch (action) {
-    case 'toggle-diff-mode':
-      state.diffMode = state.diffMode === 'inline' ? 'split' : 'inline';
-      updateDiffModeBtn();
-      renderDiff();
-      break;
+    switch (action) {
+      case 'toggle-diff-mode':
+        state.diffMode = state.diffMode === 'inline' ? 'split' : 'inline';
+        updateDiffModeBtn();
+        renderDiff();
+        break;
 
-    case 'toggle-reviewed':
-      toggleMarkReviewed();
-      break;
+      case 'toggle-reviewed':
+        toggleMarkReviewed();
+        break;
 
-    case 'close-composer':
-      closeComposer();
-      break;
+      case 'close-composer':
+        closeComposer();
+        break;
 
-    case 'submit-comment':
-      submitComment();
-      break;
+      case 'submit-comment':
+        submitComment();
+        break;
 
-    case 'export-reviews':
-      vscode.postMessage({ type: 'exportReviews' });
-      break;
+      case 'export-reviews':
+        vscode.postMessage({ type: 'exportReviews' });
+        break;
 
-    case 'copy-agent-prompt':
-      vscode.postMessage({ type: 'copyAgentPrompt' });
-      break;
+      case 'copy-agent-prompt':
+        vscode.postMessage({ type: 'copyAgentPrompt' });
+        break;
 
-    case 'toggle-file': {
-      const header = btn.closest('.file-header');
-      if (header) toggleFile(/** @type {HTMLElement} */ (header));
-      break;
+      case 'toggle-file': {
+        const header = btn.closest('.file-header');
+        if (header) toggleFile(/** @type {HTMLElement} */ (header));
+        break;
+      }
+
+      case 'mark-addressed':
+        vscode.postMessage({ type: 'updateStatus', id: btn.getAttribute('data-id'), status: 'addressed' });
+        break;
+
+      case 'ask-question': {
+        const id = btn.getAttribute('data-id') ?? '';
+        showQuestionForm(id);
+        break;
+      }
+
+      case 'submit-question': {
+        const id = btn.getAttribute('data-id') ?? '';
+        submitQuestion(id);
+        break;
+      }
+
+      case 'cancel-question': {
+        const id = btn.getAttribute('data-id') ?? '';
+        hideQuestionForm(id);
+        break;
+      }
+
+      case 'toggle-reply':
+        toggleReplyForm(btn.getAttribute('data-id') ?? '');
+        break;
+
+      case 'submit-reply':
+        submitReply(btn.getAttribute('data-id') ?? '');
+        break;
+
+      case 'cancel-reply':
+        toggleReplyForm(btn.getAttribute('data-id') ?? '');
+        break;
     }
+    return;
+  }
 
-    case 'mark-addressed':
-      vscode.postMessage({ type: 'updateStatus', id: btn.getAttribute('data-id'), status: 'addressed' });
-      break;
-
-    case 'ask-question': {
-      const id = btn.getAttribute('data-id') ?? '';
-      showQuestionForm(id);
-      break;
+  // ── Click on a diff line row → open composer for that line ──────────────
+  const lineRow = /** @type {HTMLElement|null} */ (target.closest('tr[data-line]'));
+  if (
+    lineRow &&
+    !lineRow.classList.contains('thread-row') &&
+    !lineRow.classList.contains('inline-composer-row') &&
+    !target.closest('.thread-container') &&
+    !target.closest('.inline-composer')
+  ) {
+    const line = parseInt(lineRow.getAttribute('data-line') ?? '0', 10);
+    const file = lineRow.getAttribute('data-file') ?? '';
+    const commitHash = [...state.selectedHashes][0] ?? '';
+    if (line && file && commitHash) {
+      openComposer(commitHash, file, line, line, '', /** @type {HTMLTableRowElement} */ (lineRow));
+      // Do NOT set composerJustOpened here — that flag is only for the mouseup→click
+      // suppression path. Setting it here would swallow the very next outside-click.
     }
-
-    case 'submit-question': {
-      const id = btn.getAttribute('data-id') ?? '';
-      submitQuestion(id);
-      break;
-    }
-
-    case 'cancel-question': {
-      const id = btn.getAttribute('data-id') ?? '';
-      hideQuestionForm(id);
-      break;
-    }
-
-    case 'toggle-reply':
-      toggleReplyForm(btn.getAttribute('data-id') ?? '');
-      break;
-
-    case 'submit-reply':
-      submitReply(btn.getAttribute('data-id') ?? '');
-      break;
-
-    case 'cancel-reply':
-      toggleReplyForm(btn.getAttribute('data-id') ?? '');
-      break;
   }
 });
 
