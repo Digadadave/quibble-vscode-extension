@@ -917,6 +917,49 @@ tr.split-add .line-content.old { background: transparent; }
 .sidebar-comment-status.question { background: rgba(88,130,255,0.2); color: #8ab4ff; }
 .sidebar-comment-status.agent-replied { background: rgba(227,179,65,0.2); color: var(--status-replied); }
 
+/* ── Hunk expander row ────────────────────────────────────────────────────── */
+
+.expander-td {
+  padding: 0;
+  background: var(--vscode-diffEditor-unchangedRegionBackground, rgba(30, 60, 100, 0.08));
+  border-top: 1px solid var(--vscode-diffEditor-unchangedRegionShadow, rgba(30,60,100,0.18));
+  border-bottom: 1px solid var(--vscode-diffEditor-unchangedRegionShadow, rgba(30,60,100,0.18));
+  cursor: ns-resize;
+  user-select: none;
+}
+.expander-inner {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  padding: 3px 8px;
+  pointer-events: none; /* let the td handle drag; buttons/label override */
+}
+.expand-btn {
+  pointer-events: all;
+  background: none;
+  border: 1px solid transparent;
+  border-radius: 3px;
+  color: var(--vscode-descriptionForeground, #6a9fd8);
+  font-size: 9px;
+  padding: 1px 6px;
+  cursor: pointer;
+  line-height: 1.4;
+  opacity: 0.7;
+}
+.expand-btn:hover { opacity: 1; border-color: currentColor; background: var(--bg-hover); }
+.expander-label {
+  pointer-events: all;
+  font-size: 11px;
+  color: var(--vscode-descriptionForeground, #6a9fd8);
+  cursor: pointer;
+  padding: 1px 8px;
+  border-radius: 3px;
+  font-family: var(--font-mono);
+}
+.expander-label:hover { background: var(--bg-hover); text-decoration: underline; }
+body.expander-resizing { cursor: ns-resize !important; user-select: none; }
+
 /* ── Diff mode toggle ─────────────────────────────────────────────────────── */
 #diff-mode-btn {
   background: none; border: 1px solid var(--border); border-radius: 4px;

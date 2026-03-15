@@ -143,6 +143,30 @@ export class DiffPanel implements vscode.Disposable {
         );
         break;
       }
+
+      case 'fetchContext': {
+        const commitHash = msg.commitHash as string;
+        const file       = msg.file       as string;
+        const newStart   = msg.newStart   as number;
+        const newEnd     = msg.newEnd     as number;
+        const oldStart   = msg.oldStart   as number;
+        const direction  = msg.direction  as string;
+        const key        = msg.key        as string;
+        try {
+          const content  = this.git.getFileContentAtCommit(commitHash, file);
+          const allLines = content.split('\n');
+          const lines: Array<{ oldLineNum: number; newLineNum: number; content: string }> = [];
+          for (let i = 0; i <= newEnd - newStart; i++) {
+            lines.push({
+              newLineNum: newStart + i,
+              oldLineNum: oldStart + i,
+              content:    allLines[newStart + i - 1] ?? '',
+            });
+          }
+          this.panel.webview.postMessage({ type: 'contextLines', key, direction, lines });
+        } catch { /* file read failed — send empty */ }
+        break;
+      }
     }
   }
 

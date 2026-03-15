@@ -40,6 +40,14 @@ let composerJustOpened = false;
 let splitPct = 0.5;        // fraction of table width for old (left) side
 let splitDragging = false;
 
+/** Expander drag state */
+let expanderDragging = false;
+let expanderDragRow  = /** @type {HTMLElement|null} */ (null);
+let expanderDragLastY = 0;
+let expanderDragAccum = 0;   // accumulated pixels (positive = down, negative = up)
+let expanderFetchPending = false;
+const EXPANDER_PX_PER_LINE = 18;
+
 // ── Message handler ────────────────────────────────────────────────────────
 
 window.addEventListener('message', (/** @type {MessageEvent} */ event) => {
@@ -64,6 +72,10 @@ window.addEventListener('message', (/** @type {MessageEvent} */ event) => {
       break;
     case 'focusFile':
       if (msg.file) scrollToFile(/** @type {string} */ (msg.file));
+      break;
+
+    case 'contextLines':
+      insertContextLines(msg.key, msg.direction, msg.lines ?? []);
       break;
   }
 });
@@ -153,6 +165,68 @@ document.addEventListener('click', (/** @type {MouseEvent} */ e) => {
       case 'cancel-reply':
         toggleReplyForm(btn.getAttribute('data-id') ?? '');
         break;
+
+      case 'expand-down': {
+        const row = btn.closest('.hunk-expander');
+        if (!row) break;
+        const gapNewStart = parseInt(row.getAttribute('data-gap-new-start') ?? '0');
+        const gapNewEnd   = parseInt(row.getAttribute('data-gap-new-end')   ?? '0');
+        const gapOldStart = parseInt(row.getAttribute('data-gap-old-start') ?? '0');
+        const count = Math.min(10, gapNewEnd - gapNewStart + 1);
+        if (count <= 0) break;
+        vscode.postMessage({
+          type: 'fetchContext',
+          file:        row.getAttribute('data-file'),
+          commitHash:  row.getAttribute('data-commit'),
+          newStart:    gapNewStart,
+          newEnd:      gapNewStart + count - 1,
+          oldStart:    gapOldStart,
+          direction:   'down',
+          key:         row.getAttribute('data-key'),
+        });
+        break;
+      }
+
+      case 'expand-up': {
+        const row = btn.closest('.hunk-expander');
+        if (!row) break;
+        const gapNewStart = parseInt(row.getAttribute('data-gap-new-start') ?? '0');
+        const gapNewEnd   = parseInt(row.getAttribute('data-gap-new-end')   ?? '0');
+        const gapOldEnd   = parseInt(row.getAttribute('data-gap-old-end')   ?? '0');
+        const count = Math.min(10, gapNewEnd - gapNewStart + 1);
+        if (count <= 0) break;
+        vscode.postMessage({
+          type: 'fetchContext',
+          file:        row.getAttribute('data-file'),
+          commitHash:  row.getAttribute('data-commit'),
+          newStart:    gapNewEnd - count + 1,
+          newEnd:      gapNewEnd,
+          oldStart:    gapOldEnd - count + 1,
+          direction:   'up',
+          key:         row.getAttribute('data-key'),
+        });
+        break;
+      }
+
+      case 'expand-all': {
+        const row = btn.closest('.hunk-expander');
+        if (!row) break;
+        const gapNewStart = parseInt(row.getAttribute('data-gap-new-start') ?? '0');
+        const gapNewEnd   = parseInt(row.getAttribute('data-gap-new-end')   ?? '0');
+        const gapOldStart = parseInt(row.getAttribute('data-gap-old-start') ?? '0');
+        if (gapNewEnd < gapNewStart) break;
+        vscode.postMessage({
+          type: 'fetchContext',
+          file:        row.getAttribute('data-file'),
+          commitHash:  row.getAttribute('data-commit'),
+          newStart:    gapNewStart,
+          newEnd:      gapNewEnd,
+          oldStart:    gapOldStart,
+          direction:   'all',
+          key:         row.getAttribute('data-key'),
+        });
+        break;
+      }
     }
     return;
   }
@@ -230,26 +304,95 @@ document.addEventListener('mouseup', () => {
 // ── Split-pane drag ────────────────────────────────────────────────────────
 
 document.addEventListener('mousedown', (/** @type {MouseEvent} */ e) => {
-  if (!(/** @type {HTMLElement} */ (e.target)).closest('.split-gutter')) return;
-  splitDragging = true;
-  document.body.classList.add('split-resizing');
-  e.preventDefault();
+  const target = /** @type {HTMLElement} */ (e.target);
+
+  // Split-gutter drag
+  if (target.closest('.split-gutter')) {
+    splitDragging = true;
+    document.body.classList.add('split-resizing');
+    e.preventDefault();
+    return;
+  }
+
+  // Expander drag (not on a button — buttons have their own click handlers)
+  const expanderRow = /** @type {HTMLElement|null} */ (target.closest('.hunk-expander'));
+  if (expanderRow && !target.closest('button')) {
+    expanderDragging  = true;
+    expanderDragRow   = expanderRow;
+    expanderDragLastY = e.clientY;
+    expanderDragAccum = 0;
+    document.body.classList.add('expander-resizing');
+    e.preventDefault();
+  }
 });
 
 document.addEventListener('mousemove', (/** @type {MouseEvent} */ e) => {
-  if (!splitDragging) return;
-  const table = /** @type {HTMLElement|null} */ (document.querySelector('.diff-table.split'));
-  if (!table) return;
-  const rect = table.getBoundingClientRect();
-  const pct = Math.max(0.25, Math.min(0.75, (e.clientX - rect.left) / rect.width));
-  splitPct = pct;
-  document.documentElement.style.setProperty('--split-old-w', (pct * 100).toFixed(1) + '%');
+  if (splitDragging) {
+    const table = /** @type {HTMLElement|null} */ (document.querySelector('.diff-table.split'));
+    if (!table) return;
+    const rect = table.getBoundingClientRect();
+    const pct = Math.max(0.25, Math.min(0.75, (e.clientX - rect.left) / rect.width));
+    splitPct = pct;
+    document.documentElement.style.setProperty('--split-old-w', (pct * 100).toFixed(1) + '%');
+  }
+
+  if (expanderDragging && expanderDragRow) {
+    const dy = e.clientY - expanderDragLastY;
+    expanderDragAccum += dy;
+    expanderDragLastY = e.clientY;
+
+    const steps = Math.trunc(expanderDragAccum / EXPANDER_PX_PER_LINE);
+    if (steps === 0 || expanderFetchPending) return;
+
+    expanderDragAccum -= steps * EXPANDER_PX_PER_LINE;
+
+    const gapNewStart = parseInt(expanderDragRow.getAttribute('data-gap-new-start') ?? '0');
+    const gapNewEnd   = parseInt(expanderDragRow.getAttribute('data-gap-new-end')   ?? '0');
+    const gapOldStart = parseInt(expanderDragRow.getAttribute('data-gap-old-start') ?? '0');
+    const gapOldEnd   = parseInt(expanderDragRow.getAttribute('data-gap-old-end')   ?? '0');
+    const remaining   = gapNewEnd - gapNewStart + 1;
+    if (remaining <= 0) return;
+
+    const count = Math.min(Math.abs(steps) * 10, remaining);
+
+    if (steps < 0) {
+      // Dragged up → reveal at bottom of gap (before next hunk)
+      vscode.postMessage({
+        type: 'fetchContext',
+        file:       expanderDragRow.getAttribute('data-file'),
+        commitHash: expanderDragRow.getAttribute('data-commit'),
+        newStart:   gapNewEnd - count + 1,
+        newEnd:     gapNewEnd,
+        oldStart:   gapOldEnd - count + 1,
+        direction:  'up',
+        key:        expanderDragRow.getAttribute('data-key'),
+      });
+    } else {
+      // Dragged down → reveal at top of gap (after prev hunk)
+      vscode.postMessage({
+        type: 'fetchContext',
+        file:       expanderDragRow.getAttribute('data-file'),
+        commitHash: expanderDragRow.getAttribute('data-commit'),
+        newStart:   gapNewStart,
+        newEnd:     gapNewStart + count - 1,
+        oldStart:   gapOldStart,
+        direction:  'down',
+        key:        expanderDragRow.getAttribute('data-key'),
+      });
+    }
+    expanderFetchPending = true;
+  }
 });
 
 document.addEventListener('mouseup', () => {
   if (splitDragging) {
     splitDragging = false;
     document.body.classList.remove('split-resizing');
+  }
+  if (expanderDragging) {
+    expanderDragging = false;
+    expanderDragRow  = null;
+    document.body.classList.remove('expander-resizing');
   }
 });
 
@@ -341,16 +484,18 @@ function renderFileBlock(fileDiff, comments, fileStatus) {
 
   // Use the first selected hash as the commit for new comments
   const newestHash = [...state.selectedHashes][0] ?? '';
+  const hunks = fileDiff.hunks;
 
-  let rows;
-  if (state.diffMode === 'split') {
-    rows = fileDiff.hunks.map(
-      /** @param {any} hunk */ hunk => renderHunkSplit(hunk, fileDiff.file, fileComments, newestHash)
-    ).join('');
-  } else {
-    rows = fileDiff.hunks.map(
-      /** @param {any} hunk */ hunk => renderHunk(hunk, fileDiff.file, fileComments, newestHash)
-    ).join('');
+  let rows = '';
+  for (let i = 0; i < hunks.length; i++) {
+    rows += state.diffMode === 'split'
+      ? renderHunkSplit(hunks[i], fileDiff.file, fileComments, newestHash)
+      : renderHunk(hunks[i], fileDiff.file, fileComments, newestHash);
+
+    // Between adjacent hunks — render a collapsible gap row if lines are hidden
+    if (i < hunks.length - 1) {
+      rows += renderExpanderRow(fileDiff.file, newestHash, hunks[i], hunks[i + 1]);
+    }
   }
 
   return `
@@ -365,6 +510,138 @@ function renderFileBlock(fileDiff, comments, fileStatus) {
     <table class="diff-table${state.diffMode === 'split' ? ' split' : ''}"><tbody>${rows}</tbody></table>
   </div>
 </div>`;
+}
+
+// ── Hunk gap / expander ────────────────────────────────────────────────────
+
+/**
+ * Parse a hunk header like "@@ -10,7 +10,7 @@" into its numeric parts.
+ * @param {string} header
+ * @returns {{ oldStart:number, oldCount:number, newStart:number, newCount:number }|null}
+ */
+function parseHunkHeader(header) {
+  const m = header.match(/@@ -(\d+)(?:,(\d+))? \+(\d+)(?:,(\d+))? @@/);
+  if (!m) return null;
+  return {
+    oldStart: parseInt(m[1]),
+    oldCount: m[2] !== undefined ? parseInt(m[2]) : 1,
+    newStart: parseInt(m[3]),
+    newCount: m[4] !== undefined ? parseInt(m[4]) : 1,
+  };
+}
+
+/**
+ * Between two adjacent hunks, render an expandable "N hidden lines" row.
+ * @param {string} file
+ * @param {string} commitHash
+ * @param {any} prevHunk
+ * @param {any} nextHunk
+ */
+function renderExpanderRow(file, commitHash, prevHunk, nextHunk) {
+  const prev = parseHunkHeader(prevHunk.header);
+  const next = parseHunkHeader(nextHunk.header);
+  if (!prev || !next) return '';
+
+  const gapNewStart = prev.newStart + prev.newCount;   // first hidden new-file line
+  const gapNewEnd   = next.newStart - 1;               // last hidden new-file line
+  const gapOldStart = prev.oldStart + prev.oldCount;
+  const gapOldEnd   = next.oldStart - 1;
+
+  if (gapNewEnd < gapNewStart) return '';              // nothing hidden
+
+  const hidden   = gapNewEnd - gapNewStart + 1;
+  const colCount = state.diffMode === 'split' ? 5 : 3;
+  const key      = `${file}:${gapNewStart}:${gapNewEnd}`;
+
+  return `
+<tr class="hunk-expander"
+    data-file="${esc(file)}"
+    data-commit="${esc(commitHash)}"
+    data-gap-new-start="${gapNewStart}"
+    data-gap-new-end="${gapNewEnd}"
+    data-gap-old-start="${gapOldStart}"
+    data-gap-old-end="${gapOldEnd}"
+    data-key="${esc(key)}">
+  <td colspan="${colCount}" class="expander-td">
+    <div class="expander-inner">
+      <button class="expand-btn" data-action="expand-down" title="Show 10 lines below prev hunk">&#9660;</button>
+      <span class="expander-label" data-action="expand-all">${hidden} hidden line${hidden !== 1 ? 's' : ''}</span>
+      <button class="expand-btn" data-action="expand-up" title="Show 10 lines above next hunk">&#9650;</button>
+    </div>
+  </td>
+</tr>`;
+}
+
+/**
+ * Insert fetched context lines into the DOM adjacent to their expander row.
+ * @param {string} key
+ * @param {string} direction  'up' | 'down' | 'all'
+ * @param {Array<{oldLineNum:number, newLineNum:number, content:string}>} lines
+ */
+function insertContextLines(key, direction, lines) {
+  expanderFetchPending = false;
+  if (!lines.length) return;
+
+  const expander = /** @type {HTMLElement|null} */ (
+    document.querySelector(`.hunk-expander[data-key="${CSS.escape(key)}"]`)
+  );
+  if (!expander) return;
+
+  const isSplit = !!expander.closest('.diff-table.split');
+  const file    = expander.getAttribute('data-file') ?? '';
+
+  const rowsHtml = lines.map(/** @param {any} l */ l => {
+    if (isSplit) {
+      return `<tr data-line="${l.newLineNum}" data-file="${esc(file)}">
+  <td class="line-num old">${l.oldLineNum}</td>
+  <td class="line-content old">${escCode(l.content)}</td>
+  <td class="split-gutter"></td>
+  <td class="line-num new">${l.newLineNum}</td>
+  <td class="line-content new">${escCode(l.content)}</td>
+</tr>`;
+    }
+    return `<tr data-line="${l.newLineNum}" data-file="${esc(file)}">
+  <td class="line-num old">${l.oldLineNum}</td>
+  <td class="line-num new">${l.newLineNum}</td>
+  <td class="line-content"> ${escCode(l.content)}</td>
+</tr>`;
+  }).join('');
+
+  const tmpl = document.createElement('template');
+  tmpl.innerHTML = rowsHtml;
+
+  if (direction === 'up') {
+    expander.after(tmpl.content);
+    const newEnd = parseInt(expander.getAttribute('data-gap-new-end') ?? '0') - lines.length;
+    const newOldEnd = parseInt(expander.getAttribute('data-gap-old-end') ?? '0') - lines.length;
+    expander.setAttribute('data-gap-new-end', String(newEnd));
+    expander.setAttribute('data-gap-old-end', String(newOldEnd));
+  } else {
+    // 'down' or 'all' — insert before expander (right after prev hunk)
+    expander.before(tmpl.content);
+    if (direction !== 'all') {
+      const newStart = parseInt(expander.getAttribute('data-gap-new-start') ?? '0') + lines.length;
+      const newOldStart = parseInt(expander.getAttribute('data-gap-old-start') ?? '0') + lines.length;
+      expander.setAttribute('data-gap-new-start', String(newStart));
+      expander.setAttribute('data-gap-old-start', String(newOldStart));
+    }
+  }
+
+  if (direction === 'all') {
+    expander.remove();
+    return;
+  }
+
+  const gapNewStart = parseInt(expander.getAttribute('data-gap-new-start') ?? '0');
+  const gapNewEnd   = parseInt(expander.getAttribute('data-gap-new-end')   ?? '0');
+  const remaining   = gapNewEnd - gapNewStart + 1;
+
+  if (remaining <= 0) {
+    expander.remove();
+  } else {
+    const label = expander.querySelector('.expander-label');
+    if (label) label.textContent = `${remaining} hidden line${remaining !== 1 ? 's' : ''}`;
+  }
 }
 
 /**
