@@ -334,7 +334,7 @@ document.addEventListener('mousedown', (/** @type {MouseEvent} */ e) => {
 document.addEventListener('mousemove', (/** @type {MouseEvent} */ e) => {
   if (splitDragging) {
     const newPx = Math.max(80, splitDragStartPx + (e.clientX - splitDragStartX));
-    document.documentElement.style.setProperty('--split-old-px', newPx + 'px');
+    document.documentElement.style.setProperty('--split-old-w', newPx + 'px');
   }
 
   if (expanderDragging && expanderDragRow) {

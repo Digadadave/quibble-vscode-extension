@@ -471,12 +471,12 @@ body {
 /* ── Diff table ──────────────────────────────────────────────────────────── */
 
 .diff-table {
-  min-width: 100%;      /* at least fill the container, but grow if lines are long */
-  width: max-content;   /* let long code lines push the table wider (file-body scrolls) */
   border-collapse: collapse;
   font-family: var(--font-mono);
   font-size: 12px;
   tab-size: 4;
+  /* Split tables override width/layout below; inline would use max-content but is removed */
+  min-width: 100%;
 }
 
 /* Highlight selected diff text to invite commenting */
@@ -919,12 +919,17 @@ tr.inline-composer-row td {
 .branch-remote-name { color: var(--fg-muted); font-size: 11px; }
 
 /* ── Side-by-side diff ────────────────────────────────────────────────────── */
-/* table-layout: auto lets code lines drive the width; file-body scrolls horizontally */
-.diff-table.split .line-num { width: 40px; }
-/* The old-content column uses a pixel width set by the drag handler (px = 1:1 with cursor movement).
-   Default 300px until first drag; never shrinks below 80px. */
-.diff-table.split .line-content.old { width: var(--split-old-px, 300px); min-width: 80px; }
-.diff-table.split .line-content.new { min-width: 80px; }
+/* table-layout:fixed + width:100% makes both panels fill the container exactly.
+   Code lines that are too long are clipped (overflow:hidden) — matching VS Code's default.
+   The drag handler sets --split-old-w to a px value; default 45% of the container. */
+.diff-table.split {
+  table-layout: fixed;
+  width: 100%;
+  min-width: 0;
+}
+.diff-table.split .line-num   { width: 40px; }
+.diff-table.split .line-content.old { width: var(--split-old-w, 45%); overflow: hidden; }
+.diff-table.split .line-content.new { overflow: hidden; }  /* takes remaining space */
 
 /* Draggable gutter between old and new */
 .split-gutter {
