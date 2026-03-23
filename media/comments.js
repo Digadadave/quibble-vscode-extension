@@ -10,6 +10,83 @@ const state = {
   comments: [],
 };
 
+// ── Context menu ───────────────────────────────────────────────────────────
+
+/** @type {HTMLElement|null} */
+let contextMenu = null;
+/** Comment id the context menu was opened for. @type {string} */
+let contextMenuId = '';
+
+function showContextMenu(x, y, commentId) {
+  dismissContextMenu();
+  contextMenuId = commentId;
+
+  const menu = document.createElement('div');
+  menu.className = 'ctx-menu';
+  menu.innerHTML = `<div class="ctx-item ctx-danger" data-action="ctx-delete">Delete comment</div>`;
+  menu.style.left = x + 'px';
+  menu.style.top  = y + 'px';
+  document.body.appendChild(menu);
+
+  // Flip up if it would overflow the bottom
+  const rect = menu.getBoundingClientRect();
+  if (rect.bottom > window.innerHeight) {
+    menu.style.top = (y - rect.height) + 'px';
+  }
+
+  contextMenu = menu;
+}
+
+function dismissContextMenu() {
+  contextMenu?.remove();
+  contextMenu = null;
+  contextMenuId = '';
+}
+
+// ── Event delegation ───────────────────────────────────────────────────────
+
+document.addEventListener('contextmenu', (/** @type {MouseEvent} */ e) => {
+  const comment = /** @type {HTMLElement|null} */ (
+    /** @type {HTMLElement} */ (e.target).closest('.sidebar-comment')
+  );
+  if (!comment) { dismissContextMenu(); return; }
+  e.preventDefault();
+  const id = comment.getAttribute('data-id') ?? '';
+  showContextMenu(e.clientX, e.clientY, id);
+});
+
+document.addEventListener('click', (/** @type {MouseEvent} */ e) => {
+  const target = /** @type {HTMLElement} */ (e.target);
+
+  // Dismiss context menu on any click outside it
+  if (contextMenu && !contextMenu.contains(target)) {
+    dismissContextMenu();
+  }
+
+  const btn = target.closest('[data-action]');
+  if (!btn) return;
+  const action = btn.getAttribute('data-action') ?? '';
+
+  if (action === 'comment-jump') {
+    const file       = btn.getAttribute('data-file')   ?? '';
+    const line       = parseInt(btn.getAttribute('data-line') ?? '1', 10);
+    const commitHash = btn.getAttribute('data-commit')  ?? '';
+    const id         = btn.getAttribute('data-id')      ?? '';
+    if (file) vscode.postMessage({ type: 'focusComment', file, line, commitHash, id });
+  }
+
+  if (action === 'ctx-delete') {
+    if (contextMenuId) {
+      vscode.postMessage({ type: 'deleteComment', id: contextMenuId });
+    }
+    dismissContextMenu();
+  }
+});
+
+document.addEventListener('keydown', (e) => {
+  if (e.key === 'Escape') dismissContextMenu();
+});
+
 // ── Message handler ────────────────────────────────────────────────────────
 
 window.addEventListener('message', (/** @type {MessageEvent} */ event) => {
@@ -17,21 +94,6 @@ window.addEventListener('message', (/** @type {MessageEvent} */ event) => {
   if (msg.type === 'load') {
     state.comments = msg.comments ?? [];
     renderCommentList();
-  }
-});
-
-// ── Event delegation ───────────────────────────────────────────────────────
-
-document.addEventListener('click', (/** @type {MouseEvent} */ e) => {
-  const btn = /** @type {HTMLElement} */ (/** @type {HTMLElement} */ (e.target).closest('[data-action]'));
-  if (!btn) return;
-
-  if (btn.getAttribute('data-action') === 'comment-jump') {
-    const file       = btn.getAttribute('data-file')   ?? '';
-    const line       = parseInt(btn.getAttribute('data-line') ?? '1', 10);
-    const commitHash = btn.getAttribute('data-commit')  ?? '';
-    const id         = btn.getAttribute('data-id')      ?? '';
-    if (file) vscode.postMessage({ type: 'focusComment', file, line, commitHash, id });
   }
 });
 
@@ -81,7 +143,6 @@ function statusBadge(status) {
     'addressed':     { letter: '✓', color: '#3fb950' },
   };
   const { letter, color } = map[status] ?? { letter: '?', color: '#6e7681' };
-  // Inline SVG: circle + centered letter. title gives full status on hover.
   return `<svg class="status-badge" viewBox="0 0 16 16" width="16" height="16" title="${esc(status)}" aria-label="${esc(status)}">
   <circle cx="8" cy="8" r="7" fill="${color}" opacity="0.18"/>
   <circle cx="8" cy="8" r="7" fill="none" stroke="${color}" stroke-width="1.5"/>

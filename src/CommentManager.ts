@@ -174,6 +174,15 @@ export class CommentManager implements vscode.Disposable {
     return true;
   }
 
+  deleteComment(id: string): boolean {
+    const comments = this.load();
+    const idx = comments.findIndex(c => c.id === id);
+    if (idx === -1) return false;
+    comments.splice(idx, 1);
+    this.save(comments);
+    return true;
+  }
+
   addThreadReply(id: string, author: string, body: string): boolean {
     const comments = this.load();
     const comment = comments.find(c => c.id === id);

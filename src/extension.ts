@@ -71,6 +71,13 @@ export function activate(context: vscode.ExtensionContext): void {
     diff.focusComment(commentId, commitHash);
   };
 
+  // When the user right-click-deletes a comment from the sidebar.
+  activeCommentsView.onDeleteComment = (id) => {
+    if (!activeComments) return;
+    activeComments.deleteComment(id);
+    refreshAll();
+  };
+
   context.subscriptions.push(
     vscode.window.registerWebviewViewProvider(
       CommentsView.viewType,

@@ -14,6 +14,9 @@ export class CommentsView implements vscode.WebviewViewProvider, vscode.Disposab
   /** Called when the user clicks a comment — open the diff at that commit and scroll to the comment. */
   onFocusComment?: (file: string, line: number, commitHash: string, commentId: string) => void;
 
+  /** Called when the user right-click-deletes a comment from the sidebar. */
+  onDeleteComment?: (id: string) => void;
+
   private constructor(
     private context: vscode.ExtensionContext,
     private comments: CommentManager
@@ -63,6 +66,8 @@ export class CommentsView implements vscode.WebviewViewProvider, vscode.Disposab
           msg.commitHash as string,
           msg.id as string,
         );
+      } else if (msg.type === 'deleteComment') {
+        this.onDeleteComment?.(msg.id as string);
       }
     }, null, this.disposables);
 

@@ -151,6 +151,11 @@ export class DiffPanel implements vscode.Disposable {
         break;
       }
 
+      case 'deleteComment':
+        this.comments.deleteComment(msg.id as string);
+        this.onCommentMutation?.();
+        break;
+
       case 'addReply':
         this.comments.addThreadReply(msg.id as string, 'reviewer', msg.body as string);
         this.onCommentMutation?.();

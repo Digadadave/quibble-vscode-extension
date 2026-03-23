@@ -605,7 +605,34 @@ tr.del-line .line-num.old { background: var(--del-num); }
   margin-top: 10px;
   padding-top: 8px;
   border-top: 1px solid var(--border);
+  align-items: center;
 }
+/* Spacer pushes destructive actions (delete) to the far right */
+.thread-actions-spacer { flex: 1; }
+.btn.danger { border-color: #f85149; color: #f85149; }
+.btn.danger:hover { background: rgba(248,81,73,0.15); }
+
+/* ── Custom context menu (CommentsView) ──────────────────────────────────── */
+.ctx-menu {
+  position: fixed;
+  z-index: 9999;
+  background: var(--vscode-menu-background, #1f1f1f);
+  border: 1px solid var(--vscode-menu-border, #454545);
+  border-radius: 4px;
+  box-shadow: 0 4px 16px rgba(0,0,0,0.4);
+  padding: 4px 0;
+  min-width: 140px;
+  font-size: 12px;
+}
+.ctx-item {
+  padding: 5px 14px;
+  cursor: pointer;
+  color: var(--vscode-menu-foreground, var(--fg));
+  user-select: none;
+}
+.ctx-item:hover { background: var(--vscode-menu-selectionBackground, rgba(255,255,255,0.08)); }
+.ctx-item.ctx-danger { color: #f85149; }
+.ctx-item.ctx-danger:hover { background: rgba(248,81,73,0.15); }
 
 .thread-reply-form {
   padding: 10px 14px;

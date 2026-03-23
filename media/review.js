@@ -133,6 +133,10 @@ document.addEventListener('click', (/** @type {MouseEvent} */ e) => {
         vscode.postMessage({ type: 'updateStatus', id: btn.getAttribute('data-id'), status: 'addressed' });
         break;
 
+      case 'delete-comment':
+        vscode.postMessage({ type: 'deleteComment', id: btn.getAttribute('data-id') });
+        break;
+
       case 'ask-question': {
         const id = btn.getAttribute('data-id') ?? '';
         showQuestionForm(id);
@@ -759,9 +763,8 @@ function renderThreadRow(comment, colspan) {
   if (comment.status === 'open') {
     actionButtons += `<button class="btn" data-action="ask-question" data-id="${comment.id}">Ask Question</button>`;
   }
-  if (comment.status === 'question') {
-    // Awaiting agent response — no action buttons beyond what's shown
-  }
+  // Delete is always available, pushed to the far right via spacer
+  actionButtons += `<span class="thread-actions-spacer"></span><button class="btn danger" data-action="delete-comment" data-id="${comment.id}">Delete</button>`;
 
   const statusIndicator = comment.status === 'question'
     ? `<span class="thread-status question">awaiting agent</span>`
@@ -779,7 +782,7 @@ function renderThreadRow(comment, colspan) {
         </div>
         ${comment.codeSnippet ? `<div class="code-snippet">${escCode(comment.codeSnippet)}</div>` : ''}
         <div class="thread-body" style="margin-top:6px">${esc(comment.body)}</div>
-        ${actionButtons ? `<div class="thread-actions">${actionButtons}</div>` : ''}
+        <div class="thread-actions">${actionButtons}</div>
         <div id="question-form-${comment.id}" class="thread-question-form" style="display:none">
           <textarea placeholder="Ask the agent a question about this comment\u2026" id="question-text-${comment.id}"></textarea>
           <div class="thread-question-actions">
