@@ -19,12 +19,6 @@
         "category": "Commit Review"
       },
       {
-        "command": "commitReview.refreshTree",
-        "title": "Refresh",
-        "icon": "$(refresh)",
-        "category": "Commit Review"
-      },
-      {
         "command": "commitReview.copyAgentPrompt",
         "title": "Copy Agent Prompt",
         "icon": "$(copy)",
@@ -34,6 +28,37 @@
         "command": "commitReview.selectRepo",
         "title": "Select Repository",
         "icon": "$(repo)",
+        "category": "Commit Review"
+      },
+      {
+        "command": "commitReview.comment.reply",
+        "title": "Submit Comment",
+        "category": "Commit Review"
+      },
+      {
+        "command": "commitReview.comment.setOpen",
+        "title": "Set Open",
+        "category": "Commit Review"
+      },
+      {
+        "command": "commitReview.comment.setResolved",
+        "title": "Set Resolved",
+        "category": "Commit Review"
+      },
+      {
+        "command": "commitReview.comment.setWontFix",
+        "title": "Won't Fix",
+        "category": "Commit Review"
+      },
+      {
+        "command": "commitReview.comment.setPending",
+        "title": "Set Pending",
+        "category": "Commit Review"
+      },
+      {
+        "command": "commitReview.comment.delete",
+        "title": "Delete Comment",
+        "icon": "$(trash)",
         "category": "Commit Review"
       }
     ],
@@ -79,6 +104,42 @@
           "command": "commitReview.selectRepo",
           "when": "view == commitReview.reviewView",
           "group": "navigation"
+        }
+      ],
+      "comments/commentThread/context": [
+        {
+          "command": "commitReview.comment.reply",
+          "group": "inline",
+          "when": "commentController == commit-review"
+        }
+      ],
+      "comments/comment/title": [
+        {
+          "command": "commitReview.comment.delete",
+          "group": "inline",
+          "when": "commentController == commit-review"
+        }
+      ],
+      "comments/comment/context": [
+        {
+          "command": "commitReview.comment.setOpen",
+          "group": "status@1",
+          "when": "commentController == commit-review"
+        },
+        {
+          "command": "commitReview.comment.setResolved",
+          "group": "status@2",
+          "when": "commentController == commit-review"
+        },
+        {
+          "command": "commitReview.comment.setWontFix",
+          "group": "status@3",
+          "when": "commentController == commit-review"
+        },
+        {
+          "command": "commitReview.comment.setPending",
+          "group": "status@4",
+          "when": "commentController == commit-review"
         }
       ]
     }

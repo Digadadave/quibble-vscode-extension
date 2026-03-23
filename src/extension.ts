@@ -4,7 +4,8 @@ import { GitService } from './GitService';
 import { CommentManager } from './CommentManager';
 import { ReviewPanel } from './ReviewPanel';
 import { CommentsView } from './CommentsView';
-import { DiffPanel } from './DiffPanel';
+import { GitContentProvider } from './GitContentProvider';
+import { ReviewCommentController } from './ReviewCommentController';
 
 // ── Mutable active-repo state ────────────────────────────────────────────────
 
@@ -12,38 +13,49 @@ let activeGit: GitService | undefined;
 let activeComments: CommentManager | undefined;
 let activeReviewPanel: ReviewPanel | undefined;
 let activeCommentsView: CommentsView | undefined;
+let activeCommentController: ReviewCommentController | undefined;
 let statusBar: vscode.StatusBarItem | undefined;
 let commentChangeDisposable: vscode.Disposable | undefined;
 
 export function activate(context: vscode.ExtensionContext): void {
   const repos = discoverAllRepos();
 
+  // ── Git content provider (serves file content at specific commits) ─────────
+  const gitContentProvider = new GitContentProvider();
+  context.subscriptions.push(
+    vscode.workspace.registerTextDocumentContentProvider(
+      GitContentProvider.scheme,
+      gitContentProvider,
+    ),
+  );
+
+  // ── Native comment controller ─────────────────────────────────────────────
+  activeCommentController = new ReviewCommentController(context, new CommentManager(''));
+  context.subscriptions.push(activeCommentController);
+
   // ── Commits sidebar WebviewView ───────────────────────────────────────────
   activeReviewPanel = ReviewPanel.register(context, new GitService(''));
 
-  // When the user selects commit(s): show diff in editor + expand files for single commits.
-  activeReviewPanel.onSelectionChanged = (hashes) => {
-    if (!activeGit || !activeComments) return;
-    const diff = DiffPanel.createOrShow(context, activeGit, activeComments);
-    diff.onCommentMutation = refreshAll;
-    diff.showSelection(hashes);
-    // For a single-commit selection, push file+stat list back to the sidebar
-    if (hashes.length === 1) {
-      const files = activeGit.getChangedFilesWithStats(hashes[0]);
-      activeReviewPanel?.sendCommitFiles(hashes[0], files);
-    }
-  };
-
-  // When the user expands a commit: send its file list to the sidebar.
+  // When the user expands a commit: push its file list to the sidebar.
   activeReviewPanel.onExpandCommit = (hash) => {
     if (!activeGit) return;
     const files = activeGit.getChangedFilesWithStats(hash);
     activeReviewPanel?.sendCommitFiles(hash, files);
   };
 
-  // When the user clicks a file row in the sidebar: scroll the diff to that file.
-  activeReviewPanel.onJumpToFile = (_hash, file) => {
-    DiffPanel.getInstance()?.focusFile(file);
+  // When a commit is selected (clicked), also expand its files immediately.
+  activeReviewPanel.onSelectionChanged = (hashes) => {
+    if (!activeGit) return;
+    for (const hash of hashes) {
+      const files = activeGit.getChangedFilesWithStats(hash);
+      activeReviewPanel?.sendCommitFiles(hash, files);
+    }
+  };
+
+  // When the user clicks a file row in the sidebar: open the native VS Code diff.
+  activeReviewPanel.onJumpToFile = (hash, file) => {
+    if (!activeGit) return;
+    openNativeDiff(activeGit, file, hash);
   };
 
   // When the user clicks the repo select button in the sidebar.
@@ -55,20 +67,21 @@ export function activate(context: vscode.ExtensionContext): void {
     vscode.window.registerWebviewViewProvider(
       ReviewPanel.viewType,
       activeReviewPanel,
-      { webviewOptions: { retainContextWhenHidden: true } }
-    )
+      { webviewOptions: { retainContextWhenHidden: true } },
+    ),
   );
 
   // ── Comments sidebar WebviewView ──────────────────────────────────────────
   activeCommentsView = CommentsView.register(context, new CommentManager(''));
 
-  // When the user clicks a comment: open the diff panel at that commit and
-  // scroll to the comment thread row.
-  activeCommentsView.onFocusComment = (_file, _line, commitHash, commentId) => {
-    if (!activeGit || !activeComments) return;
-    const diff = DiffPanel.createOrShow(context, activeGit, activeComments);
-    diff.onCommentMutation = refreshAll;
-    diff.focusComment(commentId, commitHash);
+  // When the user clicks a comment: open the diff and navigate to that line.
+  activeCommentsView.onFocusComment = async (file, line, commitHash) => {
+    if (!activeGit) return;
+    await openNativeDiff(activeGit, file, commitHash);
+    // Give the editor a moment to open before revealing the line.
+    setTimeout(() => {
+      vscode.commands.executeCommand('revealLine', { lineNumber: line - 1, at: 'center' });
+    }, 300);
   };
 
   // When the user right-click-deletes a comment from the sidebar.
@@ -82,25 +95,28 @@ export function activate(context: vscode.ExtensionContext): void {
     vscode.window.registerWebviewViewProvider(
       CommentsView.viewType,
       activeCommentsView,
-      { webviewOptions: { retainContextWhenHidden: true } }
-    )
+      { webviewOptions: { retainContextWhenHidden: true } },
+    ),
   );
 
-  // ── Status bar ──────────────────────────────────────────────────────────
+  // ── Status bar ────────────────────────────────────────────────────────────
   statusBar = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Left, 10);
   statusBar.command = 'commitReview.selectRepo';
   statusBar.tooltip = 'Select repo for Commit Review';
   context.subscriptions.push(statusBar);
 
-  // ── Shared refresh (called after any comment mutation) ──────────────────
+  // ── Shared refresh (called after any comment mutation) ────────────────────
   function refreshAll(): void {
-    try { activeReviewPanel?.sendCommits(); }         catch { /* ignore git errors */ }
-    try { activeCommentsView?.refresh(); }            catch { /* ignore */ }
-    try { DiffPanel.getInstance()?.refreshComments(); } catch { /* ignore */ }
+    try { activeReviewPanel?.sendCommits(); }   catch { /* ignore git errors */ }
+    try { activeCommentsView?.refresh(); }      catch { /* ignore */ }
+    try { activeCommentController?.refresh(); } catch { /* ignore */ }
     updateStatusBar();
   }
 
-  // ── Switch to a repo ────────────────────────────────────────────────────
+  // Wire the comment controller's mutation callback.
+  if (activeCommentController) activeCommentController.onCommentMutation = refreshAll;
+
+  // ── Switch to a repo ──────────────────────────────────────────────────────
   function switchToRepo(repoPath: string): void {
     commentChangeDisposable?.dispose();
     activeComments?.dispose();
@@ -109,18 +125,18 @@ export function activate(context: vscode.ExtensionContext): void {
     activeComments = new CommentManager(repoPath);
     activeComments.startWatching();
 
-    // Push updated services into panels
+    // Keep the content provider's git service up to date.
+    gitContentProvider.setGit(activeGit);
+
+    // Push updated services into views.
     activeReviewPanel?.updateServices(activeGit);
     activeCommentsView?.updateServices(activeComments);
-    DiffPanel.getInstance()?.updateServices(activeGit, activeComments);
+    activeCommentController?.updateRepo(repoPath, activeComments);
 
-    // Re-wire diff panel's mutation callback after service update
-    const diff = DiffPanel.getInstance();
-    if (diff) {
-      diff.onCommentMutation = refreshAll;
-    }
+    // Wire the mutation callback for the new controller instance.
+    if (activeCommentController) activeCommentController.onCommentMutation = refreshAll;
 
-    // Auto-refresh when reviews.json changes externally (agent updates)
+    // Auto-refresh when reviews.json changes externally (agent updates).
     commentChangeDisposable = activeComments.onDidChange(refreshAll);
 
     updateStatusBar();
@@ -129,7 +145,7 @@ export function activate(context: vscode.ExtensionContext): void {
     vscode.window.showInformationMessage(`Commit Review: switched to ${repoName}`);
   }
 
-  // ── Commands ─────────────────────────────────────────────────────────────
+  // ── Commands ──────────────────────────────────────────────────────────────
 
   context.subscriptions.push(
     vscode.commands.registerCommand('commitReview.selectRepo', async () => {
@@ -142,31 +158,27 @@ export function activate(context: vscode.ExtensionContext): void {
       const items = allRepos.map(r => ({ label: path.basename(r), description: r, repoPath: r }));
       const picked = await vscode.window.showQuickPick(items, { placeHolder: 'Select a repository to review' });
       if (picked) switchToRepo(picked.repoPath);
-    })
+    }),
   );
 
   context.subscriptions.push(
-    vscode.commands.registerCommand(
-      'commitReview.openPanel',
-      (focusHash?: string, focusFile?: string) => {
-        if (!activeGit || !activeComments) {
-          vscode.commands.executeCommand('commitReview.selectRepo');
-          return;
-        }
-        // Reveal the commits sidebar
-        vscode.commands.executeCommand(`${ReviewPanel.viewType}.focus`);
-        // If a specific commit requested, open the diff panel for it
-        if (focusHash) {
-          const diff = DiffPanel.createOrShow(context, activeGit, activeComments);
-          diff.onCommentMutation = refreshAll;
-          diff.showSelection([focusHash]);
-          if (focusFile) setTimeout(() => diff.focusFile(focusFile!), 200);
-        }
+    vscode.commands.registerCommand('commitReview.openPanel', () => {
+      if (!activeGit || !activeComments) {
+        vscode.commands.executeCommand('commitReview.selectRepo');
+        return;
       }
-    )
+      vscode.commands.executeCommand(`${ReviewPanel.viewType}.focus`);
+    }),
   );
 
-  // ── Auto-select repo ─────────────────────────────────────────────────────
+  context.subscriptions.push(
+    vscode.commands.registerCommand('commitReview.copyAgentPrompt', () => {
+      if (!activeComments || !activeGit) return;
+      copyAgentPrompt(activeGit, activeComments);
+    }),
+  );
+
+  // ── Auto-select repo ──────────────────────────────────────────────────────
   if (repos.length === 1) {
     switchToRepo(repos[0]);
   } else if (repos.length > 1) {
@@ -182,7 +194,62 @@ export function deactivate(): void {
   activeComments?.dispose();
 }
 
-// ── Helpers ──────────────────────────────────────────────────────────────────
+// ── Open native diff ──────────────────────────────────────────────────────────
+
+async function openNativeDiff(git: GitService, file: string, commitHash: string): Promise<void> {
+  const repoPath   = git.getRepoPath();
+  const parentHash = git.getParentHash(commitHash) || '__empty__';
+
+  const oldUri = GitContentProvider.makeUri(repoPath, file, parentHash, 'old');
+  const newUri = GitContentProvider.makeUri(repoPath, file, commitHash, 'new');
+  const title  = `${path.basename(file)} @ ${commitHash.slice(0, 7)}`;
+
+  await vscode.commands.executeCommand('vscode.diff', oldUri, newUri, title);
+}
+
+// ── Agent prompt ──────────────────────────────────────────────────────────────
+
+function copyAgentPrompt(git: GitService, comments: CommentManager): void {
+  const open = comments.getOpenComments();
+  if (open.length === 0) {
+    vscode.window.showInformationMessage('No open comments to address.');
+    return;
+  }
+
+  const byCommit = new Map<string, typeof open>();
+  for (const c of open) {
+    if (!byCommit.has(c.commitHash)) byCommit.set(c.commitHash, []);
+    byCommit.get(c.commitHash)!.push(c);
+  }
+
+  const commits   = git.getLog(100);
+  const hashToMsg = new Map(commits.map(c => [c.hash, c.message]));
+
+  let prompt = '## Code Review Comments to Address\n\n';
+  prompt += 'Please address the following review comments. After fixing each issue, ';
+  prompt += 'update `.vscode/commit-reviews.json` — set `"status": "resolved"` and ';
+  prompt += '`"addressedByCommit"` to the new commit hash.\n\n---\n\n';
+
+  for (const [hash, cs] of byCommit) {
+    const msg = hashToMsg.get(hash) ?? hash;
+    prompt += `### Commit \`${hash.slice(0, 8)}\` — ${msg}\n\n`;
+    for (const c of cs) {
+      prompt += `**${c.file}** line ${c.line} (id: \`${c.id}\`, status: \`${c.status}\`)\n`;
+      if (c.codeSnippet) prompt += `\`\`\`\n${c.codeSnippet}\n\`\`\`\n`;
+      prompt += `> ${c.body}\n`;
+      for (const t of c.thread) prompt += `> — **${t.author}**: ${t.body}\n`;
+      prompt += '\n';
+    }
+  }
+
+  vscode.env.clipboard.writeText(prompt).then(() => {
+    vscode.window.showInformationMessage(
+      `Agent prompt copied (${open.length} comment${open.length !== 1 ? 's' : ''}).`,
+    );
+  });
+}
+
+// ── Helpers ───────────────────────────────────────────────────────────────────
 
 function discoverAllRepos(): string[] {
   const folders = vscode.workspace.workspaceFolders;

@@ -271,6 +271,14 @@ export class GitService {
     return exec(`git show ${hash}:${normalized}`, this.repoPath);
   }
 
+  /**
+   * Returns the full hash of the parent commit, or empty string for root commits.
+   * Use `'__empty__'` as the old-side ref when this returns empty.
+   */
+  getParentHash(hash: string): string {
+    return exec(`git rev-parse --verify ${hash}^`, this.repoPath);
+  }
+
   static getRepoRoot(startPath: string): string | undefined {
     try {
       const result = execSync('git rev-parse --show-toplevel', {
