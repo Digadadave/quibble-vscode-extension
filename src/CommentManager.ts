@@ -3,12 +3,24 @@ import * as path from 'path';
 import * as crypto from 'crypto';
 import * as vscode from 'vscode';
 
-export type CommentStatus = 'open' | 'question' | 'agent-replied' | 'addressed';
+export type CommentStatus = 'open' | 'question' | 'agent-replied' | 'addressed' |
+  'in-progress' | 'outdated' | 'pending' | 'resolved' | 'wont-fix';
 
 export interface ThreadEntry {
   author: string;
   body: string;
   createdAt: string;
+}
+
+export interface SnapshotLine {
+  line: number;
+  content: string;
+}
+
+export interface CommentSnapshot {
+  before: SnapshotLine[];
+  target: SnapshotLine[];
+  after: SnapshotLine[];
 }
 
 export interface ReviewComment {
@@ -27,9 +39,14 @@ export interface ReviewComment {
   addressedAt: string | null;
   addressedByCommit: string | null;
   codeSnippet: string;
+  /** Written by the agent when updating status. Null until the agent acts. */
+  resolvedNote: string | null;
+  /** Code context captured at comment creation time. */
+  snapshot: CommentSnapshot | null;
 }
 
 interface ReviewStore {
+  _schema?: unknown;
   version: number;
   reviews: ReviewComment[];
 }
@@ -75,10 +92,14 @@ export class CommentManager implements vscode.Disposable {
     this.watcher.onDidCreate(maybefire);
   }
 
+  private cachedSchema: unknown = undefined;
+
   load(): ReviewComment[] {
     if (!fs.existsSync(this.reviewsPath)) return [];
     try {
       const store: ReviewStore = JSON.parse(fs.readFileSync(this.reviewsPath, 'utf8'));
+      // Preserve the _schema block so save() can write it back unchanged.
+      if (store._schema !== undefined) this.cachedSchema = store._schema;
       return store.reviews ?? [];
     } catch {
       return [];
@@ -90,7 +111,18 @@ export class CommentManager implements vscode.Disposable {
     if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
     // Suppress the file-watcher echo so we don't trigger a second refreshAll
     this.suppressNextWatchEvent = true;
-    const store: ReviewStore = { version: 1, reviews: comments };
+    // Re-read to pick up any _schema block written by an agent.
+    if (this.cachedSchema === undefined && fs.existsSync(this.reviewsPath)) {
+      try {
+        const existing: ReviewStore = JSON.parse(fs.readFileSync(this.reviewsPath, 'utf8'));
+        if (existing._schema !== undefined) this.cachedSchema = existing._schema;
+      } catch { /* ignore */ }
+    }
+    const store: ReviewStore = {
+      ...(this.cachedSchema !== undefined ? { _schema: this.cachedSchema } : {}),
+      version: 1,
+      reviews: comments,
+    };
     fs.writeFileSync(this.reviewsPath, JSON.stringify(store, null, 2), 'utf8');
     // Do NOT fire _onDidChange here — internal mutations use onCommentMutation callback.
     // External/agent changes use the file watcher.
@@ -122,6 +154,8 @@ export class CommentManager implements vscode.Disposable {
       addressedAt: null,
       addressedByCommit: null,
       codeSnippet: params.codeSnippet ?? '',
+      resolvedNote: null,
+      snapshot: null,
     };
     comments.push(comment);
     this.save(comments);

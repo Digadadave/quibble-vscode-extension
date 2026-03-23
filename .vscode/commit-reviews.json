@@ -1,0 +1,284 @@
+{
+  "_schema": {
+    "description": "Local commit review metadata for a VS Code extension. Each comment represents feedback left by the user on a specific file and line at the time of a commit. Comments are intended to be addressed by an AI agent. The snapshot field captures surrounding code context at the time the comment was made so the agent can understand the original intent even if the code has since changed. The agent should check this file before starting any task and address all open comments.",
+    "fields": {
+      "id": "Unique identifier for the comment",
+      "commitHash": "The git commit hash the comment was made against",
+      "file": "Relative path to the file from the repo root",
+      "line": "Line number at the time of the commit",
+      "body": "The review comment text written by the user",
+      "status": {
+        "description": "Current state of the comment. User and agent have separate ownership of statuses.",
+        "user-only": "open | resolved | wont-fix",
+        "agent-only": "in-progress | outdated | pending",
+        "values": {
+          "open": "User has left a comment for the agent to address",
+          "in-progress": "Agent is actively working on this comment",
+          "outdated": "Agent detected the code has changed enough that the comment may no longer apply. Requires user review.",
+          "pending": "Agent has questions before it can proceed. Requires user review.",
+          "resolved": "User has confirmed the agents work is acceptable",
+          "wont-fix": "User has decided this comment does not need to be addressed"
+        }
+      },
+      "createdAt": "ISO 8601 timestamp when the comment was created",
+      "addressedAt": "ISO 8601 timestamp when resolved, null if still open",
+      "resolvedNote": "Written by the agent when updating status. For resolved, explains what was changed and why. For outdated, explains what changed in the code. For pending, contains the agents question for the user. Null if status is open.",
+      "snapshot": {
+        "description": "Code context captured at the time of the comment. Use this to understand the original code the comment refers to regardless of how the file has changed since. Compare against current file state to determine if the comment is still relevant.",
+        "before": "Lines immediately preceding the target line, for context",
+        "target": "The specific line or lines the comment is about",
+        "after": "Lines immediately following the target line, for context"
+      }
+    }
+  },
+  "version": 1,
+  "reviews": [
+    {
+      "id": "cr_f6e9bda3",
+      "status": "pending",
+      "commitHash": "c30a52c24d54c726d9523951867209f28c35b7db",
+      "file": "src/ReviewPanel.ts",
+      "line": 11,
+      "lineEnd": 11,
+      "side": "right",
+      "body": "Hey now",
+      "author": "reviewer",
+      "createdAt": "2026-03-15T00:35:22.384Z",
+      "thread": [],
+      "addressedAt": null,
+      "addressedByCommit": null,
+      "codeSnippet": "\nexport class ReviewPanel implements vscode.WebviewViewProvider, vscode.Disposable {\n  static readonly viewType = 'commitReview.reviewView';",
+      "resolvedNote": "The comment 'Hey now' doesn't describe an actionable concern. Line 11 at this commit was the class opening brace area of ReviewPanel. The class has since been extended with onExpandCommit and onJumpToFile callbacks. Could you clarify what you'd like changed or what the issue is?",
+      "snapshot": {
+        "before": [
+          { "line": 8, "content": "" },
+          { "line": 9, "content": "  private _view?: vscode.WebviewView;" },
+          { "line": 10, "content": "  private disposables: vscode.Disposable[] = [];" }
+        ],
+        "target": [
+          { "line": 11, "content": "" }
+        ],
+        "after": [
+          { "line": 12, "content": "  /** Called when the user changes commit selection (click or shift-click range). */" },
+          { "line": 13, "content": "  onSelectionChanged?: (hashes: string[]) => void;" }
+        ]
+      }
+    },
+    {
+      "id": "cr_2bdaecd2",
+      "status": "pending",
+      "commitHash": "c30a52c24d54c726d9523951867209f28c35b7db",
+      "file": "src/ReviewPanel.ts",
+      "line": 39,
+      "lineEnd": 39,
+      "side": "right",
+      "body": "What about this?",
+      "author": "reviewer",
+      "createdAt": "2026-03-15T00:35:52.384Z",
+      "thread": [],
+      "addressedAt": null,
+      "addressedByCommit": null,
+      "codeSnippet": "    }\n    return ReviewPanel.instance;\n  }",
+      "resolvedNote": "The comment 'What about this?' doesn't describe an actionable concern. Line 39 is inside the static register() factory — it updates the git service and returns the singleton instance. Code is functionally unchanged. Could you clarify what you'd like changed?",
+      "snapshot": {
+        "before": [
+          { "line": 36, "content": "      ReviewPanel.instance = new ReviewPanel(context, git);" },
+          { "line": 37, "content": "    } else {" },
+          { "line": 38, "content": "      ReviewPanel.instance.git = git;" }
+        ],
+        "target": [
+          { "line": 39, "content": "    }" }
+        ],
+        "after": [
+          { "line": 40, "content": "    return ReviewPanel.instance;" },
+          { "line": 41, "content": "  }" }
+        ]
+      }
+    },
+    {
+      "id": "cr_8a69caf7",
+      "status": "outdated",
+      "commitHash": "bb2b6e9f6480b0832a612911872c7a8ea50b3027",
+      "file": "media/review.js",
+      "line": 34,
+      "lineEnd": 34,
+      "side": "right",
+      "body": "The highlight is working...",
+      "author": "reviewer",
+      "createdAt": "2026-03-15T00:56:25.987Z",
+      "thread": [],
+      "addressedAt": null,
+      "addressedByCommit": null,
+      "codeSnippet": "case 'load':",
+      "resolvedNote": "review.js has been substantially refactored since this commit. Line 34 at commit bb2b6e9f was 'case 'load':' inside the message handler; current line 34 is 'let composerJustOpened = false;' — a completely different section. The message handler has moved and been rewritten. The original comment appears to be an informational note about a working feature, not a request for action.",
+      "snapshot": {
+        "before": [
+          { "line": 32, "content": "  const msg = event.data;" },
+          { "line": 33, "content": "  switch (msg.type) {" }
+        ],
+        "target": [
+          { "line": 34, "content": "    case 'load':" }
+        ],
+        "after": [
+          { "line": 35, "content": "      state.comments       = msg.comments       ?? [];" },
+          { "line": 36, "content": "      state.selectedHashes = new Set(msg.selectedHashes ?? []);" }
+        ]
+      }
+    },
+    {
+      "id": "cr_55d8e25a",
+      "status": "pending",
+      "commitHash": "bb2b6e9f6480b0832a612911872c7a8ea50b3027",
+      "file": "media/review.js",
+      "line": 10,
+      "lineEnd": 10,
+      "side": "right",
+      "body": "Hello",
+      "author": "reviewer",
+      "createdAt": "2026-03-15T01:12:57.384Z",
+      "thread": [],
+      "addressedAt": null,
+      "addressedByCommit": null,
+      "codeSnippet": "  /** @type {any[]} */\n  comments: [],\n  /** @type {Set<string>} selected hashes — received from extension */",
+      "resolvedNote": "The comment 'Hello' doesn't describe an actionable concern. Line 10 is 'comments: []' in the state object, unchanged since this commit. Appears to be a test comment. Could you clarify if there's something specific you'd like changed here?",
+      "snapshot": {
+        "before": [
+          { "line": 8, "content": "const state = {" },
+          { "line": 9, "content": "  /** @type {any[]} */" }
+        ],
+        "target": [
+          { "line": 10, "content": "  comments: []," }
+        ],
+        "after": [
+          { "line": 11, "content": "  /** @type {Set<string>} selected hashes */" },
+          { "line": 12, "content": "  selectedHashes: new Set()," }
+        ]
+      }
+    },
+    {
+      "id": "cr_3c25074c",
+      "status": "outdated",
+      "commitHash": "43bde707421e1216b1fce2a063456107c52ad05f",
+      "file": "media/review.css",
+      "line": 40,
+      "lineEnd": 40,
+      "side": "right",
+      "body": "Why did you do this?",
+      "author": "reviewer",
+      "createdAt": "2026-03-14T16:09:50.413Z",
+      "thread": [],
+      "addressedAt": null,
+      "addressedByCommit": null,
+      "codeSnippet": "\n/* ── Two-panel layout ────────────────────────────────────────────────────── */\n",
+      "resolvedNote": "The two-panel layout section originally supported a DiffPanel that had an embedded sidebar alongside the diff area. The architecture was later split into separate VS Code WebviewViews — CommentsView and ReviewPanel are now independent providers and the DiffPanel is a single-column editor panel. The #layout and #sidebar CSS still exist because CommentsView and ReviewPanel share this stylesheet, but they no longer represent an embedded two-panel split inside the diff view. The comment may no longer apply in its original context.",
+      "snapshot": {
+        "before": [
+          { "line": 37, "content": "  flex-direction: column;" },
+          { "line": 38, "content": "}" },
+          { "line": 39, "content": "" }
+        ],
+        "target": [
+          { "line": 40, "content": "/* ── Two-panel layout ────────────────────────────────────────────────────── */" }
+        ],
+        "after": [
+          { "line": 41, "content": "" },
+          { "line": 42, "content": "#layout {" }
+        ]
+      }
+    },
+    {
+      "id": "cr_4d59c287",
+      "status": "pending",
+      "commitHash": "7b8566e7d30821be835ca40c68725f5326bf9b55",
+      "file": "media/review.css",
+      "line": 66,
+      "lineEnd": 66,
+      "side": "right",
+      "body": "This is another thing",
+      "author": "reviewer",
+      "createdAt": "2026-03-14T17:33:14.027Z",
+      "thread": [],
+      "addressedAt": null,
+      "addressedByCommit": null,
+      "codeSnippet": "\n.sidebar-section-header {\n  display: flex;",
+      "resolvedNote": "The comment 'This is another thing' doesn't describe an actionable concern. The .sidebar-section-header rule is unchanged from when the comment was made. Could you clarify what you'd like changed or what the issue is?",
+      "snapshot": {
+        "before": [
+          { "line": 64, "content": "/* ── Sidebar section headers ─────────────────────────────────────────────── */" },
+          { "line": 65, "content": "" }
+        ],
+        "target": [
+          { "line": 66, "content": ".sidebar-section-header {" },
+          { "line": 67, "content": "  display: flex;" }
+        ],
+        "after": [
+          { "line": 68, "content": "  align-items: center;" },
+          { "line": 69, "content": "  justify-content: space-between;" }
+        ]
+      }
+    },
+    {
+      "id": "cr_16312e93",
+      "status": "pending",
+      "commitHash": "7b8566e7d30821be835ca40c68725f5326bf9b55",
+      "file": "media/review.css",
+      "line": 80,
+      "lineEnd": 80,
+      "side": "right",
+      "body": "What about this one?",
+      "author": "reviewer",
+      "createdAt": "2026-03-14T17:34:01.709Z",
+      "thread": [],
+      "addressedAt": null,
+      "addressedByCommit": null,
+      "codeSnippet": "\n.section-title {\n  font-size: 10px;",
+      "resolvedNote": "The comment 'What about this one?' doesn't describe an actionable concern. The .section-title rule is unchanged. Could you clarify what you'd like changed — font size, color, letter-spacing, something else?",
+      "snapshot": {
+        "before": [
+          { "line": 77, "content": ".sidebar-section-border {" },
+          { "line": 78, "content": "  border-top: 1px solid var(--border);" },
+          { "line": 79, "content": "}" }
+        ],
+        "target": [
+          { "line": 80, "content": ".section-title {" },
+          { "line": 81, "content": "  font-size: 10px;" }
+        ],
+        "after": [
+          { "line": 82, "content": "  font-weight: 700;" },
+          { "line": 83, "content": "  text-transform: uppercase;" }
+        ]
+      }
+    },
+    {
+      "id": "cr_fc46008a",
+      "status": "pending",
+      "commitHash": "bb2b6e9f6480b0832a612911872c7a8ea50b3027",
+      "file": "media/review.js",
+      "line": 13,
+      "lineEnd": 13,
+      "side": "right",
+      "body": "Hello there",
+      "author": "reviewer",
+      "createdAt": "2026-03-15T00:21:33.936Z",
+      "thread": [],
+      "addressedAt": null,
+      "addressedByCommit": null,
+      "codeSnippet": "  selectedHashes: new Set(),\n  /** @type {Set<string>} */\n  reviewedCommits: new Set(),",
+      "resolvedNote": "The comment 'Hello there' doesn't describe an actionable concern. The reviewedCommits set tracks which commits the user has marked reviewed. Code is unchanged. Was this a test comment, or is there something specific to address?",
+      "snapshot": {
+        "before": [
+          { "line": 11, "content": "  /** @type {any[]} */" },
+          { "line": 12, "content": "  comments: []," }
+        ],
+        "target": [
+          { "line": 13, "content": "  /** @type {Set<string>} */" },
+          { "line": 14, "content": "  reviewedCommits: new Set()," }
+        ],
+        "after": [
+          { "line": 15, "content": "  /** @type {any[]} */" },
+          { "line": 16, "content": "  currentDiff: []," }
+        ]
+      }
+    }
+  ]
+}
