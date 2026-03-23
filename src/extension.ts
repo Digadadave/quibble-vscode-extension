@@ -131,7 +131,7 @@ export function activate(context: vscode.ExtensionContext): void {
     // Push updated services into views.
     activeReviewPanel?.updateServices(activeGit);
     activeCommentsView?.updateServices(activeComments);
-    activeCommentController?.updateRepo(repoPath, activeComments);
+    activeCommentController?.updateRepo(repoPath, activeComments, activeGit);
 
     // Wire the mutation callback for the new controller instance.
     if (activeCommentController) activeCommentController.onCommentMutation = refreshAll;

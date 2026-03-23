@@ -1,6 +1,7 @@
 import * as vscode from 'vscode';
-import { CommentManager, ReviewComment } from './CommentManager';
+import { CommentManager, ReviewComment, CommentSnapshot, SnapshotLine } from './CommentManager';
 import { GitContentProvider } from './GitContentProvider';
+import { GitService } from './GitService';
 
 // ── Status display labels ────────────────────────────────────────────────────
 
@@ -40,6 +41,8 @@ export class ReviewCommentController implements vscode.Disposable {
   /** Called after any mutation so the sidebar counts / status bar stay fresh. */
   onCommentMutation?: () => void;
 
+  private git: GitService | undefined;
+
   constructor(
     context: vscode.ExtensionContext,
     private comments: CommentManager,
@@ -70,9 +73,10 @@ export class ReviewCommentController implements vscode.Disposable {
   // ── Public API ────────────────────────────────────────────────────────────
 
   /** Switch to a new repo / CommentManager and reload all threads. */
-  updateRepo(repoPath: string, comments: CommentManager): void {
-    this.repoPath = repoPath;
-    this.comments = comments;
+  updateRepo(repoPath: string, comments: CommentManager, git: GitService): void {
+    this.repoPath   = repoPath;
+    this.comments   = comments;
+    this.git        = git;
     this.refresh();
   }
 
@@ -145,6 +149,35 @@ export class ReviewCommentController implements vscode.Disposable {
     return items;
   }
 
+  // ── Snapshot capture ─────────────────────────────────────────────────────
+
+  /**
+   * Fetch the file content at `commitHash` and extract the 3 lines before,
+   * the target line, and 3 lines after — matching the `snapshot` schema.
+   */
+  private captureSnapshot(commitHash: string, file: string, line: number): CommentSnapshot | null {
+    if (!this.git) return null;
+    try {
+      const content = this.git.getFileContentAtCommit(commitHash, file);
+      const all     = content.split('\n');
+      const idx     = line - 1; // 0-based
+
+      const before: SnapshotLine[] = [];
+      for (let i = Math.max(0, idx - 3); i < idx; i++) {
+        before.push({ line: i + 1, content: all[i] ?? '' });
+      }
+      const target: SnapshotLine[] = [{ line, content: all[idx] ?? '' }];
+      const after: SnapshotLine[] = [];
+      for (let i = idx + 1; i <= Math.min(all.length - 1, idx + 3); i++) {
+        after.push({ line: i + 1, content: all[i] ?? '' });
+      }
+
+      return { before, target, after };
+    } catch {
+      return null;
+    }
+  }
+
   // ── Command registration ──────────────────────────────────────────────────
 
   private registerCommands(context: vscode.ExtensionContext): void {
@@ -164,7 +197,10 @@ export class ReviewCommentController implements vscode.Disposable {
             const file        = thread.uri.path.startsWith('/') ? thread.uri.path.slice(1) : thread.uri.path;
             const line        = (thread.range?.start.line ?? 0) + 1;
 
-            this.comments.addComment({ commitHash, file, line, body: text.trim() });
+            const snapshot    = this.captureSnapshot(commitHash, file, line);
+            const codeSnippet = snapshot?.target.map(l => l.content).join('\n') ?? '';
+
+            this.comments.addComment({ commitHash, file, line, body: text.trim(), codeSnippet, snapshot });
             thread.dispose();  // Replace the temporary "pending" thread with a real one
           } else {
             // Reply to existing comment thread

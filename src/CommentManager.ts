@@ -137,6 +137,7 @@ export class CommentManager implements vscode.Disposable {
     body: string;
     author?: string;
     codeSnippet?: string;
+    snapshot?: CommentSnapshot | null;
   }): ReviewComment {
     const comments = this.load();
     const comment: ReviewComment = {
@@ -155,7 +156,7 @@ export class CommentManager implements vscode.Disposable {
       addressedByCommit: null,
       codeSnippet: params.codeSnippet ?? '',
       resolvedNote: null,
-      snapshot: null,
+      snapshot: params.snapshot ?? null,
     };
     comments.push(comment);
     this.save(comments);
