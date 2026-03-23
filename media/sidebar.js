@@ -12,10 +12,10 @@ const state = {
   selectedHashes: new Set(),
   /** Last index clicked without shift (anchor for range selection). */
   lastClickedIndex: -1,
-  /**
-   * @type {{ hash: string, files: Array<{path: string, status: string, insertions: number, deletions: number}> } | null}
-   */
-  expandedFiles: null,
+  /** Which commits have their file list expanded. */
+  expandedHashes: new Set(),
+  /** Cached file data per commit hash. @type {Map<string, Array<{path: string, status: string, insertions: number, deletions: number}>>} */
+  filesByHash: new Map(),
 };
 
 // ── Message handler ────────────────────────────────────────────────────────
@@ -26,12 +26,13 @@ window.addEventListener('message', (/** @type {MessageEvent} */ event) => {
     state.commits = msg.commits ?? [];
     state.selectedHashes = new Set();
     state.lastClickedIndex = -1;
-    state.expandedFiles = null;
+    state.expandedHashes = new Set();
+    state.filesByHash = new Map();
     const label = document.getElementById('branch-label');
     if (label && msg.branch) label.textContent = msg.branch.toUpperCase();
     renderCommits();
   } else if (msg.type === 'commitFiles') {
-    state.expandedFiles = { hash: msg.hash, files: msg.files ?? [] };
+    state.filesByHash.set(msg.hash, msg.files ?? []);
     renderCommits();
   }
 });
@@ -51,20 +52,39 @@ document.addEventListener('click', (/** @type {MouseEvent} */ e) => {
       if (!hash) break;
 
       if (e.shiftKey && state.lastClickedIndex >= 0) {
+        // Range selection: select a range but don't change expansions
         const lo = Math.min(state.lastClickedIndex, idx);
         const hi = Math.max(state.lastClickedIndex, idx);
         state.selectedHashes = new Set(
           state.commits.slice(lo, hi + 1).map(c => c.hash)
         );
-        state.expandedFiles = null;
       } else {
+        // Single click: toggle expansion for this commit
         state.selectedHashes = new Set([hash]);
         state.lastClickedIndex = idx;
-        state.expandedFiles = null;
+
+        if (state.expandedHashes.has(hash)) {
+          state.expandedHashes.delete(hash);
+        } else {
+          state.expandedHashes.add(hash);
+          // Request files from extension if not already cached
+          if (!state.filesByHash.has(hash)) {
+            vscode.postMessage({ type: 'expandCommit', hash });
+          }
+        }
       }
 
       renderCommits();
       vscode.postMessage({ type: 'selectionChanged', hashes: [...state.selectedHashes] });
+      break;
+    }
+
+    case 'file-click': {
+      const file = btn.getAttribute('data-file') ?? '';
+      const hash = btn.getAttribute('data-hash') ?? '';
+      if (file && hash) {
+        vscode.postMessage({ type: 'focusFile', hash, file });
+      }
       break;
     }
 
@@ -106,11 +126,10 @@ function renderCommits() {
       ? `<div class="commit-refs-row">${refs.map(r => `<span class="commit-ref-tag">${esc(r)}</span>`).join('')}</div>`
       : '';
 
-    // File list — only for single-commit selection
-    const showFiles = isSelected
-      && state.selectedHashes.size === 1
-      && state.expandedFiles?.hash === commit.hash;
-    const filesHtml = showFiles ? renderFileList(state.expandedFiles?.files ?? []) : '';
+    // Show file list if expanded and data is available
+    const isExpanded = state.expandedHashes.has(commit.hash);
+    const files = state.filesByHash.get(commit.hash);
+    const filesHtml = (isExpanded && files) ? renderFileList(files, commit.hash) : '';
 
     return `
 <div class="commit-item${selectedClass}" data-action="commit-click" data-index="${idx}" title="${esc(commit.hash)}">
@@ -131,8 +150,9 @@ function renderCommits() {
 
 /**
  * @param {Array<{path: string, status: string, insertions: number, deletions: number}>} files
+ * @param {string} commitHash
  */
-function renderFileList(files) {
+function renderFileList(files, commitHash) {
   if (!files.length) return '';
 
   const rows = files.map(f => {
@@ -142,18 +162,20 @@ function renderFileList(files) {
 
     const ins = f.insertions > 0 ? `<span class="stat-ins">+${f.insertions}</span>` : '';
     const del = f.deletions  > 0 ? `<span class="stat-del">-${f.deletions}</span>`  : '';
-    const stats = (ins || del) ? `<span class="file-stats">${ins}${ins && del ? ' ' : ''}${del}</span>` : '';
+    const stats = (ins || del) ? `<span class="file-stats">${ins}${ins && del ? '&nbsp;' : ''}${del}</span>` : '';
 
     const statusClass = f.status === 'A' ? 'status-added'
                       : f.status === 'D' ? 'status-deleted'
                       : 'status-modified';
 
     return `
-<div class="commit-file-row">
+<div class="commit-file-row" data-action="file-click" data-file="${esc(f.path)}" data-hash="${esc(commitHash)}">
   <span class="commit-file-status ${statusClass}">${esc(f.status)}</span>
   <span class="commit-file-name">${esc(filename)}</span>
   ${folder ? `<span class="commit-file-folder">${esc(folder)}</span>` : ''}
+  <span class="file-row-spacer"></span>
   ${stats}
+  <span class="file-jump-btn" title="Scroll to file in diff">&#x2197;</span>
 </div>`;
   }).join('');
 

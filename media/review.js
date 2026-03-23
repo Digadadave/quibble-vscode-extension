@@ -20,8 +20,6 @@ const state = {
   currentOldestShort: '',
   /** @type {string} */
   currentNewestShort: '',
-  /** 'inline' | 'split' */
-  diffMode: 'inline',
 };
 
 let pendingCommentFile = '';
@@ -37,8 +35,9 @@ let submittingComment = false;
 let composerJustOpened = false;
 
 /** Split-view drag state */
-let splitPct = 0.5;        // fraction of table width for old (left) side
 let splitDragging = false;
+let splitDragStartX = 0;   // clientX at drag start
+let splitDragStartPx = 0;  // old-column pixel width at drag start
 
 /** Expander drag state */
 let expanderDragging = false;
@@ -100,12 +99,6 @@ document.addEventListener('click', (/** @type {MouseEvent} */ e) => {
     const action = btn.getAttribute('data-action') ?? '';
 
     switch (action) {
-      case 'toggle-diff-mode':
-        state.diffMode = state.diffMode === 'inline' ? 'split' : 'inline';
-        updateDiffModeBtn();
-        renderDiff();
-        break;
-
       case 'toggle-reviewed':
         toggleMarkReviewed();
         break;
@@ -309,6 +302,10 @@ document.addEventListener('mousedown', (/** @type {MouseEvent} */ e) => {
   // Split-gutter drag
   if (target.closest('.split-gutter')) {
     splitDragging = true;
+    splitDragStartX = e.clientX;
+    // Capture the current pixel width of an old-column cell (1:1 drag mapping)
+    const oldCell = /** @type {HTMLElement|null} */ (document.querySelector('.diff-table.split .line-content.old'));
+    splitDragStartPx = oldCell ? oldCell.getBoundingClientRect().width : 300;
     document.body.classList.add('split-resizing');
     e.preventDefault();
     return;
@@ -328,12 +325,8 @@ document.addEventListener('mousedown', (/** @type {MouseEvent} */ e) => {
 
 document.addEventListener('mousemove', (/** @type {MouseEvent} */ e) => {
   if (splitDragging) {
-    const table = /** @type {HTMLElement|null} */ (document.querySelector('.diff-table.split'));
-    if (!table) return;
-    const rect = table.getBoundingClientRect();
-    const pct = Math.max(0.25, Math.min(0.75, (e.clientX - rect.left) / rect.width));
-    splitPct = pct;
-    document.documentElement.style.setProperty('--split-old-w', (pct * 100).toFixed(1) + '%');
+    const newPx = Math.max(80, splitDragStartPx + (e.clientX - splitDragStartX));
+    document.documentElement.style.setProperty('--split-old-px', newPx + 'px');
   }
 
   if (expanderDragging && expanderDragRow) {
@@ -417,20 +410,6 @@ function renderTopBar() {
     btn.textContent = allReviewed ? '\u2713 Reviewed' : 'Mark as reviewed';
     btn.classList.toggle('reviewed', allReviewed);
   }
-
-  updateDiffModeBtn();
-}
-
-function updateDiffModeBtn() {
-  const btn = document.getElementById('diff-mode-btn');
-  if (!btn) return;
-  if (state.diffMode === 'split') {
-    btn.textContent = 'Inline';
-    btn.classList.add('active');
-  } else {
-    btn.textContent = 'Split';
-    btn.classList.remove('active');
-  }
 }
 
 // ── Diff rendering ─────────────────────────────────────────────────────────
@@ -488,9 +467,7 @@ function renderFileBlock(fileDiff, comments, fileStatus) {
 
   let rows = '';
   for (let i = 0; i < hunks.length; i++) {
-    rows += state.diffMode === 'split'
-      ? renderHunkSplit(hunks[i], fileDiff.file, fileComments, newestHash)
-      : renderHunk(hunks[i], fileDiff.file, fileComments, newestHash);
+    rows += renderHunkSplit(hunks[i], fileDiff.file, fileComments, newestHash);
 
     // Between adjacent hunks — render a collapsible gap row if lines are hidden
     if (i < hunks.length - 1) {
@@ -507,7 +484,7 @@ function renderFileBlock(fileDiff, comments, fileStatus) {
     ${openCount > 0 ? `<span class="badge open">${openCount} comment${openCount !== 1 ? 's' : ''}</span>` : ''}
   </div>
   <div class="file-body">
-    <table class="diff-table${state.diffMode === 'split' ? ' split' : ''}"><tbody>${rows}</tbody></table>
+    <table class="diff-table split"><tbody>${rows}</tbody></table>
   </div>
 </div>`;
 }
@@ -550,7 +527,7 @@ function renderExpanderRow(file, commitHash, prevHunk, nextHunk) {
   if (gapNewEnd < gapNewStart) return '';              // nothing hidden
 
   const hidden   = gapNewEnd - gapNewStart + 1;
-  const colCount = state.diffMode === 'split' ? 5 : 3;
+  const colCount = 5;
   const key      = `${file}:${gapNewStart}:${gapNewEnd}`;
 
   return `
@@ -865,7 +842,7 @@ function openComposer(commitHash, file, startLine, endLine, snippet, anchorRow) 
   pendingCommentSnippet    = snippet;
   submittingComment        = false;
 
-  const colCount = state.diffMode === 'split' ? 5 : 3;
+  const colCount = 5;
   const lineLabel = endLine > startLine ? `${startLine}–${endLine}` : `${startLine}`;
   const snippetHtml = snippet
     ? `<pre class="inline-composer-snippet">${esc(snippet.length > 400 ? snippet.slice(0, 400) + '\u2026' : snippet)}</pre>`

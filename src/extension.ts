@@ -34,6 +34,18 @@ export function activate(context: vscode.ExtensionContext): void {
     }
   };
 
+  // When the user expands a commit: send its file list to the sidebar.
+  activeReviewPanel.onExpandCommit = (hash) => {
+    if (!activeGit) return;
+    const files = activeGit.getChangedFilesWithStats(hash);
+    activeReviewPanel?.sendCommitFiles(hash, files);
+  };
+
+  // When the user clicks a file row in the sidebar: scroll the diff to that file.
+  activeReviewPanel.onJumpToFile = (_hash, file) => {
+    DiffPanel.getInstance()?.focusFile(file);
+  };
+
   // When the user clicks the repo select button in the sidebar.
   activeReviewPanel.onSelectRepo = () => {
     vscode.commands.executeCommand('commitReview.selectRepo');

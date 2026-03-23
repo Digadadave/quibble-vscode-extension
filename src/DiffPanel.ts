@@ -278,7 +278,6 @@ export class DiffPanel implements vscode.Disposable {
     <span class="badge addressed" id="badge-addressed">0 addressed</span>
     <span id="selected-count" class="selected-label">0 commits selected</span>
   </div>
-  <button id="diff-mode-btn" data-action="toggle-diff-mode" title="Toggle inline/split diff">Split</button>
   <button id="mark-reviewed-btn" data-action="toggle-reviewed">Mark as reviewed</button>
 </div>
 

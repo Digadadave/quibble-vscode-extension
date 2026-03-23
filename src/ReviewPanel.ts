@@ -12,6 +12,12 @@ export class ReviewPanel implements vscode.WebviewViewProvider, vscode.Disposabl
   /** Called when the user changes commit selection (click or shift-click range). */
   onSelectionChanged?: (hashes: string[]) => void;
 
+  /** Called when the user expands a commit to request its file list. */
+  onExpandCommit?: (hash: string) => void;
+
+  /** Called when the user clicks a file row to jump to it in the diff. */
+  onJumpToFile?: (hash: string, file: string) => void;
+
   /** Called when the user clicks the repo select button. */
   onSelectRepo?: () => void;
 
@@ -60,6 +66,12 @@ export class ReviewPanel implements vscode.WebviewViewProvider, vscode.Disposabl
       switch (msg.type) {
         case 'selectionChanged':
           this.onSelectionChanged?.(msg.hashes as string[]);
+          break;
+        case 'expandCommit':
+          this.onExpandCommit?.(msg.hash as string);
+          break;
+        case 'focusFile':
+          this.onJumpToFile?.(msg.hash as string, msg.file as string);
           break;
         case 'selectRepo':
           this.onSelectRepo?.();
