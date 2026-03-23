@@ -11,8 +11,8 @@ export class CommentsView implements vscode.WebviewViewProvider, vscode.Disposab
   /** Cached comments to send as soon as the view resolves (if refresh was called before it opened). */
   private cachedComments: unknown[] | null = null;
 
-  /** Called when the user clicks a comment — jump to that file + line in the editor. */
-  onFocusComment?: (file: string, line: number) => void;
+  /** Called when the user clicks a comment — open the diff at that commit and scroll to the comment. */
+  onFocusComment?: (file: string, line: number, commitHash: string, commentId: string) => void;
 
   private constructor(
     private context: vscode.ExtensionContext,
@@ -57,7 +57,12 @@ export class CommentsView implements vscode.WebviewViewProvider, vscode.Disposab
 
     webviewView.webview.onDidReceiveMessage(msg => {
       if (msg.type === 'focusComment') {
-        this.onFocusComment?.(msg.file as string, msg.line as number);
+        this.onFocusComment?.(
+          msg.file as string,
+          msg.line as number,
+          msg.commitHash as string,
+          msg.id as string,
+        );
       }
     }, null, this.disposables);
 

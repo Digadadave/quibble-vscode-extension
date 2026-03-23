@@ -86,6 +86,30 @@ export class DiffPanel implements vscode.Disposable {
     this.panel.webview.postMessage({ type: 'focusFile', file });
   }
 
+  private pendingFocusId: string | null = null;
+
+  /**
+   * Open the diff for the given commit and, once rendered, scroll to the
+   * thread row for `commentId`.
+   */
+  focusComment(commentId: string, commitHash: string): void {
+    this.pendingFocusId = commentId;
+    // If the diff already covers this commit, just scroll immediately.
+    if (commitHash && this.currentHashes.includes(commitHash)) {
+      this.panel.reveal(vscode.ViewColumn.One, false);
+      this.panel.webview.postMessage({ type: 'focusComment', id: commentId });
+      this.pendingFocusId = null;
+    } else if (commitHash) {
+      // Switch to the right commit — pendingFocusId will ride along in diffResult.
+      this.showSelection([commitHash]);
+    } else {
+      // No commit info — just try to scroll in whatever is already shown.
+      this.panel.reveal(vscode.ViewColumn.One, false);
+      this.panel.webview.postMessage({ type: 'focusComment', id: commentId });
+      this.pendingFocusId = null;
+    }
+  }
+
   /** Update services when the active repo changes. */
   updateServices(git: GitService, comments: CommentManager): void {
     this.git = git;
@@ -194,6 +218,8 @@ export class DiffPanel implements vscode.Disposable {
     const parsedDiff = this.git.parseDiff(rawDiff);
     const changedFiles = this.git.getChangedFilesInRange(oldestHash, newestHash);
 
+    const focusCommentId = this.pendingFocusId;
+    this.pendingFocusId = null;
     this.panel.webview.postMessage({
       type: 'diffResult',
       parsedDiff,
@@ -202,6 +228,7 @@ export class DiffPanel implements vscode.Disposable {
       comments: this.comments.load(),
       oldestShort: log.find(c => c.hash === oldestHash)?.shortHash ?? oldestHash.slice(0, 7),
       newestShort: log.find(c => c.hash === newestHash)?.shortHash ?? newestHash.slice(0, 7),
+      focusCommentId,
     });
   }
 

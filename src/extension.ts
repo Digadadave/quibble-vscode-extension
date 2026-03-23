@@ -62,16 +62,13 @@ export function activate(context: vscode.ExtensionContext): void {
   // ── Comments sidebar WebviewView ──────────────────────────────────────────
   activeCommentsView = CommentsView.register(context, new CommentManager(''));
 
-  // When the user clicks a comment: open the file at that line in the editor.
-  activeCommentsView.onFocusComment = (file, line) => {
-    if (!activeGit) return;
-    const filePath = path.join(activeGit.getRepoPath(), file);
-    const uri = vscode.Uri.file(filePath);
-    const pos = new vscode.Position(Math.max(0, line - 1), 0);
-    vscode.window.showTextDocument(uri, {
-      selection: new vscode.Range(pos, pos),
-      preserveFocus: false,
-    });
+  // When the user clicks a comment: open the diff panel at that commit and
+  // scroll to the comment thread row.
+  activeCommentsView.onFocusComment = (_file, _line, commitHash, commentId) => {
+    if (!activeGit || !activeComments) return;
+    const diff = DiffPanel.createOrShow(context, activeGit, activeComments);
+    diff.onCommentMutation = refreshAll;
+    diff.focusComment(commentId, commitHash);
   };
 
   context.subscriptions.push(

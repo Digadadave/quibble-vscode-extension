@@ -254,11 +254,23 @@ body {
 }
 .sidebar-comment:hover { background: var(--bg-hover); }
 
+.sidebar-comment-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px;
+  margin-bottom: 2px;
+}
+
 .sidebar-comment-loc {
   font-family: var(--font-mono);
   font-size: 10px;
   color: var(--fg-muted);
-  margin-bottom: 2px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  flex: 1;
+  min-width: 0;
 }
 
 .sidebar-comment-body {
@@ -269,18 +281,11 @@ body {
   text-overflow: ellipsis;
 }
 
-.sidebar-comment-status {
-  display: inline-block;
-  font-size: 9px;
-  font-weight: 700;
-  padding: 1px 4px;
-  border-radius: 2px;
-  margin-top: 2px;
+.status-badge {
+  flex-shrink: 0;
+  display: block;
+  overflow: visible;
 }
-.sidebar-comment-status.open     { background: rgba(218,54,51,0.2);  color: var(--status-open); }
-.sidebar-comment-status.agent-replied { background: rgba(227,179,65,0.2); color: var(--status-replied); }
-.sidebar-comment-status.addressed { background: rgba(46,160,67,0.2); color: var(--status-addressed); }
-.sidebar-comment-status.resolved  { background: rgba(128,128,128,0.2); color: var(--status-resolved); }
 
 /* ── Right panel ─────────────────────────────────────────────────────────── */
 
@@ -520,6 +525,15 @@ tr.del-line .line-num.old { background: var(--del-num); }
 .thread-row td {
   padding: 0;
   background: var(--thread-bg);
+}
+
+@keyframes comment-flash {
+  0%   { background: rgba(56,139,253,0.25); }
+  70%  { background: rgba(56,139,253,0.12); }
+  100% { background: var(--thread-bg); }
+}
+.thread-row.comment-highlight td {
+  animation: comment-flash 1.8s ease-out forwards;
 }
 
 .thread-container {

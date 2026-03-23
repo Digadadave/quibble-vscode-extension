@@ -68,9 +68,13 @@ window.addEventListener('message', (/** @type {MessageEvent} */ event) => {
       state.comments            = msg.comments      ?? state.comments;
       renderTopBar();
       renderDiff();
+      if (msg.focusCommentId) scrollToComment(/** @type {string} */ (msg.focusCommentId));
       break;
     case 'focusFile':
       if (msg.file) scrollToFile(/** @type {string} */ (msg.file));
+      break;
+    case 'focusComment':
+      if (msg.id) scrollToComment(/** @type {string} */ (msg.id));
       break;
 
     case 'contextLines':
@@ -954,6 +958,17 @@ function scrollToFile(file) {
     document.querySelector(`.file-block[data-file="${CSS.escape(file)}"]`)
   );
   block?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+}
+
+/** Scroll to a comment thread row and briefly highlight it. @param {string} id */
+function scrollToComment(id) {
+  const row = /** @type {HTMLElement|null} */ (
+    document.querySelector(`tr.thread-row[data-comment-id="${CSS.escape(id)}"]`)
+  );
+  if (!row) return;
+  row.scrollIntoView({ behavior: 'smooth', block: 'center' });
+  row.classList.add('comment-highlight');
+  setTimeout(() => row.classList.remove('comment-highlight'), 1800);
 }
 
 // ── Helpers ────────────────────────────────────────────────────────────────
