@@ -15,13 +15,13 @@
         "user-sets": "open | resolved | dismissed",
         "agent-sets": "in-progress | needs-input | addressed | outdated",
         "values": {
-          "open":         "User has left a comment or question for the agent to address",
-          "in-progress":  "Agent is actively working on this comment",
-          "needs-input":  "Ball is in the user's court — either the agent has a question, or the agent answered a user question",
-          "addressed":    "Agent has finished — user should confirm or reopen",
-          "resolved":     "User confirmed the agent's work is acceptable",
-          "dismissed":    "User decided no action is needed",
-          "outdated":     "Agent detected the code has changed enough that the comment may no longer apply. See resolvedNote for details. User should reopen or dismiss."
+          "open": "User has left a comment or question for the agent to address",
+          "in-progress": "Agent is actively working on this comment",
+          "needs-input": "Ball is in the user's court — either the agent has a question, or the agent answered a user question",
+          "addressed": "Agent has finished — user should confirm or reopen",
+          "resolved": "User confirmed the agent's work is acceptable",
+          "dismissed": "User decided no action is needed",
+          "outdated": "Agent detected the code has changed enough that the comment may no longer apply. See resolvedNote for details. User should reopen or dismiss."
         }
       },
       "createdAt": "ISO 8601 timestamp when the comment was first created",
@@ -49,7 +49,7 @@
   "reviews": [
     {
       "id": "cr_24646f42",
-      "status": "addressed",
+      "status": "resolved",
       "commitHash": "87feccf4d53972aacef6ddcf4bbe640fae68b8e8",
       "file": "src/extension.ts",
       "line": 24,
@@ -73,7 +73,7 @@
     },
     {
       "id": "cr_11fb15a7",
-      "status": "needs-input",
+      "status": "resolved",
       "commitHash": "87feccf4d53972aacef6ddcf4bbe640fae68b8e8",
       "file": "src/ReviewCommentController.ts",
       "line": 7,
@@ -150,6 +150,65 @@
           {
             "line": 143,
             "content": "    const comment: ReviewComment = {"
+          }
+        ]
+      }
+    },
+    {
+      "id": "cr_ad03a16e",
+      "status": "needs-input",
+      "commitHash": "e0ecee277dc9a305b9298055f73754a5cd2ce420",
+      "file": "src/CommentManager.ts",
+      "line": 159,
+      "lineEnd": 159,
+      "side": "right",
+      "body": "What does the ?? mean and why null instead of undefined?",
+      "author": "reviewer",
+      "createdAt": "2026-03-24T01:51:37.740Z",
+      "thread": [
+        {
+          "author": "agent",
+          "body": "`??` is the **nullish coalescing operator** — it returns the right-hand side when the left-hand side is `null` or `undefined`, and the left-hand side otherwise. So `params.snapshot ?? null` means: use `params.snapshot` if it was provided, otherwise fall back to `null`.\n\n`null` is used instead of `undefined` because `snapshot` is typed as `CommentSnapshot | null` on the `ReviewComment` interface. The key reason is JSON serialization: `undefined` properties are silently dropped when `JSON.stringify` runs, so the `snapshot` key would be missing from the saved file entirely. Using `null` keeps the field present and explicit in the JSON, which makes the data easier to work with (e.g. no need to guard against missing keys when reading the file).",
+          "createdAt": "2026-03-24T02:00:00.000Z"
+        }
+      ],
+      "addressedAt": null,
+      "addressedByCommit": null,
+      "codeSnippet": "      snapshot: params.snapshot ?? null,",
+      "resolvedNote": null,
+      "snapshot": {
+        "before": [
+          {
+            "line": 156,
+            "content": "      addressedByCommit: null,"
+          },
+          {
+            "line": 157,
+            "content": "      codeSnippet: params.codeSnippet ?? '',"
+          },
+          {
+            "line": 158,
+            "content": "      resolvedNote: null,"
+          }
+        ],
+        "target": [
+          {
+            "line": 159,
+            "content": "      snapshot: params.snapshot ?? null,"
+          }
+        ],
+        "after": [
+          {
+            "line": 160,
+            "content": "    };"
+          },
+          {
+            "line": 161,
+            "content": "    comments.push(comment);"
+          },
+          {
+            "line": 162,
+            "content": "    this.save(comments);"
           }
         ]
       }
