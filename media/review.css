@@ -1219,33 +1219,74 @@ body.expander-resizing { cursor: ns-resize !important; user-select: none; }
   min-width: 0;
 }
 
-.ch-mode-btn {
+/* ── Toggle switch ─────────────────────────────────────── */
+.ch-toggle {
+  display: flex;
+  align-items: center;
+  gap: 4px;
   margin-left: auto;
-  padding: 1px 6px;
-  font-size: 10px;
-  border-radius: 3px;
   cursor: pointer;
-  border: 1px solid var(--vscode-button-secondaryBorder, rgba(128,128,128,0.4));
-  background: var(--vscode-button-secondaryBackground, rgba(128,128,128,0.15));
-  color: var(--vscode-button-secondaryForeground, var(--vscode-foreground, #ccc));
-  white-space: nowrap;
   flex-shrink: 0;
 }
-.ch-mode-btn:hover {
-  background: var(--vscode-button-secondaryHoverBackground, rgba(128,128,128,0.3));
+.ch-toggle input { display: none; }
+.ch-toggle-label {
+  font-size: 9px;
+  color: var(--vscode-descriptionForeground, #888);
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+}
+.ch-toggle-track {
+  position: relative;
+  width: 26px;
+  height: 14px;
+  border-radius: 7px;
+  background: var(--vscode-button-secondaryBackground, rgba(128,128,128,0.3));
+  transition: background 0.2s;
+}
+.ch-toggle-track::after {
+  content: '';
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: var(--vscode-foreground, #ccc);
+  transition: transform 0.2s;
+}
+.ch-toggle input:checked ~ .ch-toggle-track {
+  background: var(--vscode-button-background, #0e639c);
+}
+.ch-toggle input:checked ~ .ch-toggle-track::after {
+  transform: translateX(12px);
+}
+
+/* ── File block (row + optional expanded commits) ──────── */
+.ch-file-block {
+  border-bottom: 1px solid var(--vscode-sideBarSectionHeader-border, rgba(128,128,128,0.12));
 }
 
 .ch-row {
   display: flex;
   align-items: center;
-  gap: 6px;
-  padding: 5px 10px;
+  gap: 5px;
+  padding: 4px 10px;
   cursor: pointer;
   user-select: none;
   min-width: 0;
-  border-bottom: 1px solid var(--vscode-sideBarSectionHeader-border, rgba(128,128,128,0.12));
 }
 .ch-row:hover { background: var(--vscode-list-hoverBackground); }
+
+/* File type icon (TS, JS, JSON, etc.) */
+.ch-file-icon {
+  font-size: 9px;
+  font-weight: 700;
+  font-family: var(--vscode-editor-font-family, monospace);
+  min-width: 22px;
+  text-align: center;
+  flex-shrink: 0;
+  opacity: 0.85;
+}
 
 .ch-filename {
   font-size: 12px;
@@ -1253,18 +1294,37 @@ body.expander-resizing { cursor: ns-resize !important; user-select: none; }
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
-  flex: 1;
+  flex-shrink: 1;
   min-width: 0;
 }
 
-.ch-badges {
-  display: flex;
-  gap: 3px;
+/* Comment badge — inline right after filename */
+.ch-comment-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  font-size: 10px;
+  color: var(--vscode-descriptionForeground, #888);
   flex-shrink: 0;
+  cursor: default;
+}
+.ch-comment-badge svg { opacity: 0.7; }
+
+/* Folder path */
+.ch-folder {
+  font-size: 11px;
+  color: var(--vscode-descriptionForeground, #888);
+  white-space: nowrap;
   overflow: hidden;
-  max-width: 50%;
+  text-overflow: ellipsis;
+  flex-shrink: 1;
+  min-width: 0;
 }
 
+/* Spacer pushes right-side content to the end */
+.ch-spacer { flex: 1; }
+
+/* Badge (shared by row and expanded commit items) */
 .ch-badge {
   font-size: 10px;
   padding: 1px 5px;
@@ -1275,86 +1335,81 @@ body.expander-resizing { cursor: ns-resize !important; user-select: none; }
   flex-shrink: 0;
 }
 
-.ch-badge-more {
-  background: var(--vscode-badge-background, #4d4d4d) !important;
-  color: var(--vscode-badge-foreground, #fff);
-}
-
-.ch-right {
-  display: flex;
-  align-items: center;
-  gap: 5px;
-  flex-shrink: 0;
-}
-
-.ch-stats {
-  font-size: 11px;
-  font-family: var(--vscode-editor-font-family, monospace);
-  white-space: nowrap;
-}
-
-.ch-ins { color: var(--vscode-gitDecoration-addedResourceForeground, #2ea043); }
-.ch-del { color: var(--vscode-gitDecoration-deletedResourceForeground, #f85149); }
-
-.ch-comment-count {
-  font-size: 10px;
-  color: var(--vscode-descriptionForeground, #888);
-  white-space: nowrap;
-}
-
-.ch-empty {
-  padding: 24px 16px;
-  text-align: center;
-  color: var(--vscode-descriptionForeground, #888);
-  font-size: 12px;
-}
-
-/* Hash badge is clickable */
 .ch-badge-hash {
   cursor: pointer;
   transition: filter 0.15s;
 }
 .ch-badge-hash:hover { filter: brightness(1.2); }
 
-/* +N overflow pill */
 .ch-badge-more {
+  background: var(--vscode-badge-background, #4d4d4d) !important;
+  color: var(--vscode-badge-foreground, #fff);
   cursor: pointer;
   transition: filter 0.15s;
 }
 .ch-badge-more:hover { filter: brightness(1.15); }
 
-/* Dropdown for commit list */
-.ch-dropdown {
-  position: fixed;
-  z-index: 1000;
-  min-width: 200px;
-  max-width: 320px;
-  max-height: 200px;
-  overflow-y: auto;
-  background: var(--vscode-dropdown-background, #252526);
-  border: 1px solid var(--vscode-dropdown-border, #454545);
-  border-radius: 4px;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
-  padding: 4px 0;
+/* +/- stats */
+.ch-stats {
+  font-size: 11px;
+  font-family: var(--vscode-editor-font-family, monospace);
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+.ch-ins { color: var(--vscode-gitDecoration-addedResourceForeground, #2ea043); }
+.ch-del { color: var(--vscode-gitDecoration-deletedResourceForeground, #f85149); }
+
+/* A/M/D status indicator (far right) */
+.ch-status {
+  font-size: 11px;
+  font-weight: 600;
+  font-family: var(--vscode-editor-font-family, monospace);
+  min-width: 12px;
+  text-align: center;
+  flex-shrink: 0;
 }
 
-.ch-dropdown-item {
+/* ── Expanded commit list under file row ───────────────── */
+.ch-commit-list {
+  padding: 2px 0 4px 0;
+  background: var(--vscode-sideBar-background, transparent);
+}
+
+.ch-commit-item {
   display: flex;
   align-items: center;
-  gap: 8px;
-  padding: 5px 10px;
+  gap: 6px;
+  padding: 3px 10px 3px 16px;
   cursor: pointer;
-  white-space: nowrap;
-  overflow: hidden;
+  font-size: 11px;
 }
-.ch-dropdown-item:hover {
-  background: var(--vscode-list-hoverBackground, rgba(255,255,255,0.06));
+.ch-commit-item:hover {
+  background: var(--vscode-list-hoverBackground, rgba(255,255,255,0.04));
 }
 
-.ch-dropdown-msg {
+.ch-commit-connector {
+  font-size: 11px;
+  color: var(--vscode-descriptionForeground, #555);
+  font-family: var(--vscode-editor-font-family, monospace);
+  flex-shrink: 0;
+  width: 12px;
+  text-align: center;
+}
+
+.ch-commit-msg {
   font-size: 11px;
   color: var(--vscode-foreground, #ccc);
   overflow: hidden;
   text-overflow: ellipsis;
+  white-space: nowrap;
+  min-width: 0;
+}
+
+/* Empty state */
+.ch-empty {
+  padding: 24px 16px;
+  text-align: center;
+  color: var(--vscode-descriptionForeground, #888);
+  font-size: 12px;
 }
 

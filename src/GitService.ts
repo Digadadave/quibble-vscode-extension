@@ -30,6 +30,8 @@ export interface FileWithStats extends ChangedFile {
 
 export interface BranchFileChange {
   path: string;
+  /** M = modified, A = added, D = deleted, R = renamed */
+  status: string;
   /** Commits that touched this file on the branch, newest first */
   commits: Array<{ hash: string; shortHash: string; message: string }>;
   insertions: number;
@@ -359,10 +361,15 @@ export class GitService {
       if (file) statsMap.set(file, { insertions: ins, deletions: del });
     }
 
+    // Get cumulative file status (A/M/D) across the whole branch
+    const statusFiles = this.getDirectChangedFiles(base, branch);
+    const statusMap = new Map(statusFiles.map(f => [f.path, f.status]));
+
     const result: BranchFileChange[] = [];
     for (const [filePath, fileCommitList] of fileCommits) {
       const stats = statsMap.get(filePath) ?? { insertions: 0, deletions: 0 };
-      result.push({ path: filePath, commits: fileCommitList, ...stats });
+      const status = statusMap.get(filePath) ?? 'M';
+      result.push({ path: filePath, status, commits: fileCommitList, ...stats });
     }
     return result;
   }
