@@ -99,6 +99,49 @@ export function activate(context: vscode.ExtensionContext): void {
     ),
   );
 
+  // ── COMMENTS panel → open proper diff when a gitFile:// doc is activated standalone ──
+  // When the user clicks a comment in the native COMMENTS panel, VS Code opens the
+  // gitFile:// URI directly (not in a diff editor). Intercept that and redirect to
+  // the proper side-by-side diff view.
+  context.subscriptions.push(
+    vscode.window.onDidChangeActiveTextEditor(async (editor) => {
+      if (!editor) return;
+      const uri = editor.document.uri;
+      if (uri.scheme !== GitContentProvider.scheme) return;
+
+      // Skip if already inside a diff editor (the active tab is a TextDiff).
+      const activeTab = vscode.window.tabGroups?.activeTabGroup?.activeTab;
+      if (activeTab?.input instanceof vscode.TabInputTextDiff) return;
+
+      const params = new URLSearchParams(uri.query);
+      const commitHash = params.get('ref') ?? '';
+      const side       = params.get('side');
+      if (!commitHash || side !== 'new') return;
+      if (!activeGit) return;
+
+      const file = uri.path.startsWith('/') ? uri.path.slice(1) : uri.path;
+
+      // Replace the standalone file view with a proper side-by-side diff.
+      await vscode.commands.executeCommand('workbench.action.closeActiveEditor');
+      await openNativeDiff(activeGit, file, commitHash);
+
+      // Scroll to the first matching comment in the newly opened diff.
+      if (activeComments) {
+        const comment = activeComments.load().find(
+          c => c.commitHash === commitHash && c.file === file,
+        );
+        if (comment) {
+          setTimeout(() => {
+            vscode.commands.executeCommand('revealLine', {
+              lineNumber: comment.line - 1,
+              at: 'center',
+            });
+          }, 400);
+        }
+      }
+    }),
+  );
+
   // ── Status bar ────────────────────────────────────────────────────────────
   statusBar = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Left, 10);
   statusBar.command = 'commitReview.selectRepo';

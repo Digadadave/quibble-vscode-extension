@@ -42,11 +42,13 @@ export class ReviewCommentController implements vscode.Disposable {
   onCommentMutation?: () => void;
 
   private git: GitService | undefined;
+  private readonly extensionUri: vscode.Uri;
 
   constructor(
     context: vscode.ExtensionContext,
     private comments: CommentManager,
   ) {
+    this.extensionUri = context.extensionUri;
     this.controller = vscode.comments.createCommentController(
       ReviewCommentController.id,
       'Commit Review',
@@ -97,9 +99,12 @@ export class ReviewCommentController implements vscode.Disposable {
     for (const rc of all) {
       const existing = this.threads.get(rc.id);
       if (existing) {
-        existing.label        = STATUS_LABELS[rc.status] ?? rc.status;
-        existing.contextValue = `status:${rc.status}`;
-        existing.comments     = this.buildComments(rc);
+        existing.label          = STATUS_LABELS[rc.status] ?? rc.status;
+        existing.contextValue   = `status:${rc.status}`;
+        existing.comments       = this.buildComments(rc);
+        existing.collapsibleState = this.isClosed(rc.status)
+          ? vscode.CommentThreadCollapsibleState.Collapsed
+          : vscode.CommentThreadCollapsibleState.Expanded;
       } else {
         this.createThread(rc);
       }
@@ -118,7 +123,9 @@ export class ReviewCommentController implements vscode.Disposable {
       [],
     );
     thread.label              = STATUS_LABELS[rc.status] ?? rc.status;
-    thread.collapsibleState   = vscode.CommentThreadCollapsibleState.Expanded;
+    thread.collapsibleState   = this.isClosed(rc.status)
+      ? vscode.CommentThreadCollapsibleState.Collapsed
+      : vscode.CommentThreadCollapsibleState.Expanded;
     thread.contextValue       = `status:${rc.status}`;
     thread.canReply           = true;
     thread.comments           = this.buildComments(rc);
@@ -129,7 +136,7 @@ export class ReviewCommentController implements vscode.Disposable {
   private buildComments(rc: ReviewComment): CRComment[] {
     const items: CRComment[] = [{
       reviewId:  rc.id,
-      author:    { name: rc.author },
+      author:    { name: rc.author, iconPath: this.statusThemeIcon(rc.status) },
       body:      new vscode.MarkdownString(rc.body),
       mode:      vscode.CommentMode.Preview,
       label:     STATUS_LABELS[rc.status] ?? rc.status,
@@ -137,9 +144,15 @@ export class ReviewCommentController implements vscode.Disposable {
     }];
 
     for (const entry of rc.thread) {
+      const isAgent = entry.author !== 'reviewer';
       items.push({
         reviewId:  rc.id,
-        author:    { name: entry.author },
+        author:    {
+          name:     entry.author,
+          iconPath: isAgent
+            ? this.mediaUri('icon-agent.svg')
+            : undefined,
+        },
         body:      new vscode.MarkdownString(entry.body),
         mode:      vscode.CommentMode.Preview,
         timestamp: new Date(entry.createdAt),
@@ -147,6 +160,25 @@ export class ReviewCommentController implements vscode.Disposable {
     }
 
     return items;
+  }
+
+  private mediaUri(filename: string): vscode.Uri {
+    return vscode.Uri.joinPath(this.extensionUri, 'media', filename);
+  }
+
+  private statusThemeIcon(status: string): vscode.Uri {
+    switch (status) {
+      case 'open':          return this.mediaUri('icon-status-open.svg');
+      case 'question':      return this.mediaUri('icon-status-question.svg');
+      case 'agent-replied': return this.mediaUri('icon-status-replied.svg');
+      case 'addressed':
+      case 'resolved':      return this.mediaUri('icon-status-addressed.svg');
+      default:              return this.mediaUri('icon-status-default.svg');
+    }
+  }
+
+  private isClosed(status: string): boolean {
+    return ['addressed', 'resolved', 'wont-fix'].includes(status);
   }
 
   // ── Snapshot capture ─────────────────────────────────────────────────────
