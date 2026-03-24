@@ -17,6 +17,9 @@ export class CommentsView implements vscode.WebviewViewProvider, vscode.Disposab
   /** Called when the user right-click-deletes a comment from the sidebar. */
   onDeleteComment?: (id: string) => void;
 
+  /** Called when the user changes a comment's status from the hub. */
+  onUpdateStatus?: (id: string, status: string) => void;
+
   private constructor(
     private context: vscode.ExtensionContext,
     private comments: CommentManager
@@ -68,6 +71,8 @@ export class CommentsView implements vscode.WebviewViewProvider, vscode.Disposab
         );
       } else if (msg.type === 'deleteComment') {
         this.onDeleteComment?.(msg.id as string);
+      } else if (msg.type === 'updateStatus') {
+        this.onUpdateStatus?.(msg.id as string, msg.status as string);
       }
     }, null, this.disposables);
 
@@ -109,20 +114,19 @@ export class CommentsView implements vscode.WebviewViewProvider, vscode.Disposab
              script-src 'nonce-${nonce}';">
   <link href="${cssUri}" rel="stylesheet">
   <style>
-    body { overflow: hidden; display: flex; flex-direction: column; height: 100vh; }
-    #sidebar { width: 100% !important; max-width: 100% !important; min-width: 0 !important; height: 100%; display: flex; flex-direction: column; }
-    #comment-list { flex: 1; overflow-y: auto; }
+    body { overflow: hidden; display: flex; flex-direction: column; height: 100vh; margin: 0; }
+    #comment-list { flex: 1; overflow-y: auto; min-height: 0; }
   </style>
   <title>Comments</title>
 </head>
 <body>
 
-<div id="sidebar">
-  <div class="sidebar-section-header">
-    <span class="section-title">COMMENTS</span>
-  </div>
-  <div id="comment-list"></div>
+<div class="sidebar-section-header">
+  <span class="section-title">COMMENTS</span>
 </div>
+<div id="summary-bar" class="cv-summary-bar"></div>
+<div id="filter-bar"  class="cv-filter-bar"></div>
+<div id="comment-list"></div>
 
 <script nonce="${nonce}" src="${jsUri}"></script>
 </body>

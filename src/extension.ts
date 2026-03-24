@@ -91,6 +91,13 @@ export function activate(context: vscode.ExtensionContext): void {
     refreshAll();
   };
 
+  // When the user changes a comment's status from the hub.
+  activeCommentsView.onUpdateStatus = (id, status) => {
+    if (!activeComments) return;
+    activeComments.updateStatus(id, status as import('./CommentManager').CommentStatus);
+    refreshAll();
+  };
+
   context.subscriptions.push(
     vscode.window.registerWebviewViewProvider(
       CommentsView.viewType,
