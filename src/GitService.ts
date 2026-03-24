@@ -33,7 +33,7 @@ export interface BranchFileChange {
   /** M = modified, A = added, D = deleted, R = renamed */
   status: string;
   /** Commits that touched this file on the branch, newest first */
-  commits: Array<{ hash: string; shortHash: string; message: string }>;
+  commits: Array<{ hash: string; shortHash: string; message: string; insertions: number; deletions: number }>;
   insertions: number;
   deletions: number;
 }
@@ -342,11 +342,13 @@ export class GitService {
       });
 
     // Build file → commits map; Map insertion order = first seen = newest commit that touched it
-    const fileCommits = new Map<string, typeof commits>();
+    // Use getChangedFilesWithStats to capture per-commit per-file +/- counts.
+    type CommitEntry = typeof commits[0] & { insertions: number; deletions: number };
+    const fileCommits = new Map<string, CommitEntry[]>();
     for (const commit of commits) {
-      for (const f of this.getChangedFiles(commit.hash)) {
+      for (const f of this.getChangedFilesWithStats(commit.hash)) {
         if (!fileCommits.has(f.path)) fileCommits.set(f.path, []);
-        fileCommits.get(f.path)!.push(commit);
+        fileCommits.get(f.path)!.push({ ...commit, insertions: f.insertions, deletions: f.deletions });
       }
     }
 

@@ -1262,9 +1262,7 @@ body.expander-resizing { cursor: ns-resize !important; user-select: none; }
 }
 
 /* ── File block (row + optional expanded commits) ──────── */
-.ch-file-block {
-  border-bottom: 1px solid var(--vscode-sideBarSectionHeader-border, rgba(128,128,128,0.12));
-}
+.ch-file-block {}
 
 .ch-row {
   display: flex;
@@ -1387,13 +1385,13 @@ body.expander-resizing { cursor: ns-resize !important; user-select: none; }
   background: var(--vscode-list-hoverBackground, rgba(255,255,255,0.04));
 }
 
-.ch-commit-connector {
-  font-size: 11px;
-  color: var(--vscode-descriptionForeground, #555);
+.ch-commit-stats {
+  font-size: 10px;
   font-family: var(--vscode-editor-font-family, monospace);
+  white-space: nowrap;
   flex-shrink: 0;
-  width: 12px;
-  text-align: center;
+  min-width: 52px;
+  text-align: right;
 }
 
 .ch-commit-msg {

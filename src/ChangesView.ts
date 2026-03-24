@@ -21,6 +21,9 @@ export class ChangesView implements vscode.WebviewViewProvider, vscode.Disposabl
   onJumpToFileNative?: (file: string) => void;
   onJumpToCommitFileNative?: (hash: string, file: string) => void;
 
+  /** Called when the user clicks the comment badge — open the first comment on that file. */
+  onJumpToComment?: (file: string) => void;
+
   private constructor(
     private context: vscode.ExtensionContext,
     private git: GitService,
@@ -74,6 +77,8 @@ export class ChangesView implements vscode.WebviewViewProvider, vscode.Disposabl
         native
           ? this.onJumpToCommitFileNative?.(msg.hash, msg.file)
           : this.onJumpToCommitFile?.(msg.hash, msg.file);
+      } else if (msg.type === 'jumpToComment') {
+        this.onJumpToComment?.(msg.file as string);
       }
     }, null, this.disposables);
 

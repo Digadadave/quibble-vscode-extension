@@ -120,6 +120,15 @@
   document.addEventListener('click', e => {
     const target = /** @type {HTMLElement} */ (e.target);
 
+    // Comment badge click -> focus the first comment on this file
+    const commentBadge = target.closest('.ch-comment-badge');
+    if (commentBadge) {
+      e.stopPropagation();
+      const file = commentBadge.closest('[data-file]')?.getAttribute('data-file');
+      if (file) vscode.postMessage({ type: 'jumpToComment', file, diffMode });
+      return;
+    }
+
     // Hash badge click (in row OR in expanded list) -> open commit diff anchored on this file
     const badge = target.closest('.ch-badge-hash');
     if (badge) {
@@ -132,7 +141,7 @@
       return;
     }
 
-    // +N pill click -> toggle expanded commit list
+    // +N pill click -> toggle expanded commit list (do NOT navigate)
     const moreBadge = target.closest('.ch-badge-more');
     if (moreBadge) {
       e.stopPropagation();
@@ -148,7 +157,7 @@
       return;
     }
 
-    // Expanded commit list item click -> open commit diff
+    // Expanded commit item click -> open commit diff (keep list open)
     const commitItem = target.closest('.ch-commit-item');
     if (commitItem) {
       e.stopPropagation();
@@ -160,10 +169,13 @@
       return;
     }
 
-    // File row click (on the row itself, not badges) -> open accumulated branch diff
+    // File row click -> close any expanded list, then open accumulated branch diff
     const row = target.closest('.ch-row');
     if (row && row.dataset.file) {
-      vscode.postMessage({ type: 'jumpToFile', file: row.dataset.file, diffMode });
+      const file = row.dataset.file;
+      expandedFiles.delete(file);   // collapse if open
+      render();
+      vscode.postMessage({ type: 'jumpToFile', file, diffMode });
     }
   });
 
@@ -221,12 +233,15 @@
     let expandedHtml = '';
     if (isExpanded && file.commits.length > 0) {
       expandedHtml = `<div class="ch-commit-list" data-file="${esc(file.path)}">` +
-        file.commits.map((c, i) => {
+        file.commits.map(c => {
           const color = getCommitColor(c.hash);
-          const isLast = i === file.commits.length - 1;
-          const connector = isLast ? '\u2514' : '\u251c';
+          const insHtml = c.insertions > 0 ? `<span class="ch-ins">+${c.insertions}</span>` : '';
+          const delHtml = c.deletions  > 0 ? `<span class="ch-del">-${c.deletions}</span>`  : '';
+          const statsHtml = (insHtml || delHtml)
+            ? `<span class="ch-commit-stats">${insHtml}${insHtml && delHtml ? '\u00a0' : ''}${delHtml}</span>`
+            : '';
           return `<div class="ch-commit-item" data-hash="${esc(c.hash)}" data-file="${esc(file.path)}">
-  <span class="ch-commit-connector">${connector}</span>
+  ${statsHtml}
   <span class="ch-badge ch-badge-hash" style="background:${color}" data-hash="${esc(c.hash)}">${esc(c.shortHash)}</span>
   <span class="ch-commit-msg">${esc(c.message)}</span>
 </div>`;

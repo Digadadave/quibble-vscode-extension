@@ -154,6 +154,18 @@ export function activate(context: vscode.ExtensionContext): void {
     await openNativeDiff(activeGit, file, hash);
   };
 
+  // Comment badge click → open the diff at the first comment on that file
+  activeChangesView.onJumpToComment = async (file) => {
+    if (!activeGit || !activeComments) return;
+    const all = activeComments.load();
+    const comment = all.find(c => c.file === file);
+    if (!comment) return;
+    await openNativeDiff(activeGit, comment.file, comment.commitHash);
+    setTimeout(() => {
+      vscode.commands.executeCommand('revealLine', { lineNumber: comment.line - 1, at: 'center' });
+    }, 300);
+  };
+
   context.subscriptions.push(
     vscode.window.registerWebviewViewProvider(
       ChangesView.viewType,
