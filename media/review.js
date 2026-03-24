@@ -492,7 +492,7 @@ function renderFileBlock(fileDiff, comments, fileStatus) {
     ${openCount > 0 ? `<span class="badge open">${openCount} comment${openCount !== 1 ? 's' : ''}</span>` : ''}
   </div>
   <div class="file-body">
-    <table class="diff-table split"><tbody>${rows}</tbody></table>
+    <table class="diff-table split"><colgroup><col class="split-col-num"><col class="split-col-old"><col class="split-col-gutter"><col class="split-col-num"><col></colgroup><tbody>${rows}</tbody></table>
   </div>
 </div>`;
 }

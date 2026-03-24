@@ -920,16 +920,21 @@ tr.inline-composer-row td {
 
 /* ── Side-by-side diff ────────────────────────────────────────────────────── */
 /* table-layout:fixed + width:100% makes both panels fill the container exactly.
-   Code lines that are too long are clipped (overflow:hidden) — matching VS Code's default.
+   <colgroup> establishes per-column widths so hunk-header colspan rows don't confuse the layout.
    The drag handler sets --split-old-w to a px value; default 45% of the container. */
 .diff-table.split {
   table-layout: fixed;
   width: 100%;
   min-width: 0;
 }
-.diff-table.split .line-num   { width: 40px; }
-.diff-table.split .line-content.old { width: var(--split-old-w, 45%); overflow: hidden; }
-.diff-table.split .line-content.new { overflow: hidden; }  /* takes remaining space */
+/* colgroup col widths — authoritative source for table-layout:fixed */
+.split-col-num    { width: 40px; }
+.split-col-old    { width: var(--split-old-w, 45%); }
+.split-col-gutter { width: 5px; }
+/* last col (new content) gets remaining space — no width needed */
+
+/* Cells inherit widths from colgroup; allow horizontal scroll within each panel */
+.diff-table.split .line-content { overflow-x: auto; }
 
 /* Draggable gutter between old and new */
 .split-gutter {
