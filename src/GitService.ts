@@ -28,6 +28,14 @@ export interface FileWithStats extends ChangedFile {
   deletions: number;
 }
 
+export interface BranchFileChange {
+  path: string;
+  /** Commits that touched this file on the branch, newest first */
+  commits: Array<{ hash: string; shortHash: string; message: string }>;
+  insertions: number;
+  deletions: number;
+}
+
 export interface ParsedDiff {
   file: string;
   hunks: DiffHunk[];
@@ -264,6 +272,72 @@ export class GitService {
 
   getCurrentBranch(): string {
     return exec('git rev-parse --abbrev-ref HEAD', this.repoPath) || 'HEAD';
+  }
+
+  getHeadHash(): string {
+    return exec('git rev-parse HEAD', this.repoPath);
+  }
+
+  /** Returns the merge-base commit hash between this branch and main/master. */
+  getMergeBase(branch: string): string {
+    return (
+      exec(`git merge-base "${branch}" main`, this.repoPath) ||
+      exec(`git merge-base "${branch}" master`, this.repoPath)
+    );
+  }
+
+  /**
+   * Returns all files changed on `branch` since it diverged from main/master,
+   * sorted with the most-recently-touched file first.
+   */
+  getChangesOnBranch(branch: string): BranchFileChange[] {
+    const base = this.getMergeBase(branch);
+    if (!base) return [];
+
+    // Get commits on this branch since merge-base (newest first)
+    const sep = '\x1f';
+    const rs  = '\x1e';
+    const commitsRaw = exec(
+      `git log "${base}..${branch}" --format=%H%x1f%h%x1f%s%x1e`,
+      this.repoPath,
+    );
+    if (!commitsRaw) return [];
+
+    const commits = commitsRaw
+      .split(rs)
+      .map(s => s.trim())
+      .filter(Boolean)
+      .map(record => {
+        const parts = record.split(sep);
+        return { hash: parts[0] ?? '', shortHash: parts[1] ?? '', message: parts[2] ?? '' };
+      });
+
+    // Build file → commits map; Map insertion order = first seen = newest commit that touched it
+    const fileCommits = new Map<string, typeof commits>();
+    for (const commit of commits) {
+      for (const f of this.getChangedFiles(commit.hash)) {
+        if (!fileCommits.has(f.path)) fileCommits.set(f.path, []);
+        fileCommits.get(f.path)!.push(commit);
+      }
+    }
+
+    // Cumulative net +/- per file across the whole branch
+    const statsRaw = exec(`git diff "${base}" "${branch}" --numstat`, this.repoPath);
+    const statsMap = new Map<string, { insertions: number; deletions: number }>();
+    for (const line of statsRaw.split('\n').filter(Boolean)) {
+      const parts = line.split('\t');
+      const ins  = parseInt(parts[0]) || 0;
+      const del  = parseInt(parts[1]) || 0;
+      const file = parts[2] ?? '';
+      if (file) statsMap.set(file, { insertions: ins, deletions: del });
+    }
+
+    const result: BranchFileChange[] = [];
+    for (const [filePath, fileCommitList] of fileCommits) {
+      const stats = statsMap.get(filePath) ?? { insertions: 0, deletions: 0 };
+      result.push({ path: filePath, commits: fileCommitList, ...stats });
+    }
+    return result;
   }
 
   getFileContentAtCommit(hash: string, filePath: string): string {

@@ -73,6 +73,12 @@
       "commitReview": [
         {
           "type": "webview",
+          "id": "commitReview.changesView",
+          "name": "Changes",
+          "contextualTitle": "Commit Review"
+        },
+        {
+          "type": "webview",
           "id": "commitReview.commentsView",
           "name": "Comments",
           "contextualTitle": "Commit Review"

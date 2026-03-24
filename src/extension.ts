@@ -4,6 +4,7 @@ import { GitService } from './GitService';
 import { CommentManager } from './CommentManager';
 import { ReviewPanel } from './ReviewPanel';
 import { CommentsView } from './CommentsView';
+import { ChangesView } from './ChangesView';
 import { GitContentProvider } from './GitContentProvider';
 import { ReviewCommentController } from './ReviewCommentController';
 
@@ -13,6 +14,7 @@ let activeGit: GitService | undefined;
 let activeComments: CommentManager | undefined;
 let activeReviewPanel: ReviewPanel | undefined;
 let activeCommentsView: CommentsView | undefined;
+let activeChangesView: ChangesView | undefined;
 let activeCommentController: ReviewCommentController | undefined;
 let statusBar: vscode.StatusBarItem | undefined;
 let commentChangeDisposable: vscode.Disposable | undefined;
@@ -106,6 +108,22 @@ export function activate(context: vscode.ExtensionContext): void {
     ),
   );
 
+  // ── Changes sidebar WebviewView ───────────────────────────────────────────
+  activeChangesView = ChangesView.register(context, new GitService(''), new CommentManager(''));
+
+  activeChangesView.onJumpToFile = async (file) => {
+    if (!activeGit) return;
+    await openCumulativeFileDiff(activeGit, file);
+  };
+
+  context.subscriptions.push(
+    vscode.window.registerWebviewViewProvider(
+      ChangesView.viewType,
+      activeChangesView,
+      { webviewOptions: { retainContextWhenHidden: true } },
+    ),
+  );
+
   // ── COMMENTS panel → open proper diff when a gitFile:// doc is activated standalone ──
   // When the user clicks a comment in the native COMMENTS panel, VS Code opens the
   // gitFile:// URI directly (not in a diff editor). Intercept that and redirect to
@@ -159,6 +177,7 @@ export function activate(context: vscode.ExtensionContext): void {
   function refreshAll(): void {
     try { activeReviewPanel?.sendCommits(); }   catch { /* ignore git errors */ }
     try { activeCommentsView?.refresh(); }      catch { /* ignore */ }
+    try { activeChangesView?.refresh(); }       catch { /* ignore */ }
     try { activeCommentController?.refresh(); } catch { /* ignore */ }
     updateStatusBar();
   }
@@ -181,6 +200,7 @@ export function activate(context: vscode.ExtensionContext): void {
     // Push updated services into views.
     activeReviewPanel?.updateServices(activeGit);
     activeCommentsView?.updateServices(activeComments);
+    activeChangesView?.updateServices(activeGit, activeComments);
     activeCommentController?.updateRepo(repoPath, activeComments, activeGit);
 
     // Wire the mutation callback for the new controller instance.
@@ -253,6 +273,26 @@ async function openNativeDiff(git: GitService, file: string, commitHash: string)
   const oldUri = GitContentProvider.makeUri(repoPath, file, parentHash, 'old');
   const newUri = GitContentProvider.makeUri(repoPath, file, commitHash, 'new');
   const title  = `${path.basename(file)} @ ${commitHash.slice(0, 7)}`;
+
+  await vscode.commands.executeCommand('vscode.diff', oldUri, newUri, title);
+}
+
+// ── Open cumulative file diff (branch base → HEAD) ───────────────────────────
+
+async function openCumulativeFileDiff(git: GitService, file: string): Promise<void> {
+  const repoPath = git.getRepoPath();
+  const branch   = git.getCurrentBranch();
+  const base     = git.getMergeBase(branch);
+  const head     = git.getHeadHash();
+
+  if (!base || !head) {
+    vscode.window.showWarningMessage('Could not determine branch base for cumulative diff.');
+    return;
+  }
+
+  const oldUri = GitContentProvider.makeUri(repoPath, file, base, 'old');
+  const newUri = GitContentProvider.makeUri(repoPath, file, head, 'new');
+  const title  = `${path.basename(file)} (all branch changes)`;
 
   await vscode.commands.executeCommand('vscode.diff', oldUri, newUri, title);
 }
