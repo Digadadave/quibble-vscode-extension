@@ -17,6 +17,10 @@ export class ChangesView implements vscode.WebviewViewProvider, vscode.Disposabl
   /** Called when the user clicks a commit hash badge — open the commit diff anchored on that file. */
   onJumpToCommitFile?: (hash: string, file: string) => void;
 
+  /** Native diff variants (single-file VS Code diff editor). */
+  onJumpToFileNative?: (file: string) => void;
+  onJumpToCommitFileNative?: (hash: string, file: string) => void;
+
   private constructor(
     private context: vscode.ExtensionContext,
     private git: GitService,
@@ -63,10 +67,13 @@ export class ChangesView implements vscode.WebviewViewProvider, vscode.Disposabl
     webviewView.webview.html = this.buildHtml(webviewView.webview);
 
     webviewView.webview.onDidReceiveMessage(msg => {
+      const native = msg.diffMode === 'native';
       if (msg.type === 'jumpToFile') {
-        this.onJumpToFile?.(msg.file as string);
+        native ? this.onJumpToFileNative?.(msg.file) : this.onJumpToFile?.(msg.file);
       } else if (msg.type === 'jumpToCommitFile') {
-        this.onJumpToCommitFile?.(msg.hash as string, msg.file as string);
+        native
+          ? this.onJumpToCommitFileNative?.(msg.hash, msg.file)
+          : this.onJumpToCommitFile?.(msg.hash, msg.file);
       }
     }, null, this.disposables);
 
@@ -138,6 +145,7 @@ export class ChangesView implements vscode.WebviewViewProvider, vscode.Disposabl
 <div class="sidebar-section-header">
   <span class="section-title">CHANGES</span>
   <span id="branch-label" class="ch-branch-label"></span>
+  <button id="diff-mode-toggle" class="ch-mode-btn" title="Toggle diff viewer">Native</button>
 </div>
 <div id="changes-list"></div>
 

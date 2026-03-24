@@ -15,6 +15,8 @@
 
   let files = [];
   let branch = '';
+  /** @type {'panel'|'native'} */
+  let diffMode = 'panel';
   /** @type {Map<string, string>} commit hash → assigned color */
   const commitColorMap = new Map();
   let colorIndex = 0;
@@ -64,6 +66,19 @@
     render();
   });
 
+  // ── Diff mode toggle ────────────────────────────────────────────────────────
+
+  document.getElementById('diff-mode-toggle')?.addEventListener('click', () => {
+    diffMode = diffMode === 'panel' ? 'native' : 'panel';
+    const btn = document.getElementById('diff-mode-toggle');
+    if (btn) {
+      btn.textContent = diffMode === 'panel' ? 'Native' : 'Panel';
+      btn.title = diffMode === 'panel'
+        ? 'Currently using DiffPanel — click to switch to native diff'
+        : 'Currently using native diff — click to switch to DiffPanel';
+    }
+  });
+
   // ── Click delegation ───────────────────────────────────────────────────────
 
   document.addEventListener('click', e => {
@@ -77,7 +92,7 @@
       const hash = badge.getAttribute('data-hash');
       const file = badge.closest('[data-file]')?.getAttribute('data-file');
       if (hash && file) {
-        vscode.postMessage({ type: 'jumpToCommitFile', hash, file });
+        vscode.postMessage({ type: 'jumpToCommitFile', hash, file, diffMode });
       }
       return;
     }
@@ -99,7 +114,7 @@
       const file = ddItem.getAttribute('data-file');
       closeDropdown();
       if (hash && file) {
-        vscode.postMessage({ type: 'jumpToCommitFile', hash, file });
+        vscode.postMessage({ type: 'jumpToCommitFile', hash, file, diffMode });
       }
       return;
     }
@@ -112,7 +127,7 @@
     // File row click → open accumulated branch diff anchored on this file
     const row = target.closest('.ch-row');
     if (row && row.dataset.file) {
-      vscode.postMessage({ type: 'jumpToFile', file: row.dataset.file });
+      vscode.postMessage({ type: 'jumpToFile', file: row.dataset.file, diffMode });
     }
   });
 

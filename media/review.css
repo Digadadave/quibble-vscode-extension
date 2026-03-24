@@ -1215,7 +1215,24 @@ body.expander-resizing { cursor: ns-resize !important; user-select: none; }
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  max-width: 120px;
+  flex: 1;
+  min-width: 0;
+}
+
+.ch-mode-btn {
+  margin-left: auto;
+  padding: 1px 6px;
+  font-size: 10px;
+  border-radius: 3px;
+  cursor: pointer;
+  border: 1px solid var(--vscode-button-secondaryBorder, rgba(128,128,128,0.4));
+  background: var(--vscode-button-secondaryBackground, rgba(128,128,128,0.15));
+  color: var(--vscode-button-secondaryForeground, var(--vscode-foreground, #ccc));
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+.ch-mode-btn:hover {
+  background: var(--vscode-button-secondaryHoverBackground, rgba(128,128,128,0.3));
 }
 
 .ch-row {

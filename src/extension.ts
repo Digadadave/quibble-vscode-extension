@@ -135,6 +135,25 @@ export function activate(context: vscode.ExtensionContext): void {
     panel.focusFile(file);
   };
 
+  // Native diff: file click → cumulative single-file diff (branch base → HEAD)
+  activeChangesView.onJumpToFileNative = async (file) => {
+    if (!activeGit) return;
+    const branch = activeGit.getCurrentBranch();
+    const base   = activeGit.getMergeBase(branch);
+    const head   = activeGit.getHeadHash();
+    if (!base || !head) return;
+    const repoPath = activeGit.getRepoPath();
+    const oldUri = GitContentProvider.makeUri(repoPath, file, base, 'old');
+    const newUri = GitContentProvider.makeUri(repoPath, file, head, 'new');
+    await vscode.commands.executeCommand('vscode.diff', oldUri, newUri, `${path.basename(file)} (branch changes)`);
+  };
+
+  // Native diff: hash badge click → single-file diff for that commit
+  activeChangesView.onJumpToCommitFileNative = async (hash, file) => {
+    if (!activeGit) return;
+    await openNativeDiff(activeGit, file, hash);
+  };
+
   context.subscriptions.push(
     vscode.window.registerWebviewViewProvider(
       ChangesView.viewType,
