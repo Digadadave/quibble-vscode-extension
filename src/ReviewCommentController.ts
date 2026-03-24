@@ -262,36 +262,36 @@ export class ReviewCommentController implements vscode.Disposable {
       ),
     );
 
-    // ── Change Status (⚙ button on thread header) ────────────────────────────
+    // ── Resolve / Dismiss / Reopen ────────────────────────────────────────────
+    // Commands are wired to BOTH:
+    //   • comments/commentThread/title  → receives vscode.CommentThread (icon buttons)
+    //   • comments/commentThread/context → receives vscode.CommentReply (text buttons)
+    // If called from the reply box with text, the reply is submitted before the status changes.
+
+    const makeStatusAction = (status: ReviewComment['status']) =>
+      (arg: vscode.CommentThread | vscode.CommentReply) => {
+        // Differentiate between the two call sites by checking for `text` property
+        const isReply = arg && typeof (arg as vscode.CommentReply).text === 'string';
+        const thread  = isReply ? (arg as vscode.CommentReply).thread : (arg as vscode.CommentThread);
+        const text    = isReply ? (arg as vscode.CommentReply).text   : '';
+
+        const first = thread.comments[0] as CRComment | undefined;
+        if (!first?.reviewId) return;
+
+        // If called from the reply box and the user typed something, save the reply first
+        if (text.trim()) {
+          this.comments.addThreadReply(first.reviewId, 'reviewer', text.trim());
+        }
+
+        this.comments.updateStatus(first.reviewId, status);
+        this.refresh();
+        this.onCommentMutation?.();
+      };
+
     context.subscriptions.push(
-      vscode.commands.registerCommand(
-        'commitReview.comment.changeStatus',
-        async (thread: vscode.CommentThread) => {
-          const first = thread.comments[0] as CRComment | undefined;
-          if (!first?.reviewId) return;
-
-          const rc = this.comments.load().find(c => c.id === first.reviewId);
-          if (!rc) return;
-
-          // Only user-settable statuses — agent sets the others
-          const allChoices: Array<{ label: string; description: string; status: ReviewComment['status'] }> = [
-            { label: '$(circle-outline) Open',      description: 'Reopen for agent to address',    status: 'open' },
-            { label: '$(pass-filled) Resolved',     description: 'Confirmed — work is acceptable', status: 'resolved' },
-            { label: '$(circle-slash) Dismissed',   description: 'Skip — no action needed',        status: 'dismissed' },
-          ];
-          const choices = allChoices.filter(c => c.status !== rc.status);
-
-          const picked = await vscode.window.showQuickPick(choices, {
-            title: `Change Status — currently "${STATUS_LABELS[rc.status] ?? rc.status}"`,
-            placeHolder: 'Select new status',
-          });
-          if (!picked) return;
-
-          this.comments.updateStatus(first.reviewId, picked.status);
-          this.refresh();
-          this.onCommentMutation?.();
-        },
-      ),
+      vscode.commands.registerCommand('commitReview.comment.resolve', makeStatusAction('resolved')),
+      vscode.commands.registerCommand('commitReview.comment.dismiss', makeStatusAction('dismissed')),
+      vscode.commands.registerCommand('commitReview.comment.reopen',  makeStatusAction('open')),
     );
 
     // ── Delete ──────────────────────────────────────────────────────────────

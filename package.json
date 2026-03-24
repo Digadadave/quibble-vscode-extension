@@ -36,9 +36,21 @@
         "category": "Commit Review"
       },
       {
-        "command": "commitReview.comment.changeStatus",
-        "title": "Change Status",
-        "icon": "$(gear)",
+        "command": "commitReview.comment.resolve",
+        "title": "Resolve",
+        "icon": "$(pass-filled)",
+        "category": "Commit Review"
+      },
+      {
+        "command": "commitReview.comment.dismiss",
+        "title": "Dismiss",
+        "icon": "$(circle-slash)",
+        "category": "Commit Review"
+      },
+      {
+        "command": "commitReview.comment.reopen",
+        "title": "Reopen",
+        "icon": "$(debug-restart)",
         "category": "Commit Review"
       },
       {
@@ -94,8 +106,18 @@
       ],
       "comments/commentThread/context": [
         {
+          "command": "commitReview.comment.resolve",
+          "group": "inline@1",
+          "when": "commentController == commit-review"
+        },
+        {
+          "command": "commitReview.comment.dismiss",
+          "group": "inline@2",
+          "when": "commentController == commit-review"
+        },
+        {
           "command": "commitReview.comment.reply",
-          "group": "inline",
+          "group": "inline@3",
           "when": "commentController == commit-review"
         }
       ],
@@ -108,9 +130,19 @@
       ],
       "comments/commentThread/title": [
         {
-          "command": "commitReview.comment.changeStatus",
-          "group": "inline",
-          "when": "commentController == commit-review"
+          "command": "commitReview.comment.resolve",
+          "group": "inline@1",
+          "when": "commentController == commit-review && commentThread =~ /status:(open|in-progress|needs-input|addressed|outdated)/"
+        },
+        {
+          "command": "commitReview.comment.dismiss",
+          "group": "inline@2",
+          "when": "commentController == commit-review && commentThread =~ /status:(open|in-progress|needs-input|addressed|outdated)/"
+        },
+        {
+          "command": "commitReview.comment.reopen",
+          "group": "inline@3",
+          "when": "commentController == commit-review && commentThread =~ /status:(resolved|dismissed|outdated)/"
         }
       ]
     }
