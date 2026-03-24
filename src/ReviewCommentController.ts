@@ -6,15 +6,13 @@ import { GitService } from './GitService';
 // ── Status display labels ────────────────────────────────────────────────────
 
 const STATUS_LABELS: Record<string, string> = {
-  'open':          'Open',
-  'pending':       'Pending',
-  'in-progress':   'In Progress',
-  'outdated':      'Outdated',
-  'resolved':      'Resolved',
-  'wont-fix':      "Won't Fix",
-  'question':      'Question',
-  'agent-replied': 'Agent Replied',
-  'addressed':     'Addressed',
+  'open':         'Open',
+  'in-progress':  'In Progress',
+  'needs-input':  'Needs Input',
+  'addressed':    'Addressed',
+  'resolved':     'Resolved',
+  'dismissed':    'Dismissed',
+  'outdated':     'Outdated',
 };
 
 // ── Extended Comment interface ────────────────────────────────────────────────
@@ -159,6 +157,21 @@ export class ReviewCommentController implements vscode.Disposable {
       });
     }
 
+    // Show the agent's resolvedNote as a pinned note in the thread
+    if (rc.resolvedNote) {
+      const noteLabel = rc.status === 'needs-input'    ? '🔔 Agent Note'
+                      : rc.status === 'outdated'        ? '⚠️ Outdated'
+                      : rc.status === 'addressed'       ? '✅ Agent Update'
+                      : 'Agent Note';
+      items.push({
+        reviewId:  rc.id,
+        author:    { name: noteLabel, iconPath: this.mediaUri('icon-agent.svg') },
+        body:      new vscode.MarkdownString(rc.resolvedNote),
+        mode:      vscode.CommentMode.Preview,
+        timestamp: rc.addressedAt ? new Date(rc.addressedAt) : undefined,
+      });
+    }
+
     return items;
   }
 
@@ -168,17 +181,18 @@ export class ReviewCommentController implements vscode.Disposable {
 
   private statusThemeIcon(status: string): vscode.Uri {
     switch (status) {
-      case 'open':          return this.mediaUri('icon-status-open.svg');
-      case 'question':      return this.mediaUri('icon-status-question.svg');
-      case 'agent-replied': return this.mediaUri('icon-status-replied.svg');
+      case 'open':        return this.mediaUri('icon-status-open.svg');
+      case 'in-progress': return this.mediaUri('icon-status-progress.svg');
+      case 'needs-input': return this.mediaUri('icon-status-input.svg');
       case 'addressed':
-      case 'resolved':      return this.mediaUri('icon-status-addressed.svg');
-      default:              return this.mediaUri('icon-status-default.svg');
+      case 'resolved':    return this.mediaUri('icon-status-addressed.svg');
+      case 'outdated':    return this.mediaUri('icon-status-outdated.svg');
+      default:            return this.mediaUri('icon-status-default.svg');
     }
   }
 
   private isClosed(status: string): boolean {
-    return ['addressed', 'resolved', 'wont-fix'].includes(status);
+    return ['resolved', 'dismissed', 'outdated'].includes(status);
   }
 
   // ── Snapshot capture ─────────────────────────────────────────────────────
@@ -248,20 +262,36 @@ export class ReviewCommentController implements vscode.Disposable {
       ),
     );
 
-    // ── Status changes ──────────────────────────────────────────────────────
-    const makeSetStatus = (status: ReviewComment['status']) =>
-      (comment: CRComment) => {
-        if (!comment?.reviewId) return;
-        this.comments.updateStatus(comment.reviewId, status);
-        this.refresh();
-        this.onCommentMutation?.();
-      };
-
+    // ── Change Status (⚙ button on thread header) ────────────────────────────
     context.subscriptions.push(
-      vscode.commands.registerCommand('commitReview.comment.setOpen',     makeSetStatus('open')),
-      vscode.commands.registerCommand('commitReview.comment.setResolved', makeSetStatus('resolved')),
-      vscode.commands.registerCommand('commitReview.comment.setWontFix',  makeSetStatus('wont-fix')),
-      vscode.commands.registerCommand('commitReview.comment.setPending',  makeSetStatus('pending')),
+      vscode.commands.registerCommand(
+        'commitReview.comment.changeStatus',
+        async (thread: vscode.CommentThread) => {
+          const first = thread.comments[0] as CRComment | undefined;
+          if (!first?.reviewId) return;
+
+          const rc = this.comments.load().find(c => c.id === first.reviewId);
+          if (!rc) return;
+
+          // Only user-settable statuses — agent sets the others
+          const allChoices: Array<{ label: string; description: string; status: ReviewComment['status'] }> = [
+            { label: '$(circle-outline) Open',      description: 'Reopen for agent to address',    status: 'open' },
+            { label: '$(pass-filled) Resolved',     description: 'Confirmed — work is acceptable', status: 'resolved' },
+            { label: '$(circle-slash) Dismissed',   description: 'Skip — no action needed',        status: 'dismissed' },
+          ];
+          const choices = allChoices.filter(c => c.status !== rc.status);
+
+          const picked = await vscode.window.showQuickPick(choices, {
+            title: `Change Status — currently "${STATUS_LABELS[rc.status] ?? rc.status}"`,
+            placeHolder: 'Select new status',
+          });
+          if (!picked) return;
+
+          this.comments.updateStatus(first.reviewId, picked.status);
+          this.refresh();
+          this.onCommentMutation?.();
+        },
+      ),
     );
 
     // ── Delete ──────────────────────────────────────────────────────────────

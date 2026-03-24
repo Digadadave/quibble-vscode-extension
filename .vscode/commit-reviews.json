@@ -11,17 +11,17 @@
       "body": "The review comment text written by the user",
       "author": "Who wrote the comment — 'reviewer' for the user, any string for agent replies",
       "status": {
-        "description": "Current state of the comment. The user sets open/resolved/wont-fix; the agent sets the others.",
+        "description": "Current state of the comment.",
+        "user-sets": "open | resolved | dismissed",
+        "agent-sets": "in-progress | needs-input | addressed | outdated",
         "values": {
-          "open": "User has left a comment for the agent to address",
-          "in-progress": "Agent is actively working on this comment",
-          "pending": "Agent has questions before it can proceed — see resolvedNote. Requires user review.",
-          "outdated": "Agent detected the code has changed enough that the comment may no longer apply — see resolvedNote. Requires user review.",
-          "question": "User has asked the agent a follow-up question via the thread",
-          "agent-replied": "Agent has replied to a user question; awaiting user review",
-          "resolved": "User has confirmed the agent's work is acceptable",
-          "wont-fix": "User has decided this comment does not need to be addressed",
-          "addressed": "Agent has fixed the issue and marked it done"
+          "open":         "User has left a comment or question for the agent to address",
+          "in-progress":  "Agent is actively working on this comment",
+          "needs-input":  "Ball is in the user's court — either the agent has a question, or the agent answered a user question",
+          "addressed":    "Agent has finished — user should confirm or reopen",
+          "resolved":     "User confirmed the agent's work is acceptable",
+          "dismissed":    "User decided no action is needed",
+          "outdated":     "Agent detected the code has changed enough that the comment may no longer apply. See resolvedNote for details. User should reopen or dismiss."
         }
       },
       "createdAt": "ISO 8601 timestamp when the comment was first created",
@@ -49,7 +49,7 @@
   "reviews": [
     {
       "id": "cr_24646f42",
-      "status": "open",
+      "status": "addressed",
       "commitHash": "87feccf4d53972aacef6ddcf4bbe640fae68b8e8",
       "file": "src/extension.ts",
       "line": 24,
@@ -65,15 +65,15 @@
           "createdAt": "2026-03-23T02:22:30.991Z"
         }
       ],
-      "addressedAt": null,
+      "addressedAt": "2026-03-22T00:00:00.000Z",
       "addressedByCommit": null,
       "codeSnippet": "",
-      "resolvedNote": null,
+      "resolvedNote": "Closing as requested — this was a test comment.",
       "snapshot": null
     },
     {
       "id": "cr_11fb15a7",
-      "status": "open",
+      "status": "needs-input",
       "commitHash": "87feccf4d53972aacef6ddcf4bbe640fae68b8e8",
       "file": "src/ReviewCommentController.ts",
       "line": 7,
@@ -82,7 +82,13 @@
       "body": "What are these labels for?",
       "author": "reviewer",
       "createdAt": "2026-03-23T02:11:54.824Z",
-      "thread": [],
+      "thread": [
+        {
+          "author": "agent",
+          "body": "`STATUS_LABELS` is a lookup map from comment status values (e.g. `'open'`, `'resolved'`) to human-readable display strings (e.g. `'Open'`, `'Resolved'`). It's used when rendering status badges or labels in the UI so the display text can differ from the internal status key.",
+          "createdAt": "2026-03-22T00:00:00.000Z"
+        }
+      ],
       "addressedAt": null,
       "addressedByCommit": null,
       "codeSnippet": "",
@@ -91,7 +97,7 @@
     },
     {
       "id": "cr_04436947",
-      "status": "open",
+      "status": "needs-input",
       "commitHash": "e0ecee277dc9a305b9298055f73754a5cd2ce420",
       "file": "src/CommentManager.ts",
       "line": 140,
@@ -100,7 +106,13 @@
       "body": "Where are these types being stored?",
       "author": "reviewer",
       "createdAt": "2026-03-23T02:20:33.595Z",
-      "thread": [],
+      "thread": [
+        {
+          "author": "agent",
+          "body": "`CommentSnapshot` and `SnapshotLine` are defined at the top of `src/CommentManager.ts` (lines 15–24) and exported from there. `CommentSnapshot` has `before`, `target`, and `after` arrays of `SnapshotLine` objects (`{ line: number, content: string }`). They're used as a field on `ReviewComment` and stored in `.vscode/commit-reviews.json` under the `snapshot` key.",
+          "createdAt": "2026-03-22T00:00:00.000Z"
+        }
+      ],
       "addressedAt": null,
       "addressedByCommit": null,
       "codeSnippet": "    snapshot?: CommentSnapshot | null;",

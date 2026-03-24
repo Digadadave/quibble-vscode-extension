@@ -3,8 +3,7 @@ import * as path from 'path';
 import * as crypto from 'crypto';
 import * as vscode from 'vscode';
 
-export type CommentStatus = 'open' | 'question' | 'agent-replied' | 'addressed' |
-  'in-progress' | 'outdated' | 'pending' | 'resolved' | 'wont-fix';
+export type CommentStatus = 'open' | 'in-progress' | 'needs-input' | 'addressed' | 'resolved' | 'dismissed' | 'outdated';
 
 export interface ThreadEntry {
   author: string;
@@ -189,26 +188,12 @@ export class CommentManager implements vscode.Disposable {
     const comment = comments.find(c => c.id === id);
     if (!comment) return false;
     comment.thread.push({ author, body, createdAt: new Date().toISOString() });
-    if (author !== 'reviewer' && comment.status === 'open') {
-      comment.status = 'agent-replied';
-    }
-    this.save(comments);
-    return true;
-  }
-
-  /** Add a question thread entry with author='reviewer' and set status to 'question'. */
-  askQuestion(id: string, questionBody: string): boolean {
-    const comments = this.load();
-    const comment = comments.find(c => c.id === id);
-    if (!comment) return false;
-    comment.thread.push({ author: 'reviewer', body: questionBody, createdAt: new Date().toISOString() });
-    comment.status = 'question';
     this.save(comments);
     return true;
   }
 
   getOpenComments(): ReviewComment[] {
-    return this.load().filter(c => c.status === 'open' || c.status === 'question' || c.status === 'agent-replied');
+    return this.load().filter(c => c.status !== 'resolved' && c.status !== 'dismissed');
   }
 
   getCommentsForCommit(hash: string): ReviewComment[] {

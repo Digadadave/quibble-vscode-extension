@@ -36,23 +36,9 @@
         "category": "Commit Review"
       },
       {
-        "command": "commitReview.comment.setOpen",
-        "title": "Set Open",
-        "category": "Commit Review"
-      },
-      {
-        "command": "commitReview.comment.setResolved",
-        "title": "Set Resolved",
-        "category": "Commit Review"
-      },
-      {
-        "command": "commitReview.comment.setWontFix",
-        "title": "Won't Fix",
-        "category": "Commit Review"
-      },
-      {
-        "command": "commitReview.comment.setPending",
-        "title": "Set Pending",
+        "command": "commitReview.comment.changeStatus",
+        "title": "Change Status",
+        "icon": "$(gear)",
         "category": "Commit Review"
       },
       {
@@ -120,25 +106,10 @@
           "when": "commentController == commit-review"
         }
       ],
-      "comments/comment/context": [
+      "comments/commentThread/title": [
         {
-          "command": "commitReview.comment.setOpen",
-          "group": "status@1",
-          "when": "commentController == commit-review"
-        },
-        {
-          "command": "commitReview.comment.setResolved",
-          "group": "status@2",
-          "when": "commentController == commit-review"
-        },
-        {
-          "command": "commitReview.comment.setWontFix",
-          "group": "status@3",
-          "when": "commentController == commit-review"
-        },
-        {
-          "command": "commitReview.comment.setPending",
-          "group": "status@4",
+          "command": "commitReview.comment.changeStatus",
+          "group": "inline",
           "when": "commentController == commit-review"
         }
       ]

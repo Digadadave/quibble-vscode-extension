@@ -122,11 +122,6 @@ export class DiffPanel implements vscode.Disposable {
 
   private handleMessage(msg: { type: string; [k: string]: unknown }): void {
     switch (msg.type) {
-      case 'askQuestion':
-        this.comments.askQuestion(msg.id as string, msg.question as string);
-        this.onCommentMutation?.();
-        break;
-
       case 'addComment':
         this.comments.addComment({
           commitHash:  msg.commitHash as string,
@@ -143,11 +138,8 @@ export class DiffPanel implements vscode.Disposable {
 
       case 'updateStatus': {
         const status = msg.status as ReviewComment['status'];
-        // Only handle 'addressed' (not 'resolved' which is removed)
-        if (status === 'addressed' || status === 'open' || status === 'question' || status === 'agent-replied') {
-          this.comments.updateStatus(msg.id as string, status);
-          this.onCommentMutation?.();
-        }
+        this.comments.updateStatus(msg.id as string, status);
+        this.onCommentMutation?.();
         break;
       }
 
