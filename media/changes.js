@@ -1,25 +1,27 @@
 (function () {
   const vscode = acquireVsCodeApi();
 
-  // Palette of 8 distinct colors that work in both light and dark VS Code themes
+  // Soft / muted palette — readable with white text, not overly saturated
   const BADGE_COLORS = [
-    '#3b82f6', // blue
-    '#10b981', // emerald
-    '#f59e0b', // amber
-    '#ef4444', // red
-    '#8b5cf6', // violet
-    '#06b6d4', // cyan
-    '#f97316', // orange
-    '#ec4899', // pink
+    '#6b9fd6', // soft blue
+    '#5fb89a', // soft green
+    '#c49a4a', // soft amber
+    '#c97878', // soft red
+    '#9b82c4', // soft violet
+    '#52a8b8', // soft cyan
+    '#c4874f', // soft orange
+    '#b874a0', // soft pink
   ];
-
-  const MAX_VISIBLE_BADGES = 3;
 
   let files = [];
   let branch = '';
-  // Maps commit hash → assigned color (stable across renders)
+  /** @type {Map<string, string>} commit hash → assigned color */
   const commitColorMap = new Map();
   let colorIndex = 0;
+  /** @type {Map<string, object[]>} file path → commits array (for dropdown) */
+  const fileCommitsMap = new Map();
+  /** @type {HTMLElement|null} */
+  let activeDropdown = null;
 
   function getCommitColor(hash) {
     if (!commitColorMap.has(hash)) {
@@ -38,12 +40,11 @@
     branch = msg.branch || '';
     files = msg.files || [];
 
-    // Reset color assignments so colors are stable within a session
+    // Reset color assignments
     commitColorMap.clear();
     colorIndex = 0;
 
-    // Pre-assign colors in newest-commit-first order across all files so the
-    // same commit always gets the same color regardless of which file renders it first.
+    // Pre-assign colors in newest-commit-first order across all files
     const seen = new Set();
     for (const f of files) {
       for (const c of f.commits) {
@@ -52,22 +53,100 @@
           getCommitColor(c.hash);
         }
       }
+      // Cache commits per file for dropdown
+      fileCommitsMap.set(f.path, f.commits);
     }
 
     const label = document.getElementById('branch-label');
     if (label) label.textContent = branch || '';
 
+    closeDropdown();
     render();
   });
 
   // ── Click delegation ───────────────────────────────────────────────────────
 
   document.addEventListener('click', e => {
-    const row = e.target.closest('[data-file]');
-    if (row) {
+    const target = /** @type {HTMLElement} */ (e.target);
+
+    // Hash badge click → open commit diff anchored on this file
+    const badge = target.closest('.ch-badge-hash');
+    if (badge) {
+      e.stopPropagation();
+      closeDropdown();
+      const hash = badge.getAttribute('data-hash');
+      const file = badge.closest('[data-file]')?.getAttribute('data-file');
+      if (hash && file) {
+        vscode.postMessage({ type: 'jumpToCommitFile', hash, file });
+      }
+      return;
+    }
+
+    // +N pill click → show dropdown
+    const moreBadge = target.closest('.ch-badge-more');
+    if (moreBadge) {
+      e.stopPropagation();
+      const file = moreBadge.closest('[data-file]')?.getAttribute('data-file');
+      if (file) showDropdown(moreBadge, file);
+      return;
+    }
+
+    // Dropdown item click → open commit diff anchored on file
+    const ddItem = target.closest('.ch-dropdown-item');
+    if (ddItem) {
+      e.stopPropagation();
+      const hash = ddItem.getAttribute('data-hash');
+      const file = ddItem.getAttribute('data-file');
+      closeDropdown();
+      if (hash && file) {
+        vscode.postMessage({ type: 'jumpToCommitFile', hash, file });
+      }
+      return;
+    }
+
+    // Close dropdown if clicking anywhere else
+    if (activeDropdown && !activeDropdown.contains(target)) {
+      closeDropdown();
+    }
+
+    // File row click → open accumulated branch diff anchored on this file
+    const row = target.closest('.ch-row');
+    if (row && row.dataset.file) {
       vscode.postMessage({ type: 'jumpToFile', file: row.dataset.file });
     }
   });
+
+  // ── Dropdown ───────────────────────────────────────────────────────────────
+
+  function showDropdown(anchor, filePath) {
+    closeDropdown();
+    const commits = fileCommitsMap.get(filePath) || [];
+    if (!commits.length) return;
+
+    const rect = anchor.getBoundingClientRect();
+    const dd = document.createElement('div');
+    dd.className = 'ch-dropdown';
+    dd.style.top = (rect.bottom + 2) + 'px';
+    dd.style.left = Math.max(0, rect.left - 80) + 'px';
+
+    dd.innerHTML = commits.map(c => {
+      const color = getCommitColor(c.hash);
+      return `<div class="ch-dropdown-item" data-hash="${esc(c.hash)}" data-file="${esc(filePath)}">
+  <span class="ch-badge" style="background:${color}">${esc(c.shortHash)}</span>
+  <span class="ch-dropdown-msg">${esc(c.message)}</span>
+</div>`;
+    }).join('');
+
+    document.body.appendChild(dd);
+    activeDropdown = dd;
+  }
+
+  function closeDropdown() {
+    if (activeDropdown) {
+      activeDropdown.remove();
+      activeDropdown = null;
+    }
+  }
 
   // ── Render ─────────────────────────────────────────────────────────────────
 
@@ -85,7 +164,7 @@
 
   function renderRow(file) {
     const name = file.path.split('/').pop() || file.path;
-    const badgesHtml = renderBadges(file.commits);
+    const badgesHtml = renderBadges(file);
 
     const commentHtml = file.commentCount > 0
       ? `<span class="ch-comment-count" title="${file.commentCount} comment${file.commentCount !== 1 ? 's' : ''}">\u{1F4AC}\u00a0${file.commentCount}</span>`
@@ -104,19 +183,21 @@
 </div>`;
   }
 
-  function renderBadges(commits) {
-    const visible  = commits.slice(0, MAX_VISIBLE_BADGES);
-    const overflow = commits.length - MAX_VISIBLE_BADGES;
+  function renderBadges(file) {
+    const commits = file.commits;
+    if (!commits.length) return '';
 
-    let html = visible.map(c => {
-      const color   = getCommitColor(c.hash);
-      const tooltip = esc(c.shortHash + ' — ' + c.message);
-      return `<span class="ch-badge" style="background:${color}" title="${tooltip}">${esc(c.shortHash)}</span>`;
-    }).join('');
+    // Show only the latest commit badge
+    const latest = commits[0];
+    const color  = getCommitColor(latest.hash);
+    const tip    = esc(latest.shortHash + ' \u2014 ' + latest.message);
+    let html = `<span class="ch-badge ch-badge-hash" style="background:${color}" data-hash="${esc(latest.hash)}" title="${tip}">${esc(latest.shortHash)}</span>`;
 
-    if (overflow > 0) {
-      const tip = commits.slice(MAX_VISIBLE_BADGES).map(c => c.shortHash + ' ' + c.message).join('\n');
-      html += `<span class="ch-badge ch-badge-more" title="${esc(tip)}">+${overflow}</span>`;
+    // +N overflow pill (shows total additional commits)
+    const extra = commits.length - 1;
+    if (extra > 0) {
+      const allTip = commits.map(c => c.shortHash + ' ' + c.message).join('\n');
+      html += `<span class="ch-badge ch-badge-more" title="${esc(allTip)}">+${extra}</span>`;
     }
 
     return html;

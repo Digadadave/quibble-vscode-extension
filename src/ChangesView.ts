@@ -14,6 +14,9 @@ export class ChangesView implements vscode.WebviewViewProvider, vscode.Disposabl
   /** Called when the user clicks a file row — open the cumulative diff for that file. */
   onJumpToFile?: (file: string) => void;
 
+  /** Called when the user clicks a commit hash badge — open the commit diff anchored on that file. */
+  onJumpToCommitFile?: (hash: string, file: string) => void;
+
   private constructor(
     private context: vscode.ExtensionContext,
     private git: GitService,
@@ -62,6 +65,8 @@ export class ChangesView implements vscode.WebviewViewProvider, vscode.Disposabl
     webviewView.webview.onDidReceiveMessage(msg => {
       if (msg.type === 'jumpToFile') {
         this.onJumpToFile?.(msg.file as string);
+      } else if (msg.type === 'jumpToCommitFile') {
+        this.onJumpToCommitFile?.(msg.hash as string, msg.file as string);
       }
     }, null, this.disposables);
 

@@ -72,6 +72,26 @@ export class DiffPanel implements vscode.Disposable {
     this.sendDiffForHashes(hashes);
   }
 
+  /** Show the cumulative branch diff (merge-base → HEAD) for all files. */
+  showBranchDiff(baseHash: string, headHash: string, branchHashes: string[]): void {
+    this.currentHashes = branchHashes;
+    this.panel.reveal(vscode.ViewColumn.One, false);
+
+    const rawDiff      = this.git.getDirectDiff(baseHash, headHash);
+    const parsedDiff   = this.git.parseDiff(rawDiff);
+    const changedFiles = this.git.getDirectChangedFiles(baseHash, headHash);
+
+    this.panel.webview.postMessage({
+      type: 'diffResult',
+      parsedDiff,
+      changedFiles,
+      selectedHashes: branchHashes,
+      comments: this.comments.load(),
+      oldestShort: baseHash.slice(0, 7),
+      newestShort: headHash.slice(0, 7),
+    });
+  }
+
   /** Refresh comments without recomputing the diff (called after mutations). */
   refreshComments(): void {
     this.panel.webview.postMessage({

@@ -5,6 +5,7 @@ import { CommentManager } from './CommentManager';
 import { ReviewPanel } from './ReviewPanel';
 import { CommentsView } from './CommentsView';
 import { ChangesView } from './ChangesView';
+import { DiffPanel } from './DiffPanel';
 import { GitContentProvider } from './GitContentProvider';
 import { ReviewCommentController } from './ReviewCommentController';
 
@@ -111,9 +112,27 @@ export function activate(context: vscode.ExtensionContext): void {
   // ── Changes sidebar WebviewView ───────────────────────────────────────────
   activeChangesView = ChangesView.register(context, new GitService(''), new CommentManager(''));
 
-  activeChangesView.onJumpToFile = async (file) => {
-    if (!activeGit) return;
-    await openCumulativeFileDiff(activeGit, file);
+  // File click → open accumulated branch diff (all files) in DiffPanel, anchored on file
+  activeChangesView.onJumpToFile = (file) => {
+    if (!activeGit || !activeComments) return;
+    const branch = activeGit.getCurrentBranch();
+    const base   = activeGit.getMergeBase(branch);
+    const head   = activeGit.getHeadHash();
+    if (!base || !head) return;
+    const hashes = activeGit.getBranchCommitHashes(branch);
+    const panel  = DiffPanel.createOrShow(context, activeGit, activeComments);
+    panel.onCommentMutation = refreshAll;
+    panel.showBranchDiff(base, head, hashes);
+    panel.focusFile(file);
+  };
+
+  // Hash badge click → open single commit diff (all files) in DiffPanel, anchored on file
+  activeChangesView.onJumpToCommitFile = (hash, file) => {
+    if (!activeGit || !activeComments) return;
+    const panel = DiffPanel.createOrShow(context, activeGit, activeComments);
+    panel.onCommentMutation = refreshAll;
+    panel.showSelection([hash]);
+    panel.focusFile(file);
   };
 
   context.subscriptions.push(
@@ -273,26 +292,6 @@ async function openNativeDiff(git: GitService, file: string, commitHash: string)
   const oldUri = GitContentProvider.makeUri(repoPath, file, parentHash, 'old');
   const newUri = GitContentProvider.makeUri(repoPath, file, commitHash, 'new');
   const title  = `${path.basename(file)} @ ${commitHash.slice(0, 7)}`;
-
-  await vscode.commands.executeCommand('vscode.diff', oldUri, newUri, title);
-}
-
-// ── Open cumulative file diff (branch base → HEAD) ───────────────────────────
-
-async function openCumulativeFileDiff(git: GitService, file: string): Promise<void> {
-  const repoPath = git.getRepoPath();
-  const branch   = git.getCurrentBranch();
-  const base     = git.getMergeBase(branch);
-  const head     = git.getHeadHash();
-
-  if (!base || !head) {
-    vscode.window.showWarningMessage('Could not determine branch base for cumulative diff.');
-    return;
-  }
-
-  const oldUri = GitContentProvider.makeUri(repoPath, file, base, 'old');
-  const newUri = GitContentProvider.makeUri(repoPath, file, head, 'new');
-  const title  = `${path.basename(file)} (all branch changes)`;
 
   await vscode.commands.executeCommand('vscode.diff', oldUri, newUri, title);
 }

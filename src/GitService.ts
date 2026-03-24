@@ -278,6 +278,33 @@ export class GitService {
     return exec('git rev-parse HEAD', this.repoPath);
   }
 
+  /** Direct diff between two refs (e.g. merge-base → HEAD). No parent trick. */
+  getDirectDiff(baseRef: string, headRef: string): string {
+    return exec(`git diff "${baseRef}" "${headRef}"`, this.repoPath);
+  }
+
+  /** Changed files between two refs (direct, no parent trick). */
+  getDirectChangedFiles(baseRef: string, headRef: string): ChangedFile[] {
+    const raw = exec(`git diff --name-status "${baseRef}" "${headRef}"`, this.repoPath);
+    if (!raw) return [];
+    return raw
+      .split('\n')
+      .filter(Boolean)
+      .map(line => {
+        const [status, ...parts] = line.split('\t');
+        return { path: parts[parts.length - 1], status: status[0] };
+      });
+  }
+
+  /** Returns all commit hashes on the branch since it diverged from main/master. */
+  getBranchCommitHashes(branch: string): string[] {
+    const base = this.getMergeBase(branch);
+    if (!base) return [];
+    const raw = exec(`git log "${base}..${branch}" --format=%H`, this.repoPath);
+    if (!raw) return [];
+    return raw.split('\n').filter(Boolean);
+  }
+
   /** Returns the merge-base commit hash between this branch and main/master. */
   getMergeBase(branch: string): string {
     return (
