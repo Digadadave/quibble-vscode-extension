@@ -162,7 +162,7 @@ function renderFileList(files, commitHash) {
 
     const ins = f.insertions > 0 ? `<span class="stat-ins">+${f.insertions}</span>` : '';
     const del = f.deletions  > 0 ? `<span class="stat-del">-${f.deletions}</span>`  : '';
-    const stats = (ins || del) ? `<span class="file-stats">${ins}${ins && del ? '&nbsp;' : ''}${del}</span>` : '';
+    const stats = (ins || del) ? `<span class="file-stats">${del}${ins && del ? '&nbsp;' : ''}${ins}</span>` : '';
 
     const statusClass = f.status === 'A' ? 'status-added'
                       : f.status === 'D' ? 'status-deleted'

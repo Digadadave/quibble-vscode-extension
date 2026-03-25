@@ -223,7 +223,7 @@
     // ── Right-side badges: [+/- stats] [hash] [count] [status]
     const ins = file.insertions > 0 ? `<span class="ch-ins">+${file.insertions}</span>` : '';
     const del = file.deletions  > 0 ? `<span class="ch-del">-${file.deletions}</span>`  : '';
-    const statsHtml = (ins || del) ? `<span class="ch-stats">${ins}${ins && del ? '\u00a0' : ''}${del}</span>` : '';
+    const statsHtml = (ins || del) ? `<span class="ch-stats">${del}${ins && del ? '\u00a0' : ''}${ins}</span>` : '';
 
     const rowBadgesHtml = renderRowBadges(file);
 
@@ -238,7 +238,7 @@
           const color    = getCommitColor(c.hash);
           const cIns     = c.insertions > 0 ? `<span class="ch-ins">+${c.insertions}</span>` : '';
           const cDel     = c.deletions  > 0 ? `<span class="ch-del">-${c.deletions}</span>`  : '';
-          const cStats   = (cIns || cDel) ? `<span class="ch-commit-stats">${cIns}${cIns && cDel ? '\u00a0' : ''}${cDel}</span>` : '<span class="ch-commit-stats"></span>';
+          const cStats   = (cIns || cDel) ? `<span class="ch-commit-stats">${cDel}${cIns && cDel ? '\u00a0' : ''}${cIns}</span>` : '<span class="ch-commit-stats"></span>';
           return `<div class="ch-commit-item" data-hash="${esc(c.hash)}" data-file="${esc(file.path)}">`
             + `<span class="ch-badge ch-badge-hash" style="background:${color}" data-hash="${esc(c.hash)}">${esc(c.shortHash)}</span>`
             + `<span class="ch-commit-msg">${esc(c.message)}</span>`
