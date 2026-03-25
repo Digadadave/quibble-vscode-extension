@@ -74,7 +74,7 @@ export function activate(context: vscode.ExtensionContext): void {
     ),
   );
 
-  // ── Comments sidebar WebviewView ──────────────────────────────────────────
+  // ── Comments sidebar TreeView ────────────────────────────────────────────
   activeCommentsView = CommentsView.register(context, new CommentManager(''));
 
   // When the user clicks a comment: open the diff and navigate to that line.
@@ -87,27 +87,22 @@ export function activate(context: vscode.ExtensionContext): void {
     }, 300);
   };
 
-  // When the user right-click-deletes a comment from the sidebar.
+  // When the user deletes a comment from the tree.
   activeCommentsView.onDeleteComment = (id) => {
     if (!activeComments) return;
     activeComments.deleteComment(id);
     refreshAll();
   };
 
-  // When the user changes a comment's status from the hub.
+  // When the user changes a comment's status from the tree.
   activeCommentsView.onUpdateStatus = (id, status) => {
     if (!activeComments) return;
     activeComments.updateStatus(id, status as import('./CommentManager').CommentStatus);
     refreshAll();
   };
 
-  context.subscriptions.push(
-    vscode.window.registerWebviewViewProvider(
-      CommentsView.viewType,
-      activeCommentsView,
-      { webviewOptions: { retainContextWhenHidden: true } },
-    ),
-  );
+  const commentsTreeView = activeCommentsView.createTreeView();
+  context.subscriptions.push(commentsTreeView);
 
   // ── Changes sidebar WebviewView ───────────────────────────────────────────
   activeChangesView = ChangesView.register(context, new GitService(''), new CommentManager(''));

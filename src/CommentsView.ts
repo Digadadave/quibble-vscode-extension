@@ -1,35 +1,199 @@
 import * as vscode from 'vscode';
-import * as path from 'path';
-import { CommentManager, ReviewComment } from './CommentManager';
+import { CommentManager, ReviewComment, CommentStatus } from './CommentManager';
 
-export class CommentsView implements vscode.WebviewViewProvider, vscode.Disposable {
+// ── Status metadata ──────────────────────────────────────────────────────────
+
+const CLOSED_STATUSES = new Set<CommentStatus>(['resolved', 'dismissed', 'outdated']);
+
+interface StatusMeta {
+  label: string;
+  icon: string;          // codicon id
+  color: vscode.ThemeColor;
+}
+
+const STATUS_META: Record<string, StatusMeta> = {
+  'open':        { label: 'Open',        icon: 'circle-filled',      color: new vscode.ThemeColor('testing.iconFailed') },
+  'in-progress': { label: 'In Progress', icon: 'loading~spin',       color: new vscode.ThemeColor('progressBar.background') },
+  'needs-input': { label: 'Needs Input', icon: 'question',           color: new vscode.ThemeColor('editorWarning.foreground') },
+  'addressed':   { label: 'Addressed',   icon: 'check',              color: new vscode.ThemeColor('testing.iconPassed') },
+  'resolved':    { label: 'Resolved',    icon: 'pass-filled',        color: new vscode.ThemeColor('testing.iconPassed') },
+  'dismissed':   { label: 'Dismissed',   icon: 'circle-slash',       color: new vscode.ThemeColor('disabledForeground') },
+  'outdated':    { label: 'Outdated',    icon: 'warning',            color: new vscode.ThemeColor('disabledForeground') },
+};
+
+// ── Filter types ──────────────────────────────────────────────────────────────
+
+type Filter = 'all' | 'open' | 'needs-input' | 'closed';
+
+// ── Tree items ────────────────────────────────────────────────────────────────
+
+export class CommentTreeItem extends vscode.TreeItem {
+  constructor(public readonly comment: ReviewComment) {
+    const fname = comment.file.split('/').pop() ?? comment.file;
+    const dir = comment.file.includes('/')
+      ? comment.file.slice(0, comment.file.lastIndexOf('/'))
+      : '';
+
+    const hasChildren =
+      (comment.thread && comment.thread.length > 0) ||
+      !!comment.resolvedNote;
+
+    super(
+      `${fname}:${comment.line}`,
+      hasChildren
+        ? vscode.TreeItemCollapsibleState.Expanded
+        : vscode.TreeItemCollapsibleState.None,
+    );
+
+    // Description: truncated body
+    const body = comment.body ?? '';
+    this.description = body.length > 80 ? body.slice(0, 77) + '…' : body;
+
+    // Icon: status-colored codicon
+    const meta = STATUS_META[comment.status] ?? STATUS_META['open'];
+    this.iconPath = new vscode.ThemeIcon(meta.icon, meta.color);
+
+    // Tooltip: rich markdown with full details
+    this.tooltip = this.buildTooltip(comment, dir);
+
+    // Click → open in diff
+    this.command = {
+      command: 'commitReview.comments.openDiff',
+      title: 'Open in Diff',
+      arguments: [comment],
+    };
+
+    // Context value for menu filtering
+    const isClosed = CLOSED_STATUSES.has(comment.status);
+    this.contextValue = isClosed ? 'comment-closed' : 'comment-open';
+
+    this.id = comment.id;
+  }
+
+  private buildTooltip(c: ReviewComment, dir: string): vscode.MarkdownString {
+    const meta = STATUS_META[c.status] ?? STATUS_META['open'];
+    const md = new vscode.MarkdownString('', true);
+    md.supportThemeIcons = true;
+    md.isTrusted = true;
+
+    md.appendMarkdown(`**$(${meta.icon}) ${meta.label}** — \`${c.file}:${c.line}\`\n\n`);
+    if (dir) md.appendMarkdown(`*${dir}*\n\n`);
+    md.appendMarkdown(`${c.body}\n\n`);
+
+    if (c.codeSnippet) {
+      md.appendMarkdown('```\n' + c.codeSnippet + '\n```\n\n');
+    }
+
+    if (c.thread && c.thread.length > 0) {
+      md.appendMarkdown('---\n\n');
+      for (const t of c.thread) {
+        const icon = t.author !== 'reviewer' ? '$(hubot)' : '$(person)';
+        md.appendMarkdown(`${icon} **${t.author}**: ${t.body}\n\n`);
+      }
+    }
+
+    if (c.resolvedNote) {
+      md.appendMarkdown('---\n\n');
+      md.appendMarkdown(`$(hubot) *${c.resolvedNote}*\n`);
+    }
+
+    if (c.createdAt) {
+      md.appendMarkdown(`\n\n*${formatDate(c.createdAt)}*`);
+    }
+
+    return md;
+  }
+}
+
+export class ThreadTreeItem extends vscode.TreeItem {
+  constructor(
+    public readonly author: string,
+    public readonly body: string,
+    public readonly createdAt: string,
+    public readonly isAgent: boolean,
+  ) {
+    super(author, vscode.TreeItemCollapsibleState.None);
+
+    this.description = body.length > 80 ? body.slice(0, 77) + '…' : body;
+    this.iconPath = new vscode.ThemeIcon(
+      isAgent ? 'hubot' : 'person',
+      isAgent
+        ? new vscode.ThemeColor('terminal.ansiMagenta')
+        : new vscode.ThemeColor('foreground'),
+    );
+
+    const md = new vscode.MarkdownString('', true);
+    md.supportThemeIcons = true;
+    md.appendMarkdown(`**${author}**\n\n${body}`);
+    if (createdAt) md.appendMarkdown(`\n\n*${formatDate(createdAt)}*`);
+    this.tooltip = md;
+
+    // Not clickable
+    this.command = undefined;
+    this.contextValue = 'threadEntry';
+  }
+}
+
+export class ResolvedNoteTreeItem extends vscode.TreeItem {
+  constructor(
+    public readonly comment: ReviewComment,
+  ) {
+    const noteLabel =
+      comment.status === 'needs-input'  ? 'Agent Note'
+      : comment.status === 'outdated'   ? 'Outdated'
+      : comment.status === 'addressed'  ? 'Agent Update'
+      : 'Agent Note';
+
+    super(noteLabel, vscode.TreeItemCollapsibleState.None);
+
+    this.description = (comment.resolvedNote ?? '').length > 80
+      ? comment.resolvedNote!.slice(0, 77) + '…'
+      : comment.resolvedNote ?? '';
+
+    this.iconPath = new vscode.ThemeIcon('hubot', new vscode.ThemeColor('terminal.ansiMagenta'));
+
+    const md = new vscode.MarkdownString('', true);
+    md.supportThemeIcons = true;
+    md.appendMarkdown(`$(hubot) **${noteLabel}**\n\n${comment.resolvedNote}`);
+    if (comment.addressedAt) md.appendMarkdown(`\n\n*${formatDate(comment.addressedAt)}*`);
+    this.tooltip = md;
+
+    this.contextValue = 'resolvedNote';
+  }
+}
+
+// ── TreeDataProvider ──────────────────────────────────────────────────────────
+
+export class CommentsView implements vscode.TreeDataProvider<vscode.TreeItem>, vscode.Disposable {
   static readonly viewType = 'commitReview.commentsView';
   private static instance: CommentsView | undefined;
 
-  private _view?: vscode.WebviewView;
+  private _onDidChangeTreeData = new vscode.EventEmitter<vscode.TreeItem | undefined | void>();
+  readonly onDidChangeTreeData = this._onDidChangeTreeData.event;
+
+  private treeView: vscode.TreeView<vscode.TreeItem> | undefined;
   private disposables: vscode.Disposable[] = [];
-  /** Cached comments to send as soon as the view resolves (if refresh was called before it opened). */
-  private cachedComments: unknown[] | null = null;
+  private filter: Filter = 'all';
 
   /** Called when the user clicks a comment — open the diff at that commit and scroll to the comment. */
   onFocusComment?: (file: string, line: number, commitHash: string, commentId: string) => void;
 
-  /** Called when the user right-click-deletes a comment from the sidebar. */
+  /** Called when the user deletes a comment. */
   onDeleteComment?: (id: string) => void;
 
-  /** Called when the user changes a comment's status from the hub. */
+  /** Called when the user changes a comment's status. */
   onUpdateStatus?: (id: string, status: string) => void;
 
   private constructor(
     private context: vscode.ExtensionContext,
-    private comments: CommentManager
+    private comments: CommentManager,
   ) {}
 
   // ── Factory ───────────────────────────────────────────────────────────────
 
   static register(
     context: vscode.ExtensionContext,
-    comments: CommentManager
+    comments: CommentManager,
   ): CommentsView {
     if (!CommentsView.instance) {
       CommentsView.instance = new CommentsView(context, comments);
@@ -39,100 +203,134 @@ export class CommentsView implements vscode.WebviewViewProvider, vscode.Disposab
     return CommentsView.instance;
   }
 
+  /** Call after register() to create the TreeView and register commands. */
+  createTreeView(): vscode.TreeView<vscode.TreeItem> {
+    this.treeView = vscode.window.createTreeView(CommentsView.viewType, {
+      treeDataProvider: this,
+      showCollapseAll: true,
+    });
+    this.disposables.push(this.treeView);
+
+    // Register commands
+    this.disposables.push(
+      vscode.commands.registerCommand('commitReview.comments.openDiff', (comment: ReviewComment) => {
+        this.onFocusComment?.(comment.file, comment.line, comment.commitHash, comment.id);
+      }),
+      vscode.commands.registerCommand('commitReview.comments.resolve', (item: CommentTreeItem) => {
+        this.onUpdateStatus?.(item.comment.id, 'resolved');
+      }),
+      vscode.commands.registerCommand('commitReview.comments.dismiss', (item: CommentTreeItem) => {
+        this.onUpdateStatus?.(item.comment.id, 'dismissed');
+      }),
+      vscode.commands.registerCommand('commitReview.comments.reopen', (item: CommentTreeItem) => {
+        this.onUpdateStatus?.(item.comment.id, 'open');
+      }),
+      vscode.commands.registerCommand('commitReview.comments.delete', (item: CommentTreeItem) => {
+        this.onDeleteComment?.(item.comment.id);
+      }),
+      vscode.commands.registerCommand('commitReview.comments.filterAll', () => this.setFilter('all')),
+      vscode.commands.registerCommand('commitReview.comments.filterOpen', () => this.setFilter('open')),
+      vscode.commands.registerCommand('commitReview.comments.filterNeedsInput', () => this.setFilter('needs-input')),
+      vscode.commands.registerCommand('commitReview.comments.filterClosed', () => this.setFilter('closed')),
+      vscode.commands.registerCommand('commitReview.comments.cycleFilter', () => {
+        const order: Filter[] = ['all', 'open', 'needs-input', 'closed'];
+        const idx = order.indexOf(this.filter);
+        this.setFilter(order[(idx + 1) % order.length]);
+      }),
+    );
+
+    this.updateViewDescription();
+    return this.treeView;
+  }
+
   /** Update services when the active repo changes. */
   updateServices(comments: CommentManager): void {
     this.comments = comments;
     this.refresh();
   }
 
-  // ── WebviewViewProvider ───────────────────────────────────────────────────
+  // ── TreeDataProvider ───────────────────────────────────────────────────────
 
-  resolveWebviewView(
-    webviewView: vscode.WebviewView,
-    _ctx: vscode.WebviewViewResolveContext,
-    _token: vscode.CancellationToken
-  ): void {
-    this._view = webviewView;
+  getTreeItem(element: vscode.TreeItem): vscode.TreeItem {
+    return element;
+  }
 
-    webviewView.webview.options = {
-      enableScripts: true,
-      localResourceRoots: [vscode.Uri.file(path.join(this.context.extensionPath, 'media'))],
-    };
+  getChildren(element?: vscode.TreeItem): vscode.TreeItem[] {
+    if (!element) {
+      // Root: filtered comment list
+      return this.getFilteredComments().map(c => new CommentTreeItem(c));
+    }
 
-    webviewView.webview.html = this.buildHtml(webviewView.webview);
+    if (element instanceof CommentTreeItem) {
+      const c = element.comment;
+      const children: vscode.TreeItem[] = [];
 
-    webviewView.webview.onDidReceiveMessage(msg => {
-      if (msg.type === 'focusComment') {
-        this.onFocusComment?.(
-          msg.file as string,
-          msg.line as number,
-          msg.commitHash as string,
-          msg.id as string,
-        );
-      } else if (msg.type === 'deleteComment') {
-        this.onDeleteComment?.(msg.id as string);
-      } else if (msg.type === 'updateStatus') {
-        this.onUpdateStatus?.(msg.id as string, msg.status as string);
+      // Thread entries
+      if (c.thread) {
+        for (const t of c.thread) {
+          children.push(new ThreadTreeItem(
+            t.author,
+            t.body,
+            t.createdAt,
+            t.author !== 'reviewer',
+          ));
+        }
       }
-    }, null, this.disposables);
 
-    // Send any comments that were loaded before this view was first shown
-    const comments = this.cachedComments ?? this.comments.load();
-    this.cachedComments = null;
-    webviewView.webview.postMessage({ type: 'load', comments });
+      // Resolved note
+      if (c.resolvedNote) {
+        children.push(new ResolvedNoteTreeItem(c));
+      }
+
+      return children;
+    }
+
+    return [];
   }
 
   // ── Data ──────────────────────────────────────────────────────────────────
 
-  /** Push all comments to the webview. */
   refresh(): void {
-    const comments = this.comments.load();
-    this.cachedComments = comments;          // always cache so resolveWebviewView can pick it up
-    if (!this._view) return;
-    this._view.webview.postMessage({ type: 'load', comments });
+    this._onDidChangeTreeData.fire();
+    this.updateViewDescription();
+    this.updateViewBadge();
   }
 
-  // ── HTML ──────────────────────────────────────────────────────────────────
+  private setFilter(filter: Filter): void {
+    this.filter = filter;
+    this.refresh();
+  }
 
-  private buildHtml(webview: vscode.Webview): string {
-    const cssUri = webview.asWebviewUri(
-      vscode.Uri.file(path.join(this.context.extensionPath, 'media', 'review.css'))
-    );
-    const jsUri = webview.asWebviewUri(
-      vscode.Uri.file(path.join(this.context.extensionPath, 'media', 'comments.js'))
-    );
-    const nonce = generateNonce();
+  private getFilteredComments(): ReviewComment[] {
+    const all = this.comments.load();
+    switch (this.filter) {
+      case 'open':
+        return all.filter(c => !CLOSED_STATUSES.has(c.status) && c.status !== 'needs-input');
+      case 'needs-input':
+        return all.filter(c => c.status === 'needs-input');
+      case 'closed':
+        return all.filter(c => CLOSED_STATUSES.has(c.status));
+      default:
+        return all;
+    }
+  }
 
-    return `<!DOCTYPE html>
-<html lang="en">
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <meta http-equiv="Content-Security-Policy"
-    content="default-src 'none';
-             style-src ${webview.cspSource} 'unsafe-inline';
-             script-src 'nonce-${nonce}';">
-  <link href="${cssUri}" rel="stylesheet">
-  <style>
-    body { overflow: hidden; display: flex; flex-direction: column; height: 100vh; margin: 0;
-           background: var(--vscode-sideBar-background, #252526);
-           color: var(--vscode-sideBar-foreground, var(--vscode-foreground, #ccc)); }
-    #comment-list { flex: 1; overflow-y: auto; min-height: 0; }
-  </style>
-  <title>Comments</title>
-</head>
-<body>
+  private updateViewDescription(): void {
+    if (!this.treeView) return;
+    const filterLabel = this.filter === 'all' ? '' : ` — ${this.filter}`;
+    const all = this.comments.load();
+    const openCount = all.filter(c => !CLOSED_STATUSES.has(c.status)).length;
+    const closedCount = all.filter(c => CLOSED_STATUSES.has(c.status)).length;
+    this.treeView.description = `${openCount} open, ${closedCount} closed${filterLabel}`;
+  }
 
-<div class="sidebar-section-header">
-  <span class="section-title">COMMENTS</span>
-</div>
-<div id="summary-bar" class="cv-summary-bar"></div>
-<div id="filter-bar"  class="cv-filter-bar"></div>
-<div id="comment-list"></div>
-
-<script nonce="${nonce}" src="${jsUri}"></script>
-</body>
-</html>`;
+  private updateViewBadge(): void {
+    if (!this.treeView) return;
+    const all = this.comments.load();
+    const openCount = all.filter(c => !CLOSED_STATUSES.has(c.status)).length;
+    this.treeView.badge = openCount > 0
+      ? { value: openCount, tooltip: `${openCount} open comment${openCount !== 1 ? 's' : ''}` }
+      : undefined;
   }
 
   dispose(): void {
@@ -142,9 +340,20 @@ export class CommentsView implements vscode.WebviewViewProvider, vscode.Disposab
   }
 }
 
-function generateNonce(): string {
-  let text = '';
-  const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
-  for (let i = 0; i < 32; i++) text += chars.charAt(Math.floor(Math.random() * chars.length));
-  return text;
+// ── Utility ──────────────────────────────────────────────────────────────────
+
+function formatDate(iso: string): string {
+  if (!iso) return '';
+  try {
+    const d = new Date(iso);
+    const now = Date.now();
+    const diff = now - d.getTime();
+    const mins  = Math.floor(diff / 60000);
+    const hours = Math.floor(diff / 3600000);
+    const days  = Math.floor(diff / 86400000);
+    if (mins  < 60)  return `${mins}m ago`;
+    if (hours < 24)  return `${hours}h ago`;
+    if (days  < 30)  return `${days}d ago`;
+    return d.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
+  } catch { return iso; }
 }
