@@ -140,7 +140,9 @@ export class ChangesView implements vscode.WebviewViewProvider, vscode.Disposabl
              script-src 'nonce-${nonce}';">
   <link href="${cssUri}" rel="stylesheet">
   <style>
-    body { overflow: hidden; display: flex; flex-direction: column; height: 100vh; margin: 0; }
+    body { overflow: hidden; display: flex; flex-direction: column; height: 100vh; margin: 0;
+           background: var(--vscode-sideBar-background, #252526);
+           color: var(--vscode-sideBar-foreground, var(--vscode-foreground, #ccc)); }
     #changes-list { flex: 1; overflow-y: auto; min-height: 0; }
   </style>
   <title>Changes</title>

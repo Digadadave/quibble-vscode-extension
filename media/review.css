@@ -1030,17 +1030,17 @@ body.expander-resizing { cursor: ns-resize !important; user-select: none; }
 
 /* ── CommentsView — rich hub ─────────────────────────────────────────────── */
 
-/* Summary bar */
+/* Summary bar — matches Changes panel header style */
 .cv-summary-bar {
-  padding: 5px 10px 4px;
+  padding: 4px 10px;
   font-size: 11px;
   display: flex;
   align-items: center;
   gap: 5px;
   flex-wrap: wrap;
   flex-shrink: 0;
-  border-bottom: 1px solid var(--border);
-  background: var(--bg-sidebar);
+  border-bottom: 1px solid rgba(128,128,128,0.15);
+  background: var(--vscode-sideBar-background, #252526);
 }
 .sum-open   { color: var(--status-open);      font-weight: 600; }
 .sum-input  { color: var(--status-replied);   font-weight: 600; }
@@ -1054,13 +1054,13 @@ body.expander-resizing { cursor: ns-resize !important; user-select: none; }
   gap: 4px;
   padding: 5px 8px;
   flex-shrink: 0;
-  border-bottom: 1px solid var(--border);
-  background: var(--bg-sidebar);
+  border-bottom: 1px solid rgba(128,128,128,0.15);
+  background: var(--vscode-sideBar-background, #252526);
   flex-wrap: wrap;
 }
 .filter-chip {
   background: none;
-  border: 1px solid var(--border);
+  border: 1px solid rgba(128,128,128,0.3);
   border-radius: 12px;
   color: var(--fg-muted);
   padding: 2px 9px;
@@ -1088,15 +1088,15 @@ body.expander-resizing { cursor: ns-resize !important; user-select: none; }
 
 /* Empty state */
 .cv-empty {
-  padding: 20px 12px;
-  font-size: 11px;
+  padding: 24px 16px;
+  font-size: 12px;
   color: var(--fg-muted);
   text-align: center;
 }
 
-/* Comment card */
-.comment-card { border-bottom: 1px solid var(--border); }
-.comment-card.card-closed { opacity: 0.75; }
+/* Comment card — subtle separator, no heavy borders */
+.comment-card { border-bottom: 1px solid rgba(128,128,128,0.1); }
+.comment-card.card-closed { opacity: 0.6; }
 .comment-card.card-closed:hover { opacity: 1; }
 
 /* Card header — always visible, click to toggle */
@@ -1104,12 +1104,12 @@ body.expander-resizing { cursor: ns-resize !important; user-select: none; }
   display: flex;
   align-items: center;
   gap: 5px;
-  padding: 6px 8px 6px 6px;
+  padding: 5px 10px 5px 8px;
   cursor: pointer;
   user-select: none;
   min-width: 0;
 }
-.card-header:hover { background: var(--bg-hover); }
+.card-header:hover { background: var(--vscode-list-hoverBackground, #2a2d2e); }
 .card-chevron {
   flex-shrink: 0;
   font-size: 10px;
@@ -1272,8 +1272,9 @@ body.expander-resizing { cursor: ns-resize !important; user-select: none; }
   cursor: pointer;
   user-select: none;
   min-width: 0;
+  background: var(--vscode-sideBar-background, #252526);
 }
-.ch-row:hover { background: var(--vscode-list-hoverBackground); }
+.ch-row:hover { background: var(--vscode-list-hoverBackground, #2a2d2e); }
 
 /* File type icon (TS, JS, JSON, etc.) */
 .ch-file-icon {
@@ -1348,9 +1349,10 @@ body.expander-resizing { cursor: ns-resize !important; user-select: none; }
 }
 .ch-badge-more:hover { filter: brightness(1.15); }
 
-/* Fixed-width count badge (+1 … +9) so all rows align regardless of value */
+/* Fixed-width count badge (1…9 or +9 when capped) — same space always */
 .ch-badge-count {
-  min-width: 26px;
+  min-width: 20px;
+  padding: 1px 4px;
   text-align: center;
 }
 
@@ -1377,7 +1379,7 @@ body.expander-resizing { cursor: ns-resize !important; user-select: none; }
 /* ── Expanded commit list under file row ───────────────── */
 .ch-commit-list {
   padding: 2px 0 4px 0;
-  background: var(--vscode-sideBar-background, transparent);
+  background: var(--vscode-sideBar-background, #252526);
 }
 
 .ch-commit-item {

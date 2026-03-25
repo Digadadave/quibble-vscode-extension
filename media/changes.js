@@ -89,9 +89,9 @@
     return parts.length > 1 ? parts.slice(0, -1).join('/') : '';
   }
 
-  /** Cap extra-commit count display at 9; always renders with the same width. */
+  /** Show plain number up to 9; show "+9" (with plus) only when capped. */
   function countLabel(extra) {
-    return '+' + Math.min(extra, 9);
+    return extra > 9 ? '+9' : String(extra);
   }
 
   function esc(s) {
