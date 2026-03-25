@@ -1296,7 +1296,7 @@ body.expander-resizing { cursor: ns-resize !important; user-select: none; }
   min-width: 0;
 }
 
-/* Comment badge — inline right after filename */
+/* Comment badge — right of folder label, clickable */
 .ch-comment-badge {
   display: inline-flex;
   align-items: center;
@@ -1304,8 +1304,9 @@ body.expander-resizing { cursor: ns-resize !important; user-select: none; }
   font-size: 10px;
   color: var(--vscode-descriptionForeground, #888);
   flex-shrink: 0;
-  cursor: default;
+  cursor: pointer;
 }
+.ch-comment-badge:hover { color: var(--vscode-foreground, #ccc); }
 .ch-comment-badge svg { opacity: 0.7; }
 
 /* Folder path */
@@ -1347,6 +1348,12 @@ body.expander-resizing { cursor: ns-resize !important; user-select: none; }
 }
 .ch-badge-more:hover { filter: brightness(1.15); }
 
+/* Fixed-width count badge (+1 … +9) so all rows align regardless of value */
+.ch-badge-count {
+  min-width: 26px;
+  text-align: center;
+}
+
 /* +/- stats */
 .ch-stats {
   font-size: 11px;
@@ -1385,22 +1392,25 @@ body.expander-resizing { cursor: ns-resize !important; user-select: none; }
   background: var(--vscode-list-hoverBackground, rgba(255,255,255,0.04));
 }
 
-.ch-commit-stats {
-  font-size: 10px;
-  font-family: var(--vscode-editor-font-family, monospace);
-  white-space: nowrap;
-  flex-shrink: 0;
-  min-width: 52px;
-  text-align: right;
-}
-
+/* Message grows to fill space between hash and stats */
 .ch-commit-msg {
   font-size: 11px;
   color: var(--vscode-foreground, #ccc);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+  flex: 1;
   min-width: 0;
+}
+
+/* Stats are right-aligned at a fixed width so all rows line up */
+.ch-commit-stats {
+  font-size: 10px;
+  font-family: var(--vscode-editor-font-family, monospace);
+  white-space: nowrap;
+  flex-shrink: 0;
+  min-width: 56px;
+  text-align: right;
 }
 
 /* Empty state */
