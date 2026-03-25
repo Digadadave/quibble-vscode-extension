@@ -1,0 +1,166 @@
+{
+  "name": "vscode-commit-review",
+  "displayName": "Commit Review",
+  "description": "Review local git commits with GitHub-style comments. Agent-friendly metadata for Claude Code.",
+  "version": "0.0.1",
+  "publisher": "local",
+  "engines": {
+    "vscode": "^1.85.0"
+  },
+  "categories": ["Other"],
+  "activationEvents": ["onStartupFinished"],
+  "main": "./out/extension.js",
+  "contributes": {
+    "commands": [
+      {
+        "command": "commitReview.openPanel",
+        "title": "Open Commit Review Panel",
+        "icon": "$(git-pull-request)",
+        "category": "Commit Review"
+      },
+      {
+        "command": "commitReview.copyAgentPrompt",
+        "title": "Copy Agent Prompt",
+        "icon": "$(copy)",
+        "category": "Commit Review"
+      },
+      {
+        "command": "commitReview.selectRepo",
+        "title": "Select Repository",
+        "icon": "$(repo)",
+        "category": "Commit Review"
+      },
+      {
+        "command": "commitReview.comment.reply",
+        "title": "Submit Comment",
+        "category": "Commit Review"
+      },
+      {
+        "command": "commitReview.comment.resolve",
+        "title": "Resolve",
+        "icon": "$(pass-filled)",
+        "category": "Commit Review"
+      },
+      {
+        "command": "commitReview.comment.dismiss",
+        "title": "Dismiss",
+        "icon": "$(circle-slash)",
+        "category": "Commit Review"
+      },
+      {
+        "command": "commitReview.comment.reopen",
+        "title": "Reopen",
+        "icon": "$(debug-restart)",
+        "category": "Commit Review"
+      },
+      {
+        "command": "commitReview.comment.delete",
+        "title": "Delete Comment",
+        "icon": "$(trash)",
+        "category": "Commit Review"
+      }
+    ],
+    "viewsContainers": {
+      "activitybar": [
+        {
+          "id": "commitReview",
+          "title": "Commit Review",
+          "icon": "$(git-pull-request)"
+        }
+      ]
+    },
+    "views": {
+      "commitReview": [
+        {
+          "type": "webview",
+          "id": "commitReview.commentsView",
+          "name": "Comments",
+          "contextualTitle": "Commit Review"
+        },
+        {
+          "type": "webview",
+          "id": "commitReview.changesView",
+          "name": "Changes",
+          "contextualTitle": "Commit Review"
+        },
+        {
+          "type": "webview",
+          "id": "commitReview.reviewView",
+          "name": "Commits",
+          "contextualTitle": "Commit Review"
+        }
+      ]
+    },
+    "configuration": {
+      "title": "Commit Review",
+      "properties": {
+        "commitReview.reviewsPath": {
+          "type": "string",
+          "default": ".vscode/commit-reviews.json",
+          "description": "Path relative to the repository root where review comments are stored.",
+          "scope": "resource"
+        }
+      }
+    },
+    "menus": {
+      "view/title": [
+        {
+          "command": "commitReview.selectRepo",
+          "when": "view == commitReview.reviewView",
+          "group": "navigation"
+        }
+      ],
+      "comments/commentThread/context": [
+        {
+          "command": "commitReview.comment.resolve",
+          "group": "inline@1",
+          "when": "commentController == commit-review"
+        },
+        {
+          "command": "commitReview.comment.dismiss",
+          "group": "inline@2",
+          "when": "commentController == commit-review"
+        },
+        {
+          "command": "commitReview.comment.reply",
+          "group": "inline@3",
+          "when": "commentController == commit-review"
+        }
+      ],
+      "comments/comment/title": [
+        {
+          "command": "commitReview.comment.delete",
+          "group": "inline",
+          "when": "commentController == commit-review"
+        }
+      ],
+      "comments/commentThread/title": [
+        {
+          "command": "commitReview.comment.resolve",
+          "group": "inline@1",
+          "when": "commentController == commit-review && commentThread =~ /status:(open|in-progress|needs-input|addressed|outdated)/"
+        },
+        {
+          "command": "commitReview.comment.dismiss",
+          "group": "inline@2",
+          "when": "commentController == commit-review && commentThread =~ /status:(open|in-progress|needs-input|addressed|outdated)/"
+        },
+        {
+          "command": "commitReview.comment.reopen",
+          "group": "inline@3",
+          "when": "commentController == commit-review && commentThread =~ /status:(resolved|dismissed|outdated)/"
+        }
+      ]
+    }
+  },
+  "scripts": {
+    "vscode:prepublish": "npm run compile",
+    "compile": "tsc -p ./",
+    "watch": "tsc -watch -p ./"
+  },
+  "devDependencies": {
+    "@types/vscode": "^1.85.0",
+    "@types/node": "^20.0.0",
+    "typescript": "^5.3.0"
+  }
+}

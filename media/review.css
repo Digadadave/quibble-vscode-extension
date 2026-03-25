@@ -1,0 +1,1425 @@
+:root {
+  --bg: var(--vscode-editor-background, #1e1e1e);
+  --bg-sidebar: var(--vscode-sideBar-background, #252526);
+  --bg-hover: var(--vscode-list-hoverBackground, #2a2d2e);
+  --bg-selected: var(--vscode-list-activeSelectionBackground, #094771);
+  --fg: var(--vscode-editor-foreground, #ccc);
+  --fg-muted: var(--vscode-descriptionForeground, #888);
+  --border: var(--vscode-panel-border, #333);
+  --accent: var(--vscode-button-background, #0e639c);
+  --accent-fg: var(--vscode-button-foreground, #fff);
+  --add-bg: var(--vscode-diffEditor-insertedLineBackground, rgba(35, 134, 54, 0.22));
+  --del-bg: var(--vscode-diffEditor-removedLineBackground, rgba(218, 54, 51, 0.22));
+  --add-num: var(--vscode-diffEditor-insertedLineBackground, rgba(35, 134, 54, 0.35));
+  --del-num: var(--vscode-diffEditor-removedLineBackground, rgba(218, 54, 51, 0.35));
+  --thread-bg: var(--vscode-editorWidget-background, #252526);
+  --agent-accent: #2ea043;
+  --status-open: #da3633;
+  --status-replied: #e3b341;
+  --status-addressed: #2ea043;
+  --status-resolved: #888;
+  --font-mono: var(--vscode-editor-font-family, 'Consolas', monospace);
+  --font-ui: var(--vscode-font-family, system-ui, sans-serif);
+  --font-size: var(--vscode-editor-font-size, 13px);
+  --sidebar-width: 280px;
+}
+
+* { box-sizing: border-box; margin: 0; padding: 0; }
+
+body {
+  font-family: var(--font-ui);
+  font-size: var(--font-size);
+  background: var(--bg);
+  color: var(--fg);
+  height: 100vh;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+/* ── Two-panel layout ────────────────────────────────────────────────────── */
+
+#layout {
+  display: flex;
+  flex: 1;
+  overflow: hidden;
+}
+
+/* ── Left sidebar ────────────────────────────────────────────────────────── */
+
+#sidebar {
+  width: var(--sidebar-width);
+  min-width: 200px;
+  max-width: 400px;
+  background: var(--bg-sidebar);
+  border-right: 1px solid var(--border);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  flex-shrink: 0;
+  resize: horizontal;
+}
+
+
+/* ── Sidebar section headers ─────────────────────────────────────────────── */
+
+.sidebar-section-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 6px 10px;
+  border-bottom: 1px solid var(--border);
+  flex-shrink: 0;
+  background: var(--bg-sidebar);
+}
+
+.sidebar-section-border {
+  border-top: 1px solid var(--border);
+}
+
+.section-title {
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--fg-muted);
+}
+
+.sidebar-actions {
+  display: flex;
+  gap: 4px;
+}
+
+.sidebar-btn {
+  background: none;
+  border: 1px solid var(--border);
+  border-radius: 3px;
+  color: var(--fg-muted);
+  padding: 2px 7px;
+  font-size: 11px;
+  cursor: pointer;
+}
+.sidebar-btn:hover { color: var(--fg); border-color: var(--fg-muted); }
+.sidebar-btn.active {
+  background: var(--accent);
+  color: var(--accent-fg);
+  border-color: var(--accent);
+}
+
+/* ── Git graph ───────────────────────────────────────────────────────────── */
+
+#graph-list {
+  flex: 1;
+  overflow-y: auto;
+  overflow-x: hidden;
+  min-height: 0;
+}
+
+.graph-row {
+  display: flex;
+  align-items: stretch;
+  cursor: pointer;
+  user-select: none;
+  position: relative;
+  min-height: 24px;
+}
+.graph-row:hover { background: var(--bg-hover); }
+.graph-row.selected { background: rgba(14, 99, 156, 0.18); }
+.graph-row.range-start { border-top: 1px solid var(--accent); }
+.graph-row.range-end   { border-bottom: 1px solid var(--accent); }
+
+/* Graph lane (SVG column) */
+.graph-lane {
+  width: 28px;
+  flex-shrink: 0;
+  position: relative;
+  display: flex;
+  align-items: stretch;
+  justify-content: center;
+}
+
+.graph-lane svg {
+  width: 28px;
+  position: absolute;
+  top: 0;
+  left: 0;
+  overflow: visible;
+}
+
+/* Commit info */
+.graph-info {
+  flex: 1;
+  min-width: 0;
+  padding: 3px 8px 3px 0;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+}
+
+.graph-msg {
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--fg);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  line-height: 1.3;
+}
+
+/* Branch / tag badges */
+.graph-refs {
+  display: flex;
+  gap: 3px;
+  flex-wrap: wrap;
+  margin-top: 2px;
+}
+
+.graph-ref {
+  font-size: 9px;
+  font-weight: 700;
+  padding: 1px 5px;
+  border-radius: 3px;
+  white-space: nowrap;
+  max-width: 100px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.graph-ref.local  { background: rgba(14,99,156,0.35);   color: #5ab4f5; border: 1px solid rgba(14,99,156,0.6); }
+.graph-ref.remote { background: rgba(200,100,0,0.35);   color: #f5a85a; border: 1px solid rgba(200,100,0,0.6); }
+.graph-ref.tag    { background: rgba(46,160,67,0.25);   color: #5eba77; border: 1px solid rgba(46,160,67,0.5); }
+.graph-ref.head   { background: rgba(14,99,156,0.55);   color: #fff;    border: 1px solid rgba(14,99,156,0.9); font-style: italic; }
+
+/* comment badge on row */
+.graph-comment-dot {
+  display: inline-block;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--status-open);
+  margin-left: 5px;
+  vertical-align: middle;
+  flex-shrink: 0;
+  align-self: center;
+  margin-right: 6px;
+}
+
+/* ── Commit message hover tooltip ────────────────────────────────────────── */
+
+#commit-tooltip {
+  display: none;
+  position: fixed;
+  z-index: 200;
+  background: var(--vscode-editorHoverWidget-background, #252526);
+  border: 1px solid var(--vscode-editorHoverWidget-border, #454545);
+  border-radius: 4px;
+  padding: 8px 12px;
+  max-width: 360px;
+  font-size: 12px;
+  line-height: 1.5;
+  color: var(--fg);
+  pointer-events: none;
+  white-space: pre-wrap;
+  word-break: break-word;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.4);
+}
+
+#commit-tooltip .tooltip-hash {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  color: var(--accent);
+  margin-bottom: 4px;
+}
+
+#commit-tooltip .tooltip-msg {
+  font-weight: 600;
+  margin-bottom: 4px;
+}
+
+#commit-tooltip .tooltip-meta {
+  font-size: 11px;
+  color: var(--fg-muted);
+}
+
+/* ── Comment list (sidebar) ──────────────────────────────────────────────── */
+
+#comment-list {
+  flex: 1;
+  overflow-y: auto;
+}
+
+.sidebar-comment {
+  padding: 7px 10px;
+  border-bottom: 1px solid var(--border);
+  cursor: pointer;
+}
+.sidebar-comment:hover { background: var(--bg-hover); }
+
+.sidebar-comment-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px;
+  margin-bottom: 2px;
+}
+
+.sidebar-comment-loc {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  color: var(--fg-muted);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  flex: 1;
+  min-width: 0;
+}
+
+.sidebar-comment-body {
+  font-size: 11px;
+  color: var(--fg);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.status-badge {
+  flex-shrink: 0;
+  display: block;
+  overflow: visible;
+}
+
+/* ── Right panel ─────────────────────────────────────────────────────────── */
+
+#right-panel {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  min-width: 0;
+}
+
+/* ── Top bar ────────────────────────────────────────────────────────────── */
+
+#top-bar {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 8px 16px;
+  border-bottom: 1px solid var(--border);
+  background: var(--bg-sidebar);
+  flex-shrink: 0;
+  flex-wrap: wrap;
+}
+
+.summary-badges {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  flex: 1;
+  flex-wrap: wrap;
+}
+
+.badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 8px;
+  border-radius: 12px;
+  font-size: 11px;
+  font-weight: 600;
+  border: 1px solid transparent;
+}
+.badge.open     { background: rgba(218,54,51,0.15);  border-color: var(--status-open);      color: var(--status-open); }
+.badge.question { background: rgba(88,130,255,0.15); border-color: #8ab4ff;                 color: #8ab4ff; }
+.badge.replied  { background: rgba(227,179,65,0.15); border-color: var(--status-replied);   color: var(--status-replied); }
+.badge.addressed{ background: rgba(46,160,67,0.15);  border-color: var(--status-addressed); color: var(--status-addressed); }
+
+.selected-label {
+  font-size: 11px;
+  color: var(--fg-muted);
+  padding: 2px 8px;
+}
+
+#mark-reviewed-btn {
+  background: var(--accent);
+  color: var(--accent-fg);
+  border: none;
+  border-radius: 4px;
+  padding: 5px 12px;
+  cursor: pointer;
+  font-size: 12px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+#mark-reviewed-btn:hover { opacity: 0.85; }
+#mark-reviewed-btn.reviewed {
+  background: var(--bg-hover);
+  color: var(--fg-muted);
+  border: 1px solid var(--border);
+}
+
+/* ── Scrollable main area ────────────────────────────────────────────────── */
+
+#main {
+  flex: 1;
+  overflow-y: auto;
+  padding: 0;
+}
+
+/* ── Commit section header inside diff area ──────────────────────────────── */
+
+.commit-section {
+  margin-bottom: 32px;
+}
+
+.commit-section-header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 14px;
+  background: var(--bg-sidebar);
+  border: 1px solid var(--border);
+  border-radius: 6px 6px 0 0;
+  margin-bottom: 0;
+}
+
+.commit-section-hash {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  color: var(--accent);
+  font-weight: 600;
+}
+
+.commit-section-msg {
+  font-size: 13px;
+  font-weight: 600;
+  flex: 1;
+  min-width: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.commit-section-meta {
+  font-size: 11px;
+  color: var(--fg-muted);
+  white-space: nowrap;
+}
+
+/* ── Range header ────────────────────────────────────────────────────────── */
+
+.range-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 5px 10px;
+  margin-bottom: 0;
+  background: transparent;
+  border: none;
+  border-bottom: 1px solid var(--border);
+  font-size: 11px;
+}
+
+.range-label {
+  font-family: var(--font-mono);
+  font-weight: 500;
+  color: var(--fg-muted);
+}
+
+.range-file-count {
+  color: var(--fg-muted);
+}
+
+/* ── File block ──────────────────────────────────────────────────────────── */
+
+.file-block {
+  margin-bottom: 0;
+  border: none;
+  border-top: 1px solid var(--border);
+  border-radius: 0;
+  overflow: hidden;
+}
+
+.file-header {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 10px;
+  background: var(--vscode-editorGroupHeader-tabsBackground, #2d2d2d);
+  cursor: pointer;
+  user-select: none;
+  border-bottom: 1px solid var(--border);
+}
+.file-header:hover { background: var(--bg-hover); }
+
+.file-header .chevron { transition: transform 0.15s; font-style: normal; font-size: 10px; color: var(--fg-muted); }
+.file-header.collapsed .chevron { transform: rotate(-90deg); }
+
+.file-header .file-name { font-family: var(--font-mono); font-size: 12px; font-weight: 400; flex: 1; }
+
+.file-status {
+  font-size: 11px;
+  font-weight: 700;
+  font-family: var(--font-mono);
+}
+.file-status.M { color: #d4a040; }
+.file-status.A { color: #40b060; }
+.file-status.D { color: #e04040; }
+
+.file-body { overflow-x: auto; }
+.file-body.collapsed { display: none; }
+
+/* ── Diff table ──────────────────────────────────────────────────────────── */
+
+.diff-table {
+  border-collapse: collapse;
+  font-family: var(--font-mono);
+  font-size: 12px;
+  tab-size: 4;
+  /* Split tables override width/layout below; inline would use max-content but is removed */
+  min-width: 100%;
+}
+
+/* Highlight selected diff text to invite commenting */
+.diff-table td.line-content::selection,
+.diff-table td.line-content *::selection { background: rgba(56,139,253,0.3); }
+
+.line-num {
+  width: 40px;
+  min-width: 40px;
+  text-align: right;
+  padding: 0 6px;
+  color: var(--vscode-editorLineNumber-foreground, #858585);
+  user-select: none;
+  vertical-align: top;
+  white-space: nowrap;
+  font-size: 11px;
+  line-height: 19px;
+}
+.line-num.old { background: transparent; }
+
+.line-content {
+  padding: 0 8px 0 2px;
+  white-space: pre;        /* never soft-wrap code — scroll horizontally */
+  vertical-align: top;
+  overflow: hidden;        /* clip rather than wrap; table scrolls as a whole */
+  line-height: 19px;
+}
+
+tr.add-line .line-num, tr.add-line .line-content { background: var(--add-bg); }
+tr.del-line .line-num, tr.del-line .line-content { background: var(--del-bg); }
+tr.add-line .line-num.new { background: var(--add-num); }
+tr.del-line .line-num.old { background: var(--del-num); }
+
+.hunk-header td {
+  background: var(--vscode-diffEditor-unchangedRegionBackground, rgba(30, 60, 100, 0.1));
+  color: var(--vscode-descriptionForeground, #6a9fd8);
+  padding: 0 8px;
+  font-size: 11px;
+  line-height: 19px;
+  border-top: 1px solid var(--vscode-diffEditor-unchangedRegionShadow, rgba(30,60,100,0.18));
+  border-bottom: 1px solid var(--vscode-diffEditor-unchangedRegionShadow, rgba(30,60,100,0.18));
+}
+
+/* ── Comment thread ──────────────────────────────────────────────────────── */
+
+.thread-row td {
+  padding: 0;
+  background: var(--thread-bg);
+}
+
+@keyframes comment-flash {
+  0%   { background: rgba(56,139,253,0.25); }
+  70%  { background: rgba(56,139,253,0.12); }
+  100% { background: var(--thread-bg); }
+}
+.thread-row.comment-highlight td {
+  animation: comment-flash 1.8s ease-out forwards;
+}
+
+.thread-container {
+  border-left: 3px solid var(--border);
+  margin: 4px 8px 4px 52px;
+  border-radius: 0 6px 6px 0;
+  overflow: hidden;
+}
+
+.thread-comment {
+  padding: 10px 14px;
+  border-bottom: 1px solid var(--border);
+}
+.thread-comment:last-child { border-bottom: none; }
+
+.thread-comment.agent-comment {
+  border-left: 3px solid var(--agent-accent);
+}
+
+.thread-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 6px;
+}
+
+.thread-author {
+  font-weight: 600;
+  font-size: 12px;
+}
+.thread-author.agent { color: var(--agent-accent); }
+
+.thread-date { font-size: 11px; color: var(--fg-muted); }
+
+.thread-status {
+  margin-left: auto;
+  font-size: 10px;
+  font-weight: 700;
+  padding: 2px 6px;
+  border-radius: 3px;
+}
+.thread-status.open          { background: rgba(218,54,51,0.2);  color: var(--status-open); }
+.thread-status.question      { background: rgba(88,130,255,0.2); color: #8ab4ff; }
+.thread-status.agent-replied { background: rgba(227,179,65,0.2); color: var(--status-replied); }
+.thread-status.addressed     { background: rgba(46,160,67,0.2);  color: var(--status-addressed); }
+.thread-status.resolved      { background: rgba(128,128,128,0.2); color: var(--status-resolved); }
+
+.thread-body {
+  font-size: 13px;
+  line-height: 1.5;
+  white-space: pre-wrap;
+}
+
+.code-snippet {
+  margin-top: 6px;
+  padding: 6px 10px;
+  background: var(--bg);
+  border-radius: 4px;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--fg-muted);
+  white-space: pre;
+  overflow-x: auto;
+}
+
+.thread-actions {
+  display: flex;
+  gap: 8px;
+  margin-top: 10px;
+  padding-top: 8px;
+  border-top: 1px solid var(--border);
+  align-items: center;
+}
+/* Spacer pushes destructive actions (delete) to the far right */
+.thread-actions-spacer { flex: 1; }
+.btn.danger { border-color: #f85149; color: #f85149; }
+.btn.danger:hover { background: rgba(248,81,73,0.15); }
+
+/* ── Custom context menu (CommentsView) ──────────────────────────────────── */
+.ctx-menu {
+  position: fixed;
+  z-index: 9999;
+  background: var(--vscode-menu-background, #1f1f1f);
+  border: 1px solid var(--vscode-menu-border, #454545);
+  border-radius: 4px;
+  box-shadow: 0 4px 16px rgba(0,0,0,0.4);
+  padding: 4px 0;
+  min-width: 140px;
+  font-size: 12px;
+}
+.ctx-item {
+  padding: 5px 14px;
+  cursor: pointer;
+  color: var(--vscode-menu-foreground, var(--fg));
+  user-select: none;
+}
+.ctx-item:hover { background: var(--vscode-menu-selectionBackground, rgba(255,255,255,0.08)); }
+.ctx-item.ctx-danger { color: #f85149; }
+.ctx-item.ctx-danger:hover { background: rgba(248,81,73,0.15); }
+
+.thread-reply-form {
+  padding: 10px 14px;
+  background: var(--bg);
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.thread-reply-form textarea {
+  background: var(--bg-sidebar);
+  color: var(--fg);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  padding: 8px;
+  font-family: var(--font-ui);
+  font-size: 13px;
+  resize: vertical;
+  min-height: 60px;
+  width: 100%;
+}
+.thread-reply-form textarea:focus { outline: 1px solid var(--accent); border-color: var(--accent); }
+
+.thread-reply-actions { display: flex; gap: 8px; justify-content: flex-end; }
+
+/* ── Buttons ─────────────────────────────────────────────────────────────── */
+
+.btn {
+  padding: 4px 10px;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 12px;
+  font-weight: 500;
+  border: 1px solid var(--border);
+  background: var(--bg-hover);
+  color: var(--fg);
+}
+.btn:hover { border-color: var(--accent); color: var(--accent); }
+.btn.primary { background: var(--accent); color: var(--accent-fg); border-color: var(--accent); }
+.btn.primary:hover { opacity: 0.85; }
+.btn.danger  { border-color: var(--status-open);      color: var(--status-open); }
+.btn.danger:hover  { background: rgba(218,54,51,0.15); }
+.btn.success { border-color: var(--status-addressed); color: var(--status-addressed); }
+.btn.success:hover { background: rgba(46,160,67,0.15); }
+
+/* ── Inline comment composer ─────────────────────────────────────────────── */
+
+tr.inline-composer-row td {
+  padding: 0;
+  background: var(--bg-sidebar);
+  border-top: 1px solid var(--accent);
+  border-bottom: 1px solid var(--accent);
+}
+
+.inline-composer {
+  padding: 10px 14px 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.inline-composer-header {
+  font-size: 11px;
+  color: var(--fg-muted);
+  font-family: var(--font-mono);
+}
+
+.inline-composer-ta {
+  width: 100%;
+  box-sizing: border-box;
+  background: var(--bg);
+  color: var(--fg);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  padding: 8px 10px;
+  font-family: var(--font-ui);
+  font-size: 13px;
+  resize: vertical;
+  min-height: 90px;
+}
+.inline-composer-ta:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 2px rgba(14,99,156,0.25); }
+
+.inline-composer-snippet {
+  margin: 0;
+  padding: 6px 10px;
+  background: var(--bg);
+  border-left: 3px solid var(--accent);
+  border-radius: 0 4px 4px 0;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--fg-muted);
+  white-space: pre-wrap;
+  overflow-x: auto;
+  max-height: 120px;
+  overflow-y: auto;
+}
+
+.inline-composer-actions {
+  display: flex;
+  gap: 8px;
+  justify-content: flex-end;
+}
+
+/* ── Bottom footer ───────────────────────────────────────────────────────── */
+
+#footer {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  padding: 8px 16px;
+  border-top: 1px solid var(--border);
+  background: var(--bg-sidebar);
+  flex-shrink: 0;
+}
+
+#footer .footer-path {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--fg-muted);
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* ── Empty state ─────────────────────────────────────────────────────────── */
+
+.empty-state {
+  text-align: center;
+  padding: 60px 20px;
+  color: var(--fg-muted);
+}
+.empty-state h2 { font-size: 18px; margin-bottom: 8px; }
+.empty-state p  { font-size: 13px; }
+
+/* ── Scrollbar ───────────────────────────────────────────────────────────── */
+
+::-webkit-scrollbar { width: 8px; height: 8px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: var(--border); border-radius: 4px; }
+::-webkit-scrollbar-thumb:hover { background: var(--fg-muted); }
+
+
+/* ── Commit list — git graph layout ──────────────────────────────────────── */
+#commits-list { overflow-y: auto; flex: 1; }
+
+.commit-item {
+  display: flex;
+  align-items: stretch;
+  cursor: pointer;
+  user-select: none;
+  min-width: 0;
+}
+.commit-item:hover    .commit-body { background: var(--bg-hover); }
+.commit-item.selected .commit-body { background: rgba(14,99,156,0.18); }
+
+/* ── Graph column (line + dot) ── */
+.commit-graph-col {
+  width: 24px;
+  flex-shrink: 0;
+  position: relative;
+  display: flex;
+  justify-content: center;
+  align-items: flex-start;
+  padding-top: 10px;
+}
+/* Vertical connecting line — full height by default */
+.commit-graph-col::before {
+  content: '';
+  position: absolute;
+  left: 50%;
+  top: 0;
+  bottom: 0;
+  width: 2px;
+  transform: translateX(-50%);
+  background: #388bfd;
+  opacity: 0.45;
+}
+/* First commit: line starts at the dot, not above it */
+.commit-item:first-child .commit-graph-col::before { top: 14px; }
+/* Last commit: line ends at the dot */
+.commit-graph-col.last::before { height: 14px; bottom: auto; }
+
+/* The circle */
+.commit-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: #388bfd;
+  position: relative;
+  z-index: 1;
+  flex-shrink: 0;
+  box-shadow: 0 0 0 2px var(--bg-sidebar);
+}
+/* HEAD commit: larger solid circle with outer ring */
+.commit-dot.head {
+  background: #388bfd;
+  box-shadow: 0 0 0 2px var(--bg-sidebar), 0 0 0 4px #388bfd;
+}
+.commit-item.selected .commit-dot {
+  background: #388bfd;
+  box-shadow: 0 0 0 2px var(--bg-sidebar);
+}
+.commit-item.selected .commit-dot.head {
+  background: #388bfd;
+  border-color: #388bfd;
+}
+
+/* ── Commit body (message + date + refs + files) ── */
+.commit-body {
+  flex: 1;
+  min-width: 0;
+  padding: 5px 10px 5px 4px;
+  border-bottom: 1px solid var(--border);
+}
+.commit-row-top { display: flex; justify-content: space-between; align-items: baseline; gap: 6px; }
+.commit-date    { font-size: 10px; color: var(--fg-muted); flex-shrink: 0; }
+.commit-msg     { font-size: 11px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; flex: 1; min-width: 0; }
+
+/* Ref tags (branch / HEAD labels) */
+.commit-refs-row { display: flex; flex-wrap: wrap; gap: 3px; margin-top: 3px; }
+.commit-ref-tag  {
+  font-size: 9px; font-family: var(--font-mono); padding: 1px 5px;
+  border-radius: 10px; background: rgba(56,139,253,0.15);
+  color: #388bfd; border: 1px solid rgba(56,139,253,0.3);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 160px;
+}
+
+/* ── Commit file list (expanded under selected commit) ───────────────────── */
+.commit-file-list { padding: 4px 0 6px; }
+.commit-file-row {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  padding: 2px 4px 2px 2px;
+  font-size: 11px;
+  white-space: nowrap;
+  overflow: hidden;
+  cursor: pointer;
+  border-radius: 3px;
+}
+.commit-file-row:hover { background: var(--vscode-list-hoverBackground, rgba(255,255,255,0.05)); }
+.commit-file-status {
+  font-size: 10px; font-weight: 700; font-family: var(--font-mono);
+  flex-shrink: 0; width: 12px; text-align: center;
+}
+.commit-file-status.status-added    { color: #3fb950; }
+.commit-file-status.status-deleted  { color: #f85149; }
+.commit-file-status.status-modified { color: #d29922; }
+.commit-file-name   { flex-shrink: 0; font-weight: 500; }
+.commit-file-folder { color: var(--fg-muted); font-size: 10px; overflow: hidden; text-overflow: ellipsis; min-width: 0; }
+.file-row-spacer    { flex: 1; min-width: 8px; }
+.file-stats         { flex-shrink: 0; display: flex; gap: 3px; font-family: var(--font-mono); font-size: 10px; }
+.stat-ins           { color: #3fb950; }
+.stat-del           { color: #f85149; }
+/* Jump-to-file icon — hidden until the row is hovered */
+.file-jump-btn {
+  flex-shrink: 0;
+  margin-left: 4px;
+  opacity: 0;
+  font-size: 11px;
+  color: var(--fg-muted);
+  line-height: 1;
+  pointer-events: none; /* row click handles navigation */
+}
+.commit-file-row:hover .file-jump-btn { opacity: 1; }
+
+/* ── Branch list (sidebar, legacy kept for safety) ───────────────────────── */
+#branch-list { overflow-y: auto; flex: 1; }
+.branch-section-label {
+  padding: 4px 10px 2px; font-size: 10px; font-weight: 700;
+  text-transform: uppercase; letter-spacing: 0.05em;
+  color: var(--fg-muted); background: var(--bg-sidebar);
+}
+.branch-item {
+  display: flex; align-items: center; gap: 6px;
+  padding: 5px 10px; cursor: pointer; font-size: 12px;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.branch-item:hover { background: var(--bg-hover); }
+.branch-item.selected { background: rgba(14, 99, 156, 0.25); }
+.branch-current-indicator { color: var(--accent); font-weight: 700; flex-shrink: 0; }
+.branch-name { flex: 1; overflow: hidden; text-overflow: ellipsis; }
+.branch-remote-name { color: var(--fg-muted); font-size: 11px; }
+
+/* ── Side-by-side diff ────────────────────────────────────────────────────── */
+/* table-layout:fixed + width:100% makes both panels fill the container exactly.
+   <colgroup> establishes per-column widths so hunk-header colspan rows don't confuse the layout.
+   The drag handler sets --split-old-w to a px value; default 45% of the container. */
+.diff-table.split {
+  table-layout: fixed;
+  width: 100%;
+  min-width: 0;
+}
+/* colgroup col widths — authoritative source for table-layout:fixed */
+.split-col-num    { width: 40px; }
+.split-col-old    { width: var(--split-old-w, 45%); }
+.split-col-gutter { width: 5px; }
+/* last col (new content) gets remaining space — no width needed */
+
+/* Cells inherit widths from colgroup; allow horizontal scroll within each panel */
+.diff-table.split .line-content { overflow-x: auto; }
+
+/* Draggable gutter between old and new */
+.split-gutter {
+  width: 5px;
+  min-width: 5px;
+  padding: 0;
+  cursor: col-resize;
+  background: var(--border);
+  user-select: none;
+  position: relative;
+}
+.split-gutter::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  transition: background 0.1s;
+}
+.split-gutter:hover::after,
+body.split-resizing .split-gutter::after { background: var(--accent); opacity: 0.7; }
+body.split-resizing { cursor: col-resize !important; user-select: none; }
+
+tr.split-del .line-num.old,
+tr.split-del .line-content.old { background: var(--del-bg); }
+tr.split-add .line-num.new,
+tr.split-add .line-content.new { background: var(--add-bg); }
+tr.split-del .line-num.new,
+tr.split-del .line-content.new { background: transparent; }
+tr.split-add .line-num.old,
+tr.split-add .line-content.old { background: transparent; }
+
+/* ── Question form (in thread) ────────────────────────────────────────────── */
+.thread-question-form {
+  padding: 10px 14px; background: var(--bg); display: flex;
+  flex-direction: column; gap: 8px;
+}
+.thread-question-form textarea {
+  background: var(--bg-sidebar); color: var(--fg);
+  border: 1px solid var(--accent); border-radius: 4px;
+  padding: 8px; font-family: var(--font-ui); font-size: 13px;
+  resize: vertical; min-height: 60px; width: 100%;
+}
+.thread-question-form textarea:focus { outline: 1px solid var(--accent); }
+.thread-question-actions { display: flex; gap: 8px; justify-content: flex-end; }
+
+/* ── Question status indicator ────────────────────────────────────────────── */
+.thread-status.question { background: rgba(88,130,255,0.2); color: #8ab4ff; }
+.badge.question { background: rgba(88,130,255,0.15); border-color: #8ab4ff; color: #8ab4ff; }
+.sidebar-comment-status.question { background: rgba(88,130,255,0.2); color: #8ab4ff; }
+.sidebar-comment-status.agent-replied { background: rgba(227,179,65,0.2); color: var(--status-replied); }
+
+/* ── Hunk expander row ────────────────────────────────────────────────────── */
+
+.expander-td {
+  padding: 0;
+  background: var(--vscode-diffEditor-unchangedRegionBackground, rgba(30, 60, 100, 0.08));
+  border-top: 1px solid var(--vscode-diffEditor-unchangedRegionShadow, rgba(30,60,100,0.18));
+  border-bottom: 1px solid var(--vscode-diffEditor-unchangedRegionShadow, rgba(30,60,100,0.18));
+  cursor: ns-resize;
+  user-select: none;
+}
+.expander-inner {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  padding: 3px 8px;
+  pointer-events: none; /* let the td handle drag; buttons/label override */
+}
+.expand-btn {
+  pointer-events: all;
+  background: none;
+  border: 1px solid transparent;
+  border-radius: 3px;
+  color: var(--vscode-descriptionForeground, #6a9fd8);
+  font-size: 9px;
+  padding: 1px 6px;
+  cursor: pointer;
+  line-height: 1.4;
+  opacity: 0.7;
+}
+.expand-btn:hover { opacity: 1; border-color: currentColor; background: var(--bg-hover); }
+.expander-label {
+  pointer-events: all;
+  font-size: 11px;
+  color: var(--vscode-descriptionForeground, #6a9fd8);
+  cursor: pointer;
+  padding: 1px 8px;
+  border-radius: 3px;
+  font-family: var(--font-mono);
+}
+.expander-label:hover { background: var(--bg-hover); text-decoration: underline; }
+body.expander-resizing { cursor: ns-resize !important; user-select: none; }
+
+/* ── CommentsView — rich hub ─────────────────────────────────────────────── */
+
+/* Summary bar — matches Changes panel header style */
+.cv-summary-bar {
+  padding: 4px 10px;
+  font-size: 11px;
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  flex-wrap: wrap;
+  flex-shrink: 0;
+  border-bottom: 1px solid rgba(128,128,128,0.15);
+  background: var(--vscode-sideBar-background, #252526);
+}
+.sum-open   { color: var(--status-open);      font-weight: 600; }
+.sum-input  { color: var(--status-replied);   font-weight: 600; }
+.sum-closed { color: var(--status-addressed); font-weight: 600; }
+.sum-empty  { color: var(--fg-muted); }
+.sum-sep    { color: var(--fg-muted); margin: 0 2px; }
+
+/* Filter chips */
+.cv-filter-bar {
+  display: flex;
+  gap: 4px;
+  padding: 5px 8px;
+  flex-shrink: 0;
+  border-bottom: 1px solid rgba(128,128,128,0.15);
+  background: var(--vscode-sideBar-background, #252526);
+  flex-wrap: wrap;
+}
+.filter-chip {
+  background: none;
+  border: 1px solid rgba(128,128,128,0.3);
+  border-radius: 12px;
+  color: var(--fg-muted);
+  padding: 2px 9px;
+  font-size: 11px;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  white-space: nowrap;
+}
+.filter-chip:hover { color: var(--fg); border-color: var(--fg-muted); }
+.filter-chip.active {
+  background: var(--accent);
+  color: var(--accent-fg);
+  border-color: var(--accent);
+}
+.chip-count {
+  background: rgba(255,255,255,0.18);
+  border-radius: 8px;
+  padding: 0 5px;
+  font-size: 10px;
+  font-weight: 700;
+}
+.filter-chip.active .chip-count { background: rgba(255,255,255,0.25); }
+
+/* Empty state */
+.cv-empty {
+  padding: 24px 16px;
+  font-size: 12px;
+  color: var(--fg-muted);
+  text-align: center;
+}
+
+/* Comment card — subtle separator, no heavy borders */
+.comment-card { border-bottom: 1px solid rgba(128,128,128,0.1); }
+.comment-card.card-closed { opacity: 0.6; }
+.comment-card.card-closed:hover { opacity: 1; }
+
+/* Card header — always visible, click to toggle */
+.card-header {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  padding: 5px 10px 5px 8px;
+  cursor: pointer;
+  user-select: none;
+  min-width: 0;
+}
+.card-header:hover { background: var(--vscode-list-hoverBackground, #2a2d2e); }
+.card-chevron {
+  flex-shrink: 0;
+  font-size: 10px;
+  color: var(--fg-muted);
+  width: 10px;
+  text-align: center;
+}
+.status-badge { flex-shrink: 0; display: block; }
+.card-title {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 11px;
+}
+.card-fname { font-family: var(--font-mono); font-weight: 600; color: var(--fg); }
+.card-dir   { font-family: var(--font-mono); color: var(--fg-muted); font-size: 10px; }
+.card-line  { font-family: var(--font-mono); color: var(--fg-muted); font-size: 10px; }
+.card-date  { flex-shrink: 0; font-size: 10px; color: var(--fg-muted); }
+
+/* Card body — collapsible content */
+.card-body {
+  padding: 0 10px 10px 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.card-main-body {
+  font-size: 12px;
+  line-height: 1.5;
+  color: var(--fg);
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+.card-snippet {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--fg-muted);
+  background: var(--bg);
+  border-left: 3px solid var(--accent);
+  border-radius: 0 3px 3px 0;
+  padding: 5px 8px;
+  margin: 0;
+  overflow-x: auto;
+  white-space: pre;
+}
+
+/* Thread reply */
+.card-reply {
+  border-left: 2px solid var(--border);
+  padding: 5px 8px;
+  margin-left: 2px;
+  border-radius: 0 4px 4px 0;
+}
+.card-reply.reply-agent { border-left-color: #a371f7; background: rgba(163,113,247,0.05); }
+.card-reply.reply-note  { border-left-color: var(--status-addressed); background: rgba(46,160,67,0.06); }
+
+.reply-meta {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  margin-bottom: 3px;
+}
+.agent-icon    { flex-shrink: 0; display: block; }
+.reply-author  { font-size: 11px; font-weight: 600; color: var(--fg); }
+.reply-author.agent-author { color: #a371f7; }
+.reply-date    { font-size: 10px; color: var(--fg-muted); }
+.reply-body    { font-size: 12px; line-height: 1.5; color: var(--fg); white-space: pre-wrap; word-break: break-word; }
+
+/* Card action buttons */
+.card-actions {
+  display: flex;
+  gap: 5px;
+  flex-wrap: wrap;
+  padding-top: 6px;
+  border-top: 1px solid var(--border);
+  margin-top: 2px;
+}
+.card-btn {
+  padding: 3px 9px;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 11px;
+  font-weight: 500;
+  border: 1px solid var(--border);
+  background: var(--bg-hover);
+  color: var(--fg);
+}
+.card-btn:hover       { border-color: var(--accent); color: var(--accent); }
+.card-btn.primary-btn { background: var(--accent); color: var(--accent-fg); border-color: var(--accent); }
+.card-btn.primary-btn:hover   { opacity: 0.85; }
+.card-btn.success-btn { border-color: var(--status-addressed); color: var(--status-addressed); }
+.card-btn.success-btn:hover   { background: rgba(46,160,67,0.15); }
+
+/* ── Changes panel (.ch-*) ──────────────────────────────────────────────── */
+
+.ch-branch-label {
+  font-size: 10px;
+  color: var(--vscode-descriptionForeground, #888);
+  margin-left: 6px;
+  font-weight: normal;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  flex: 1;
+  min-width: 0;
+}
+
+/* ── Toggle switch ─────────────────────────────────────── */
+.ch-toggle {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  margin-left: auto;
+  cursor: pointer;
+  flex-shrink: 0;
+}
+.ch-toggle input { display: none; }
+.ch-toggle-label {
+  font-size: 9px;
+  color: var(--vscode-descriptionForeground, #888);
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+}
+.ch-toggle-track {
+  position: relative;
+  width: 26px;
+  height: 14px;
+  border-radius: 7px;
+  background: var(--vscode-button-secondaryBackground, rgba(128,128,128,0.3));
+  transition: background 0.2s;
+}
+.ch-toggle-track::after {
+  content: '';
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: var(--vscode-foreground, #ccc);
+  transition: transform 0.2s;
+}
+.ch-toggle input:checked ~ .ch-toggle-track {
+  background: var(--vscode-button-background, #0e639c);
+}
+.ch-toggle input:checked ~ .ch-toggle-track::after {
+  transform: translateX(12px);
+}
+
+/* ── File block (row + optional expanded commits) ──────── */
+.ch-file-block {}
+
+.ch-row {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  padding: 4px 10px;
+  cursor: pointer;
+  user-select: none;
+  min-width: 0;
+  background: var(--vscode-sideBar-background, #252526);
+}
+.ch-row:hover { background: var(--vscode-list-hoverBackground, #2a2d2e); }
+
+/* File type icon (TS, JS, JSON, etc.) */
+.ch-file-icon {
+  font-size: 9px;
+  font-weight: 700;
+  font-family: var(--vscode-editor-font-family, monospace);
+  min-width: 22px;
+  text-align: center;
+  flex-shrink: 0;
+  opacity: 0.85;
+}
+
+.ch-filename {
+  font-size: 12px;
+  font-weight: 500;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  flex-shrink: 1;
+  min-width: 0;
+}
+
+/* Comment badge — right of folder label, clickable */
+.ch-comment-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  font-size: 10px;
+  color: var(--vscode-descriptionForeground, #888);
+  flex-shrink: 0;
+  cursor: pointer;
+}
+.ch-comment-badge:hover { color: var(--vscode-foreground, #ccc); }
+.ch-comment-badge svg { opacity: 0.7; }
+
+/* Folder path */
+.ch-folder {
+  font-size: 11px;
+  color: var(--vscode-descriptionForeground, #888);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  flex-shrink: 1;
+  min-width: 0;
+}
+
+/* Spacer pushes right-side content to the end */
+.ch-spacer { flex: 1; }
+
+/* Badge (shared by row and expanded commit items) */
+.ch-badge {
+  font-size: 10px;
+  padding: 1px 5px;
+  border-radius: 3px;
+  color: #fff;
+  white-space: nowrap;
+  font-family: var(--vscode-editor-font-family, monospace);
+  flex-shrink: 0;
+}
+
+.ch-badge-hash {
+  cursor: pointer;
+  transition: filter 0.15s;
+}
+.ch-badge-hash:hover { filter: brightness(1.2); }
+
+.ch-badge-more {
+  background: var(--vscode-badge-background, #4d4d4d) !important;
+  color: var(--vscode-badge-foreground, #fff);
+  cursor: pointer;
+  transition: filter 0.15s;
+}
+.ch-badge-more:hover { filter: brightness(1.15); }
+
+/* Fixed-width count badge (1…9 or +9 when capped) — same space always */
+.ch-badge-count {
+  min-width: 20px;
+  padding: 1px 4px;
+  text-align: center;
+}
+
+/* +/- stats */
+.ch-stats {
+  font-size: 11px;
+  font-family: var(--vscode-editor-font-family, monospace);
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+.ch-ins { color: var(--vscode-gitDecoration-addedResourceForeground, #2ea043); }
+.ch-del { color: var(--vscode-gitDecoration-deletedResourceForeground, #f85149); }
+
+/* A/M/D status indicator (far right) */
+.ch-status {
+  font-size: 11px;
+  font-weight: 600;
+  font-family: var(--vscode-editor-font-family, monospace);
+  min-width: 12px;
+  text-align: center;
+  flex-shrink: 0;
+}
+
+/* ── Expanded commit list under file row ───────────────── */
+.ch-commit-list {
+  padding: 2px 0 4px 0;
+  background: var(--vscode-sideBar-background, #252526);
+}
+
+.ch-commit-item {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 3px 10px 3px 16px;
+  cursor: pointer;
+  font-size: 11px;
+}
+.ch-commit-item:hover {
+  background: var(--vscode-list-hoverBackground, rgba(255,255,255,0.04));
+}
+
+/* Message grows to fill space between hash and stats */
+.ch-commit-msg {
+  font-size: 11px;
+  color: var(--vscode-foreground, #ccc);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  flex: 1;
+  min-width: 0;
+}
+
+/* Stats are right-aligned at a fixed width so all rows line up */
+.ch-commit-stats {
+  font-size: 10px;
+  font-family: var(--vscode-editor-font-family, monospace);
+  white-space: nowrap;
+  flex-shrink: 0;
+  min-width: 56px;
+  text-align: right;
+}
+
+/* Empty state */
+.ch-empty {
+  padding: 24px 16px;
+  text-align: center;
+  color: var(--vscode-descriptionForeground, #888);
+  font-size: 12px;
+}
+
