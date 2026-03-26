@@ -316,26 +316,6 @@ export class GitService {
   }
 
   /**
-   * Returns the stable identity key for a branch — the SHA of the oldest commit
-   * unique to this branch (i.e. the first commit after the merge-base).
-   *
-   * This key is invariant to branch renames. It only changes when the branch is
-   * rebased, but in that case all commit SHAs also change, so old reviews would
-   * already be stale.
-   *
-   * Falls back to the sanitised branch name for branches with no unique commits
-   * (e.g. main/master itself), since renaming those is essentially never done.
-   */
-  getBranchKey(branch: string): string {
-    const base = this.getMergeBase(branch);
-    if (!base) return branch;
-    // Reverse order so the oldest unique commit is first
-    const raw = exec(`git log "${base}..${branch}" --reverse --format=%H`, this.repoPath);
-    const first = raw.split('\n').find(l => l.trim());
-    return first?.trim() || branch;
-  }
-
-  /**
    * Returns all files changed on `branch` since it diverged from main/master,
    * sorted with the most-recently-touched file first.
    */

@@ -21,8 +21,8 @@ let statusBar: vscode.StatusBarItem | undefined;
 let commentChangeDisposable: vscode.Disposable | undefined;
 /** Disposables for the .git/HEAD and .git/refs watchers of the active repo. */
 let gitFsWatchers: vscode.Disposable[] = [];
-/** The branch key last used to create activeComments — used to detect branch switches. */
-let activeBranchKey = '';
+/** The branch name last loaded — used to detect branch switches vs. same-branch commits. */
+let activeBranch = '';
 
 export function activate(context: vscode.ExtensionContext): void {
   const repos = discoverAllRepos();
@@ -234,67 +234,75 @@ export function activate(context: vscode.ExtensionContext): void {
   // Wire the comment controller's mutation callback.
   if (activeCommentController) activeCommentController.onCommentMutation = refreshAll;
 
-  // ── Switch the active CommentManager to match the current branch ──────────
-  // Called on initial repo load and whenever .git/HEAD or .git/refs change.
-  function switchBranch(): void {
-    if (!activeGit) return;
-    const branch    = activeGit.getCurrentBranch();
-    const branchKey = activeGit.getBranchKey(branch);
+  // ── Git change handler ─────────────────────────────────────────────────────
+  // Called when .git/HEAD changes (branch switch) or .git/refs/heads/** changes
+  // (new commit on current branch, or any branch update).
+  function onGitChange(): void {
+    if (!activeGit || !activeComments) return;
+    const branch = activeGit.getCurrentBranch();
+    const hashes = activeGit.getBranchCommitHashes(branch);
 
-    // Nothing changed — just a refs update (new commit on same branch).
-    if (branchKey === activeBranchKey) {
-      refreshAll();
-      return;
+    if (branch !== activeBranch) {
+      // Branch switched — re-populate the working JSON from the DB.
+      activeBranch = branch;
+      activeComments.switchBranch(branch, hashes);
+    } else {
+      // Same branch, new commit — re-populate (new hash is now in the set)
+      // and refresh the commits list.
+      activeComments.switchBranch(branch, hashes);
     }
-
-    // Branch has changed — swap to the per-branch CommentManager.
-    activeBranchKey = branchKey;
-    commentChangeDisposable?.dispose();
-    activeComments?.dispose();
-
-    activeComments = new CommentManager(activeGit.getRepoPath(), branchKey);
-    activeComments.startWatching();
-
-    activeCommentsView?.updateServices(activeComments);
-    activeChangesView?.updateServices(activeGit, activeComments);
-    activeCommentController?.updateRepo(activeGit.getRepoPath(), activeComments, activeGit);
-    if (activeCommentController) activeCommentController.onCommentMutation = refreshAll;
-
-    commentChangeDisposable = activeComments.onDidChange(refreshAll);
 
     refreshAll();
   }
 
   // ── Switch to a repo ──────────────────────────────────────────────────────
   function switchToRepo(repoPath: string): void {
-    // Tear down git filesystem watchers from the previous repo.
+    // Tear down previous watchers
     for (const d of gitFsWatchers) d.dispose();
     gitFsWatchers = [];
-    activeBranchKey = '';
+    activeBranch = '';
     commentChangeDisposable?.dispose();
     activeComments?.dispose();
 
     activeGit = new GitService(repoPath);
+    activeComments = new CommentManager(repoPath, context.globalStorageUri);
+
+    // Migrate old per-branch JSON files into the DB on first use.
+    activeComments.migrateOldFiles();
+
+    // Start watching the working JSON for external (agent) edits.
+    activeComments.startWatching();
 
     // Keep the content provider's git service up to date.
     gitContentProvider.setGit(activeGit);
     activeReviewPanel?.updateServices(activeGit);
+    activeCommentsView?.updateServices(activeComments);
+    activeChangesView?.updateServices(activeGit, activeComments);
+    activeCommentController?.updateRepo(repoPath, activeComments, activeGit);
+    if (activeCommentController) activeCommentController.onCommentMutation = refreshAll;
 
-    // Initialise the CommentManager for the current branch.
-    switchBranch();
+    // Auto-refresh when the working JSON changes externally (agent updates).
+    commentChangeDisposable = activeComments.onDidChange(refreshAll);
+
+    // Initialise the working JSON for the current branch.
+    const branch = activeGit.getCurrentBranch();
+    const hashes = activeGit.getBranchCommitHashes(branch);
+    activeBranch = branch;
+    activeComments.switchBranch(branch, hashes);
 
     // Watch .git/HEAD for branch switches and .git/refs/heads/** for new commits.
-    // Both use VS Code's built-in FileSystemWatcher so no polling is needed.
     const headWatcher = vscode.workspace.createFileSystemWatcher(
       new vscode.RelativePattern(repoPath, '.git/HEAD'),
     );
     const refsWatcher = vscode.workspace.createFileSystemWatcher(
       new vscode.RelativePattern(repoPath, '.git/refs/heads/**'),
     );
-    headWatcher.onDidChange(switchBranch);
-    refsWatcher.onDidChange(switchBranch);
-    refsWatcher.onDidCreate(switchBranch);
+    headWatcher.onDidChange(onGitChange);
+    refsWatcher.onDidChange(onGitChange);
+    refsWatcher.onDidCreate(onGitChange);
     gitFsWatchers.push(headWatcher, refsWatcher);
+
+    refreshAll();
 
     const repoName = path.basename(repoPath);
     vscode.window.showInformationMessage(`Commit Review: switched to ${repoName}`);
