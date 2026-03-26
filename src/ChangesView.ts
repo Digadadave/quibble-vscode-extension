@@ -152,12 +152,6 @@ export class ChangesView implements vscode.WebviewViewProvider, vscode.Disposabl
 <div class="sidebar-section-header">
   <span class="section-title">CHANGES</span>
   <span id="branch-label" class="ch-branch-label"></span>
-  <label class="ch-toggle" title="Toggle between DiffPanel and native VS Code diff">
-    <span class="ch-toggle-label">Panel</span>
-    <input type="checkbox" id="diff-mode-toggle">
-    <span class="ch-toggle-track"></span>
-    <span class="ch-toggle-label">Native</span>
-  </label>
 </div>
 <div id="changes-list"></div>
 

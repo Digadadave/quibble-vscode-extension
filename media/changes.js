@@ -62,7 +62,7 @@
   let files     = [];
   let branch    = '';
   /** @type {'panel'|'native'} */
-  let diffMode  = 'panel';
+  let diffMode  = 'native';
   /** @type {Map<string,string>}  hash → color */
   const commitColorMap = new Map();
   let colorIndex = 0;
