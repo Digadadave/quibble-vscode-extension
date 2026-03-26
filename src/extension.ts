@@ -19,6 +19,10 @@ let activeChangesView: ChangesView | undefined;
 let activeCommentController: ReviewCommentController | undefined;
 let statusBar: vscode.StatusBarItem | undefined;
 let commentChangeDisposable: vscode.Disposable | undefined;
+/** Disposables for the .git/HEAD and .git/refs watchers of the active repo. */
+let gitFsWatchers: vscode.Disposable[] = [];
+/** The branch key last used to create activeComments — used to detect branch switches. */
+let activeBranchKey = '';
 
 export function activate(context: vscode.ExtensionContext): void {
   const repos = discoverAllRepos();
@@ -230,31 +234,67 @@ export function activate(context: vscode.ExtensionContext): void {
   // Wire the comment controller's mutation callback.
   if (activeCommentController) activeCommentController.onCommentMutation = refreshAll;
 
-  // ── Switch to a repo ──────────────────────────────────────────────────────
-  function switchToRepo(repoPath: string): void {
+  // ── Switch the active CommentManager to match the current branch ──────────
+  // Called on initial repo load and whenever .git/HEAD or .git/refs change.
+  function switchBranch(): void {
+    if (!activeGit) return;
+    const branch    = activeGit.getCurrentBranch();
+    const branchKey = activeGit.getBranchKey(branch);
+
+    // Nothing changed — just a refs update (new commit on same branch).
+    if (branchKey === activeBranchKey) {
+      refreshAll();
+      return;
+    }
+
+    // Branch has changed — swap to the per-branch CommentManager.
+    activeBranchKey = branchKey;
     commentChangeDisposable?.dispose();
     activeComments?.dispose();
 
-    activeGit      = new GitService(repoPath);
-    activeComments = new CommentManager(repoPath);
+    activeComments = new CommentManager(activeGit.getRepoPath(), branchKey);
     activeComments.startWatching();
+
+    activeCommentsView?.updateServices(activeComments);
+    activeChangesView?.updateServices(activeGit, activeComments);
+    activeCommentController?.updateRepo(activeGit.getRepoPath(), activeComments, activeGit);
+    if (activeCommentController) activeCommentController.onCommentMutation = refreshAll;
+
+    commentChangeDisposable = activeComments.onDidChange(refreshAll);
+
+    refreshAll();
+  }
+
+  // ── Switch to a repo ──────────────────────────────────────────────────────
+  function switchToRepo(repoPath: string): void {
+    // Tear down git filesystem watchers from the previous repo.
+    for (const d of gitFsWatchers) d.dispose();
+    gitFsWatchers = [];
+    activeBranchKey = '';
+    commentChangeDisposable?.dispose();
+    activeComments?.dispose();
+
+    activeGit = new GitService(repoPath);
 
     // Keep the content provider's git service up to date.
     gitContentProvider.setGit(activeGit);
-
-    // Push updated services into views.
     activeReviewPanel?.updateServices(activeGit);
-    activeCommentsView?.updateServices(activeComments);
-    activeChangesView?.updateServices(activeGit, activeComments);
-    activeCommentController?.updateRepo(repoPath, activeComments, activeGit);
 
-    // Wire the mutation callback for the new controller instance.
-    if (activeCommentController) activeCommentController.onCommentMutation = refreshAll;
+    // Initialise the CommentManager for the current branch.
+    switchBranch();
 
-    // Auto-refresh when reviews.json changes externally (agent updates).
-    commentChangeDisposable = activeComments.onDidChange(refreshAll);
-
-    updateStatusBar();
+    // Watch .git/HEAD for branch switches and .git/refs/heads/** for new commits.
+    // Both use VS Code's built-in FileSystemWatcher so no polling is needed.
+    const headWatcher = vscode.workspace.createFileSystemWatcher(
+      new vscode.RelativePattern(repoPath, '.git/HEAD'),
+    );
+    const refsWatcher = vscode.workspace.createFileSystemWatcher(
+      new vscode.RelativePattern(repoPath, '.git/refs/heads/**'),
+    );
+    headWatcher.onDidChange(switchBranch);
+    refsWatcher.onDidChange(switchBranch);
+    refsWatcher.onDidCreate(switchBranch);
+    gitFsWatchers.push(headWatcher, refsWatcher);
 
     const repoName = path.basename(repoPath);
     vscode.window.showInformationMessage(`Commit Review: switched to ${repoName}`);
@@ -305,6 +345,8 @@ export function activate(context: vscode.ExtensionContext): void {
 }
 
 export function deactivate(): void {
+  for (const d of gitFsWatchers) d.dispose();
+  gitFsWatchers = [];
   commentChangeDisposable?.dispose();
   activeComments?.dispose();
 }

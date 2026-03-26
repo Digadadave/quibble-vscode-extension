@@ -50,7 +50,15 @@ interface ReviewStore {
   reviews: ReviewComment[];
 }
 
-const DEFAULT_REVIEWS_RELPATH = '.vscode/commit-reviews.json';
+const DEFAULT_REVIEWS_DIR = '.vscode/commit-reviews';
+
+/**
+ * Sanitise a key so it is safe to use as a filename.
+ * For commit SHAs this is a no-op; handles branch-name fallbacks too.
+ */
+function sanitiseKey(key: string): string {
+  return key.replace(/[/\\:*?"<>|]/g, '_') || 'default';
+}
 
 export class CommentManager implements vscode.Disposable {
   private reviewsPath: string;
@@ -62,19 +70,28 @@ export class CommentManager implements vscode.Disposable {
   readonly onDidChange = this._onDidChange.event;
 
   /**
-   * @param repoPath  Absolute path to the repository root.
-   * @param relPath   Path to reviews file relative to repoPath.
-   *                  Defaults to the `commitReview.reviewsPath` setting,
-   *                  falling back to `.vscode/commit-reviews.json`.
+   * Returns the absolute path to the reviews file for a given branch key.
+   * The key should be `GitService.getBranchKey(branch)` — the SHA of the first
+   * unique commit on the branch — so it remains stable across branch renames.
+   *
+   * Example: `<repoPath>/.vscode/commit-reviews/a1b2c3d4.json`
+   */
+  static pathForKey(repoPath: string, branchKey: string): string {
+    return path.join(repoPath, DEFAULT_REVIEWS_DIR, `${sanitiseKey(branchKey)}.json`);
+  }
+
+  /**
+   * @param repoPath   Absolute path to the repository root.
+   * @param branchKey  The stable branch key from `GitService.getBranchKey()`.
+   *                   Pass an empty string when no repo is selected yet.
    */
   constructor(
     private repoPath: string,
-    relPath?: string
+    branchKey = '',
   ) {
-    const configured = relPath
-      ?? vscode.workspace.getConfiguration('commitReview').get<string>('reviewsPath')
-      ?? DEFAULT_REVIEWS_RELPATH;
-    this.reviewsPath = path.join(repoPath, configured);
+    this.reviewsPath = branchKey
+      ? CommentManager.pathForKey(repoPath, branchKey)
+      : path.join(repoPath, DEFAULT_REVIEWS_DIR, 'default.json');
   }
 
   /** Start watching the reviews file for external changes (e.g. agent writes). */
