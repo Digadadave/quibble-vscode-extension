@@ -12,6 +12,7 @@ export class DiffPanel implements vscode.Disposable {
 
   /** Hashes currently displayed; kept so comment refreshes can resend them. */
   private currentHashes: string[] = [];
+  private gitUserName = 'reviewer';
 
   /** Called by extension after any comment mutation, to refresh both panels. */
   onCommentMutation?: () => void;
@@ -32,6 +33,7 @@ export class DiffPanel implements vscode.Disposable {
       }
     );
 
+    this.gitUserName = this.git.getUserName();
     this.panel.onDidDispose(() => this.dispose(), null, this.disposables);
     this.panel.webview.onDidReceiveMessage(msg => this.handleMessage(msg), null, this.disposables);
     this.panel.webview.html = this.buildHtml();
@@ -89,6 +91,7 @@ export class DiffPanel implements vscode.Disposable {
       comments: this.comments.load(),
       oldestShort: baseHash.slice(0, 7),
       newestShort: headHash.slice(0, 7),
+      gitUserName: this.gitUserName,
     });
   }
 
@@ -98,6 +101,7 @@ export class DiffPanel implements vscode.Disposable {
       type: 'load',
       comments: this.comments.load(),
       selectedHashes: this.currentHashes,
+      gitUserName: this.gitUserName,
     });
   }
 
@@ -134,6 +138,7 @@ export class DiffPanel implements vscode.Disposable {
   updateServices(git: GitService, comments: CommentManager): void {
     this.git = git;
     this.comments = comments;
+    this.gitUserName = this.git.getUserName();
     this.currentHashes = [];
     this.panel.webview.postMessage({ type: 'diffResult', parsedDiff: [], changedFiles: [], selectedHashes: [] });
   }
@@ -221,6 +226,7 @@ export class DiffPanel implements vscode.Disposable {
         changedFiles: [],
         selectedHashes: [],
         comments: this.comments.load(),
+        gitUserName: this.gitUserName,
       });
       return;
     }
@@ -246,6 +252,7 @@ export class DiffPanel implements vscode.Disposable {
       oldestShort: log.find(c => c.hash === oldestHash)?.shortHash ?? oldestHash.slice(0, 7),
       newestShort: log.find(c => c.hash === newestHash)?.shortHash ?? newestHash.slice(0, 7),
       focusCommentId,
+      gitUserName: this.gitUserName,
     });
   }
 

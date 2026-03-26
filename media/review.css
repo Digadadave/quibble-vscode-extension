@@ -697,9 +697,9 @@ tr.inline-composer-row td {
 .inline-composer-ta {
   width: 100%;
   box-sizing: border-box;
-  background: var(--bg);
+  background: rgba(14, 99, 156, 0.08);
   color: var(--fg);
-  border: 1px solid var(--border);
+  border: 1px solid rgba(14, 99, 156, 0.35);
   border-radius: 4px;
   padding: 8px 10px;
   font-family: var(--font-ui);
@@ -707,7 +707,7 @@ tr.inline-composer-row td {
   resize: vertical;
   min-height: 90px;
 }
-.inline-composer-ta:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 2px rgba(14,99,156,0.25); }
+.inline-composer-ta:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 2px rgba(14,99,156,0.25); background: rgba(14,99,156,0.12); }
 
 .inline-composer-snippet {
   margin: 0;
@@ -1248,4 +1248,18 @@ body.expander-resizing { cursor: ns-resize !important; user-select: none; }
   user-select: none;
 }
 .ch-load-more:hover { text-decoration: underline; }
+
+/* Jump-to-source arrow — hidden until file row is hovered */
+.ch-jump-source {
+  flex-shrink: 0;
+  font-size: 12px;
+  color: var(--vscode-descriptionForeground, #888);
+  opacity: 0;
+  cursor: pointer;
+  line-height: 1;
+  padding: 0 2px;
+  transition: opacity 0.1s;
+}
+.ch-row:hover .ch-jump-source { opacity: 1; }
+.ch-jump-source:hover { color: var(--vscode-textLink-foreground, #4ea6ea); }
 

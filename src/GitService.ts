@@ -380,6 +380,20 @@ export class GitService {
     return result;
   }
 
+  getUserName(): string {
+    return exec('git config user.name', this.repoPath) || 'reviewer';
+  }
+
+  /** Returns the 1-based line number of the first change for `file` on the current branch. */
+  getFirstChangedLine(file: string): number {
+    const branch = this.getCurrentBranch();
+    const base   = this.getMergeBase(branch);
+    if (!base) return 1;
+    const raw = exec(`git diff -U0 "${base}" HEAD -- "${file}"`, this.repoPath);
+    const match = raw.match(/@@ -\d+(?:,\d+)? \+(\d+)(?:,\d+)? @@/);
+    return match ? Math.max(1, parseInt(match[1])) : 1;
+  }
+
   getFileContentAtCommit(hash: string, filePath: string): string {
     const normalized = filePath.replace(/\\/g, '/');
     return exec(`git show ${hash}:${normalized}`, this.repoPath);

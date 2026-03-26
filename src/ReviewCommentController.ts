@@ -40,6 +40,7 @@ export class ReviewCommentController implements vscode.Disposable {
   onCommentMutation?: () => void;
 
   private git: GitService | undefined;
+  private gitUserName = 'reviewer';
   private readonly extensionUri: vscode.Uri;
 
   constructor(
@@ -74,9 +75,10 @@ export class ReviewCommentController implements vscode.Disposable {
 
   /** Switch to a new repo / CommentManager and reload all threads. */
   updateRepo(repoPath: string, comments: CommentManager, git: GitService): void {
-    this.repoPath   = repoPath;
-    this.comments   = comments;
-    this.git        = git;
+    this.repoPath     = repoPath;
+    this.comments     = comments;
+    this.git          = git;
+    this.gitUserName  = git.getUserName();
     this.refresh();
   }
 
@@ -125,7 +127,7 @@ export class ReviewCommentController implements vscode.Disposable {
       ? vscode.CommentThreadCollapsibleState.Collapsed
       : vscode.CommentThreadCollapsibleState.Expanded;
     thread.contextValue       = `status:${rc.status}`;
-    thread.canReply           = true;
+    thread.canReply           = false;
     thread.comments           = this.buildComments(rc);
 
     this.threads.set(rc.id, thread);
@@ -134,7 +136,7 @@ export class ReviewCommentController implements vscode.Disposable {
   private buildComments(rc: ReviewComment): CRComment[] {
     const items: CRComment[] = [{
       reviewId:  rc.id,
-      author:    { name: rc.author, iconPath: this.statusThemeIcon(rc.status) },
+      author:    { name: rc.author === 'reviewer' ? this.gitUserName : rc.author, iconPath: this.statusThemeIcon(rc.status) },
       body:      new vscode.MarkdownString(rc.body),
       mode:      vscode.CommentMode.Preview,
       label:     STATUS_LABELS[rc.status] ?? rc.status,
@@ -146,7 +148,7 @@ export class ReviewCommentController implements vscode.Disposable {
       items.push({
         reviewId:  rc.id,
         author:    {
-          name:     entry.author,
+          name:     entry.author === 'reviewer' ? this.gitUserName : entry.author,
           iconPath: isAgent
             ? this.mediaUri('icon-agent.svg')
             : undefined,
@@ -296,11 +298,12 @@ export class ReviewCommentController implements vscode.Disposable {
 
     // ── Delete ──────────────────────────────────────────────────────────────
     context.subscriptions.push(
-      vscode.commands.registerCommand('commitReview.comment.delete', (comment: CRComment) => {
-        if (!comment?.reviewId) return;
-        this.comments.deleteComment(comment.reviewId);
-        this.threads.get(comment.reviewId)?.dispose();
-        this.threads.delete(comment.reviewId);
+      vscode.commands.registerCommand('commitReview.comment.delete', (thread: vscode.CommentThread) => {
+        const first = thread?.comments?.[0] as CRComment | undefined;
+        if (!first?.reviewId) return;
+        this.comments.deleteComment(first.reviewId);
+        this.threads.get(first.reviewId)?.dispose();
+        this.threads.delete(first.reviewId);
         this.onCommentMutation?.();
       }),
     );

@@ -256,29 +256,23 @@
       ],
       "comments/commentThread/context": [
         {
-          "command": "commitReview.comment.resolve",
-          "group": "inline@1",
-          "when": "commentController == commit-review"
-        },
-        {
           "command": "commitReview.comment.dismiss",
           "group": "inline@2",
           "when": "commentController == commit-review"
         },
         {
           "command": "commitReview.comment.reply",
-          "group": "inline@3",
+          "group": "inline@1",
           "when": "commentController == commit-review"
         }
       ],
-      "comments/comment/title": [
+      "comments/comment/title": [],
+      "comments/commentThread/title": [
         {
           "command": "commitReview.comment.delete",
-          "group": "inline",
+          "group": "inline@3",
           "when": "commentController == commit-review"
-        }
-      ],
-      "comments/commentThread/title": [
+        },
         {
           "command": "commitReview.comment.resolve",
           "group": "inline@1",
@@ -291,7 +285,7 @@
         },
         {
           "command": "commitReview.comment.reopen",
-          "group": "inline@3",
+          "group": "inline@4",
           "when": "commentController == commit-review && commentThread =~ /status:(resolved|dismissed|outdated)/"
         }
       ]

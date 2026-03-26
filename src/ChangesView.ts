@@ -24,6 +24,9 @@ export class ChangesView implements vscode.WebviewViewProvider, vscode.Disposabl
   /** Called when the user clicks the comment badge — open the first comment on that file. */
   onJumpToComment?: (file: string) => void;
 
+  /** Called when the user clicks the jump-to-source arrow — open file at first changed line. */
+  onJumpToSource?: (file: string) => void;
+
   private constructor(
     private context: vscode.ExtensionContext,
     private git: GitService,
@@ -79,6 +82,8 @@ export class ChangesView implements vscode.WebviewViewProvider, vscode.Disposabl
           : this.onJumpToCommitFile?.(msg.hash, msg.file);
       } else if (msg.type === 'jumpToComment') {
         this.onJumpToComment?.(msg.file as string);
+      } else if (msg.type === 'jumpToSource') {
+        this.onJumpToSource?.(msg.file as string);
       }
     }, null, this.disposables);
 

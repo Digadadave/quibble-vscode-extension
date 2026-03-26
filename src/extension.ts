@@ -153,6 +153,21 @@ export function activate(context: vscode.ExtensionContext): void {
     await openNativeDiff(activeGit, file, hash);
   };
 
+  // Jump-to-source arrow → open the file in the editor at the first changed line
+  activeChangesView.onJumpToSource = async (file) => {
+    if (!activeGit) return;
+    const repoPath = activeGit.getRepoPath();
+    const absPath  = path.join(repoPath, file);
+    const line     = activeGit.getFirstChangedLine(file);
+    try {
+      const doc = await vscode.workspace.openTextDocument(absPath);
+      const editor = await vscode.window.showTextDocument(doc, { preview: true });
+      const pos = new vscode.Position(Math.max(0, line - 1), 0);
+      editor.selection = new vscode.Selection(pos, pos);
+      editor.revealRange(new vscode.Range(pos, pos), vscode.TextEditorRevealType.InCenter);
+    } catch { /* file may not exist */ }
+  };
+
   // Comment badge click → open the diff at the first comment on that file
   activeChangesView.onJumpToComment = async (file) => {
     if (!activeGit || !activeComments) return;

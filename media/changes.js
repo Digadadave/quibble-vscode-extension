@@ -82,6 +82,16 @@
     return commitColorMap.get(hash);
   }
 
+  /** Returns '#000' or '#fff' for readable text on a hex background color. */
+  function badgeTextColor(hex) {
+    const r = parseInt(hex.slice(1, 3), 16);
+    const g = parseInt(hex.slice(3, 5), 16);
+    const b = parseInt(hex.slice(5, 7), 16);
+    // Perceived luminance formula
+    const luminance = (0.299 * r + 0.587 * g + 0.114 * b) / 255;
+    return luminance > 0.55 ? '#000' : '#fff';
+  }
+
   function getFileIcon(filePath) {
     const ext = filePath.split('.').pop()?.toLowerCase() || '';
     return FILE_ICONS[ext] || DEFAULT_ICON;
@@ -153,6 +163,15 @@
 
   document.addEventListener('click', e => {
     const target = /** @type {HTMLElement} */ (e.target);
+
+    // Jump-to-source button → open file at first changed line
+    const jumpBtn = target.closest('.ch-jump-source');
+    if (jumpBtn) {
+      e.stopPropagation();
+      const file = jumpBtn.getAttribute('data-file');
+      if (file) vscode.postMessage({ type: 'jumpToSource', file });
+      return;
+    }
 
     // Comment badge → focus first comment on this file
     const commentBadge = target.closest('.ch-comment-badge');
@@ -244,7 +263,7 @@
     // ── Right-side badges: [+/- stats] [hash] [count] [status]
     const ins = file.insertions > 0 ? `<span class="ch-ins">+${file.insertions}</span>` : '';
     const del = file.deletions  > 0 ? `<span class="ch-del">-${file.deletions}</span>`  : '';
-    const statsHtml = (ins || del) ? `<span class="ch-stats">${del}${ins && del ? '\u00a0' : ''}${ins}</span>` : '';
+    const statsHtml = (ins || del) ? `<span class="ch-stats">${del}${ins}</span>` : '';
 
     const rowBadgesHtml = renderRowBadges(file);
 
@@ -257,11 +276,12 @@
       expandedHtml = '<div class="ch-commit-list">'
         + file.commits.map(c => {
           const color    = getCommitColor(c.hash);
+          const tColor   = badgeTextColor(color);
           const cIns     = c.insertions > 0 ? `<span class="ch-ins">+${c.insertions}</span>` : '';
           const cDel     = c.deletions  > 0 ? `<span class="ch-del">-${c.deletions}</span>`  : '';
-          const cStats   = (cIns || cDel) ? `<span class="ch-commit-stats">${cDel}${cIns && cDel ? '\u00a0' : ''}${cIns}</span>` : '<span class="ch-commit-stats"></span>';
+          const cStats   = (cIns || cDel) ? `<span class="ch-commit-stats">${cDel}${cIns}</span>` : '<span class="ch-commit-stats"></span>';
           return `<div class="ch-commit-item" data-hash="${esc(c.hash)}" data-file="${esc(file.path)}">`
-            + `<span class="ch-badge ch-badge-hash" style="background:${color}" data-hash="${esc(c.hash)}">${esc(c.shortHash)}</span>`
+            + `<span class="ch-badge ch-badge-hash" style="background:${color};color:${tColor}" data-hash="${esc(c.hash)}">${esc(c.shortHash)}</span>`
             + `<span class="ch-commit-msg">${esc(c.message)}</span>`
             + cStats
             + `</div>`;
@@ -269,30 +289,33 @@
         + '</div>';
     }
 
+    const jumpHtml = `<span class="ch-jump-source" data-action="jump-source" data-file="${esc(file.path)}" title="Go to first change">&#8599;</span>`;
+
     return `<div class="ch-file-block${isExpanded ? ' ch-expanded' : ''}" data-file="${esc(file.path)}">`
       + `<div class="ch-row" data-file="${esc(file.path)}" title="${esc(file.path)}">`
       + iconHtml + nameHtml + folderHtml + commentHtml
       + `<span class="ch-spacer"></span>`
-      + statsHtml + rowBadgesHtml + statusHtml
+      + jumpHtml + statsHtml + rowBadgesHtml + statusHtml
       + `</div>`
       + expandedHtml
       + `</div>`;
   }
 
-  /** File-row right side: [hash badge] [count badge — fixed width, max +9] */
+  /** File-row right side: [hash badge] [total count badge] */
   function renderRowBadges(file) {
     const commits = file.commits;
     if (!commits.length) return '';
 
-    const latest = commits[0];
-    const color  = getCommitColor(latest.hash);
-    const tip    = esc(`${latest.shortHash} \u2014 ${latest.message}`);
-    let html = `<span class="ch-badge ch-badge-hash" style="background:${color}" data-hash="${esc(latest.hash)}" title="${tip}">${esc(latest.shortHash)}</span>`;
+    const latest    = commits[0];
+    const color     = getCommitColor(latest.hash);
+    const textColor = badgeTextColor(color);
+    const tip       = esc(`${latest.shortHash} \u2014 ${latest.message}`);
+    let html = `<span class="ch-badge ch-badge-hash" style="background:${color};color:${textColor}" data-hash="${esc(latest.hash)}" title="${tip}">${esc(latest.shortHash)}</span>`;
 
-    const extra = commits.length - 1;
-    if (extra > 0) {
-      const label = countLabel(extra);
-      const tip2  = extra > 9 ? `${extra} more commits` : `${extra} more commit${extra > 1 ? 's' : ''}`;
+    const total = commits.length;
+    if (total > 1) {
+      const label = total > 9 ? '+9' : String(total);
+      const tip2  = `${total} commit${total !== 1 ? 's' : ''}`;
       html += `<span class="ch-badge ch-badge-more ch-badge-count" title="${tip2}">${label}</span>`;
     }
 

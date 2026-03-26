@@ -20,6 +20,8 @@ const state = {
   currentOldestShort: '',
   /** @type {string} */
   currentNewestShort: '',
+  /** @type {string} Git user name for display (fallback: 'reviewer') */
+  gitUserName: 'reviewer',
 };
 
 let pendingCommentFile = '';
@@ -56,6 +58,7 @@ window.addEventListener('message', (/** @type {MessageEvent} */ event) => {
       // Refresh comments + selected set (sent after any comment mutation)
       state.comments       = msg.comments       ?? [];
       state.selectedHashes = new Set(msg.selectedHashes ?? []);
+      if (msg.gitUserName) state.gitUserName = msg.gitUserName;
       renderTopBar();
       renderDiff();
       break;
@@ -66,6 +69,7 @@ window.addEventListener('message', (/** @type {MessageEvent} */ event) => {
       state.currentNewestShort  = msg.newestShort   ?? '';
       state.selectedHashes      = new Set(msg.selectedHashes ?? []);
       state.comments            = msg.comments      ?? state.comments;
+      if (msg.gitUserName) state.gitUserName = msg.gitUserName;
       renderTopBar();
       renderDiff();
       if (msg.focusCommentId) scrollToComment(/** @type {string} */ (msg.focusCommentId));
@@ -92,6 +96,11 @@ document.addEventListener('click', (/** @type {MouseEvent} */ e) => {
   if (composerRow && !composerRow.contains(target)) {
     if (composerJustOpened) {
       composerJustOpened = false; // opened by mouseup — ignore this click entirely
+      return;
+    }
+    const ta = /** @type {HTMLTextAreaElement|null} */ (composerRow.querySelector('textarea'));
+    if (ta?.value?.trim()) {
+      // Textarea has content — keep composer open, don't process as line click
       return;
     }
     closeComposer();
@@ -749,7 +758,7 @@ function renderThreadRow(comment, colspan) {
   const replies = (comment.thread ?? []).map(/** @param {any} r */ r => `
 <div class="thread-comment ${r.author !== 'reviewer' ? 'agent-comment' : ''}">
   <div class="thread-header">
-    <span class="thread-author ${r.author !== 'reviewer' ? 'agent' : ''}">${esc(r.author)}</span>
+    <span class="thread-author ${r.author !== 'reviewer' ? 'agent' : ''}">${esc(r.author === 'reviewer' ? state.gitUserName : r.author)}</span>
     <span class="thread-date">${formatDate(r.createdAt)}</span>
   </div>
   <div class="thread-body">${esc(r.body)}</div>
@@ -776,7 +785,7 @@ function renderThreadRow(comment, colspan) {
     <div class="thread-container">
       <div class="thread-comment">
         <div class="thread-header">
-          <span class="thread-author">${esc(comment.author)}</span>
+          <span class="thread-author">${esc(comment.author === 'reviewer' ? state.gitUserName : comment.author)}</span>
           <span class="thread-date">${formatDate(comment.createdAt)}</span>
           ${statusIndicator}
         </div>
