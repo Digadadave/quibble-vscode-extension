@@ -69,6 +69,9 @@
   /** @type {Set<string>}  file paths whose commit list is expanded */
   const expandedFiles = new Set();
 
+  const PAGE_SIZE = 20;
+  let visibleCount = PAGE_SIZE;
+
   // ── Helpers ────────────────────────────────────────────────────────────────
 
   function getCommitColor(hash) {
@@ -125,6 +128,7 @@
     const label = document.getElementById('branch-label');
     if (label) label.textContent = branch || '';
 
+    visibleCount = PAGE_SIZE;
     render();
   });
 
@@ -193,10 +197,27 @@
   function render() {
     const list = document.getElementById('changes-list');
     if (!list) return;
-    list.innerHTML = files.length
-      ? files.map(renderFileBlock).join('')
-      : '<div class="ch-empty">No changes on this branch</div>';
+
+    if (!files.length) {
+      list.innerHTML = '<div class="ch-empty">No changes on this branch</div>';
+      return;
+    }
+
+    const visible   = files.slice(0, visibleCount);
+    const remaining = files.length - visibleCount;
+    const moreHtml  = remaining > 0
+      ? `<div class="ch-load-more" id="ch-load-more">Load ${Math.min(remaining, PAGE_SIZE)} more of ${remaining} remaining</div>`
+      : '';
+
+    list.innerHTML = visible.map(renderFileBlock).join('') + moreHtml;
   }
+
+  document.addEventListener('click', e => {
+    if (e.target.closest('#ch-load-more')) {
+      visibleCount += PAGE_SIZE;
+      render();
+    }
+  }, true);  // capture so it fires before the general delegation below
 
   function renderFileBlock(file) {
     const name       = file.path.split('/').pop() || file.path;

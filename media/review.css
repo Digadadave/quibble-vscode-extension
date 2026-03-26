@@ -1240,3 +1240,12 @@ body.expander-resizing { cursor: ns-resize !important; user-select: none; }
   font-size: 12px;
 }
 
+.ch-load-more {
+  padding: 6px 12px;
+  font-size: 11px;
+  color: var(--vscode-textLink-foreground, #4ea6ea);
+  cursor: pointer;
+  user-select: none;
+}
+.ch-load-more:hover { text-decoration: underline; }
+
