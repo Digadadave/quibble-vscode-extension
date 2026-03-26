@@ -24,7 +24,7 @@ export interface CommentSnapshot {
 
 export interface ReviewComment {
   id: string;
-  /** Stable identity across squash/rebase copies. Same uuid = same comment. */
+  /** Stable identity across squash/rebase copies. Same uuid = same logical comment. */
   uuid: string;
   status: CommentStatus;
   commitHash: string;
@@ -48,19 +48,26 @@ export interface ReviewComment {
   snapshot: CommentSnapshot | null;
 }
 
-// ── Store shapes ────────────────────────────────────────────────────────────
+// ── DB shape (stored in context.globalState) ────────────────────────────────
 
-/** Working JSON shape (the file the agent reads/writes). */
+/**
+ * Per-repo DB stored under key `"repo:<repoPath>"` in VS Code's globalState.
+ *
+ * branches: maps branch names → array of known commit hashes (superset of
+ *           current git hashes — includes orphaned hashes until remapped).
+ * comments: maps commit hashes → array of comments anchored to that commit.
+ */
+export interface RepoDb {
+  branches: Record<string, string[]>;
+  comments: Record<string, ReviewComment[]>;
+}
+
+// ── Working JSON shape (the file the agent reads/writes) ─────────────────────
+
 interface ReviewStore {
   _schema?: unknown;
   version: number;
   reviews: ReviewComment[];
-}
-
-/** DB shape (globalStorageUri — all comments across all branches). */
-interface DbStore {
-  version: number;
-  comments: ReviewComment[];
 }
 
 // ── Default schema description (embedded in the working JSON) ───────────────
@@ -118,69 +125,190 @@ const SCHEMA_DESCRIPTION = {
 
 export class CommentManager implements vscode.Disposable {
   private workingJsonPath: string;
-  private dbPath: string;
+  private globalState: vscode.Memento;
+  private dbKey: string;
   private watcher: vscode.FileSystemWatcher | undefined;
   /** Prevents the file watcher from echoing back our own saves. */
   private suppressNextWatchEvent = false;
   private cachedSchema: unknown = undefined;
 
-  /** Current branch's commit hashes — for filtering DB → working JSON. */
+  /** Current branch's git commit hashes. */
   private currentHashes: Set<string> = new Set();
   private currentBranch = '';
+
+  /** Orphaned hashes: stored for this branch but no longer in git (squash/rebase). */
+  private _orphanedHashes: string[] = [];
+  /** Orphaned comments: comments from the orphaned hashes. */
+  private _orphanedComments: ReviewComment[] = [];
 
   private _onDidChange = new vscode.EventEmitter<void>();
   readonly onDidChange = this._onDidChange.event;
 
   /**
-   * @param repoPath        Absolute path to the repository root.
-   * @param globalStorageUri VS Code's globalStorageUri for persistent DB storage.
+   * @param repoPath    Absolute path to the repository root. Empty string for placeholder instances.
+   * @param globalState VS Code globalState Memento for persistent DB storage.
    */
   constructor(
     private repoPath: string,
-    globalStorageUri?: vscode.Uri,
+    globalState: vscode.Memento,
   ) {
-    // Working JSON path — configurable, defaults to .vscode/commit-reviews.json
     const configPath = vscode.workspace
       .getConfiguration('commitReview')
       .get<string>('reviewsPath', '.vscode/commit-reviews.json');
     this.workingJsonPath = repoPath ? path.join(repoPath, configPath) : '';
+    this.globalState = globalState;
+    this.dbKey = repoPath ? `repo:${repoPath}` : '';
+  }
 
-    // DB path in VS Code global storage
-    if (globalStorageUri && repoPath) {
-      const repoName = path.basename(repoPath);
-      this.dbPath = path.join(globalStorageUri.fsPath, `${repoName}.json`);
-    } else {
-      this.dbPath = '';
-    }
+  // ── DB access (globalState) ───────────────────────────────────────────────
+
+  private dbLoad(): RepoDb {
+    if (!this.dbKey) return { branches: {}, comments: {} };
+    return this.globalState.get<RepoDb>(this.dbKey, { branches: {}, comments: {} });
+  }
+
+  private dbSave(db: RepoDb): void {
+    if (!this.dbKey) return;
+    // Memento.update() updates in-memory cache synchronously, persists async.
+    this.globalState.update(this.dbKey, db);
   }
 
   // ── Branch switching ──────────────────────────────────────────────────────
 
   /**
-   * Switch to a branch: query the DB for all comments matching the branch's
-   * commit hashes and populate the working JSON.
+   * Switch to a branch: compare stored hashes with current git hashes, detect
+   * orphans, and populate the working JSON with matched comments.
    */
-  switchBranch(branchName: string, commitHashes: string[]): void {
+  switchBranch(branchName: string, gitHashes: string[]): void {
     this.currentBranch = branchName;
-    this.currentHashes = new Set(commitHashes);
+    this.currentHashes = new Set(gitHashes);
+
+    const db = this.dbLoad();
+    const storedHashes = db.branches[branchName] ?? [];
+
+    // ── Orphan detection ──────────────────────────────────────────────────
+    // Hashes that were stored for this branch but no longer exist in git,
+    // AND have comments attached. These are squash/rebase casualties.
+    this._orphanedHashes = [];
+    this._orphanedComments = [];
+    for (const hash of storedHashes) {
+      if (!this.currentHashes.has(hash)) {
+        const comments = db.comments[hash];
+        if (comments && comments.length > 0) {
+          this._orphanedHashes.push(hash);
+          this._orphanedComments.push(...comments);
+        }
+      }
+    }
+
+    // ── Update stored hashes ──────────────────────────────────────────────
+    // Keep orphaned hashes in the stored list (so they persist across
+    // refreshes until the user remaps or dismisses them). Add any new
+    // git hashes that aren't already stored.
+    const storedSet = new Set(storedHashes);
+    const updatedHashes = [...storedHashes];
+    for (const h of gitHashes) {
+      if (!storedSet.has(h)) updatedHashes.push(h);
+    }
+    db.branches[branchName] = updatedHashes;
+    this.dbSave(db);
+
+    // ── Populate working JSON ─────────────────────────────────────────────
     this.populateWorkingJson();
+
+    // Set context key for orphan indicator in the UI
+    vscode.commands.executeCommand(
+      'setContext',
+      'commitReview.hasOrphans',
+      this._orphanedComments.length > 0,
+    );
   }
 
   /** Re-populate the working JSON from the DB using the current hash set. */
   private populateWorkingJson(): void {
-    const all = this.dbLoad();
-    const filtered = all.filter(c => this.currentHashes.has(c.commitHash));
+    const db = this.dbLoad();
+    const matched: ReviewComment[] = [];
+    for (const hash of this.currentHashes) {
+      const comments = db.comments[hash];
+      if (comments) matched.push(...comments);
+    }
 
-    // Deduplicate by uuid — if somehow the same uuid appears at multiple hashes
-    // in this branch (e.g. cherry-pick), keep the most recently created one.
+    // Deduplicate by uuid — if the same comment was remapped to a hash that's
+    // also in the current branch (e.g. merge brought in both original and copy),
+    // keep the most recently created copy.
     const byUuid = new Map<string, ReviewComment>();
-    for (const c of filtered) {
+    for (const c of matched) {
       const existing = byUuid.get(c.uuid);
       if (!existing || c.createdAt > existing.createdAt) {
         byUuid.set(c.uuid, c);
       }
     }
     this.saveWorkingJson([...byUuid.values()]);
+  }
+
+  // ── Orphan API ────────────────────────────────────────────────────────────
+
+  /** True if there are orphaned comments (squash/rebase detected). */
+  get hasOrphans(): boolean {
+    return this._orphanedComments.length > 0;
+  }
+
+  /** Orphaned comments from stored hashes that no longer exist in git. */
+  get orphanedComments(): ReviewComment[] {
+    return this._orphanedComments;
+  }
+
+  /**
+   * Remap all orphaned comments to a target commit hash. Called when the user
+   * selects a commit to receive the orphaned comments (e.g. the squash commit).
+   *
+   * Each orphaned comment is COPIED to the target hash with a new id but the
+   * same uuid. The originals remain in the DB at their old hashes — this way
+   * if the user returns to the original branch, those comments are still there.
+   * The uuid ties all copies together: status updates propagate to all of them,
+   * and the uuid dedup in populateWorkingJson prevents double-showing.
+   */
+  remapOrphans(targetHash: string): void {
+    const db = this.dbLoad();
+
+    // Ensure the target hash bucket exists
+    if (!db.comments[targetHash]) db.comments[targetHash] = [];
+    const existingUuids = new Set(db.comments[targetHash].map(c => c.uuid));
+
+    // Copy orphaned comments to target (skip if same uuid already present)
+    for (const hash of this._orphanedHashes) {
+      const orphans = db.comments[hash] ?? [];
+      for (const c of orphans) {
+        if (existingUuids.has(c.uuid)) continue;
+        db.comments[targetHash].push({
+          ...c,
+          id: `cr_${crypto.randomUUID().replace(/-/g, '').slice(0, 8)}`,
+          commitHash: targetHash,
+        });
+        existingUuids.add(c.uuid);
+      }
+      // Originals stay in db.comments[hash] — not deleted.
+    }
+
+    this.dbSave(db);
+
+    // Clear orphan state for this session (they've been handled)
+    this._orphanedHashes = [];
+    this._orphanedComments = [];
+    vscode.commands.executeCommand('setContext', 'commitReview.hasOrphans', false);
+
+    // Repopulate working JSON (target hash is in currentHashes)
+    this.populateWorkingJson();
+  }
+
+  /**
+   * Dismiss orphaned comments — acknowledge them without remapping.
+   * Originals stay in the DB (no data loss), but the orphan indicator clears.
+   */
+  dismissOrphans(): void {
+    this._orphanedHashes = [];
+    this._orphanedComments = [];
+    vscode.commands.executeCommand('setContext', 'commitReview.hasOrphans', false);
   }
 
   // ── Working JSON (active branch view, read by the agent) ───────────────
@@ -238,64 +366,47 @@ export class CommentManager implements vscode.Disposable {
     fs.writeFileSync(this.workingJsonPath, JSON.stringify(store, null, 2), 'utf8');
   }
 
-  // ── DB (all comments across all branches) ──────────────────────────────
-
-  private dbLoad(): ReviewComment[] {
-    if (!this.dbPath || !fs.existsSync(this.dbPath)) return [];
-    try {
-      const store: DbStore = JSON.parse(fs.readFileSync(this.dbPath, 'utf8'));
-      return store.comments ?? [];
-    } catch {
-      return [];
-    }
-  }
-
-  private dbSave(comments: ReviewComment[]): void {
-    if (!this.dbPath) return;
-    const dir = path.dirname(this.dbPath);
-    if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
-    const store: DbStore = { version: 1, comments };
-    fs.writeFileSync(this.dbPath, JSON.stringify(store, null, 2), 'utf8');
-  }
-
   /**
    * Sync external changes to the working JSON back to the DB.
    * Called when the file watcher detects an agent edit.
    */
   private syncWorkingJsonToDb(): void {
     const workingComments = this.load();
-    const all = this.dbLoad();
-
-    // Build a lookup by id for fast matching
-    const dbById = new Map(all.map((c, i) => [c.id, i]));
+    const db = this.dbLoad();
 
     for (const wc of workingComments) {
-      const dbIdx = dbById.get(wc.id);
-      if (dbIdx !== undefined) {
-        // Update ALL records with same uuid (propagate status, thread, etc.)
-        const uuid = all[dbIdx].uuid;
-        for (let i = 0; i < all.length; i++) {
-          if (all[i].uuid === uuid) {
-            // Keep each record's own id, commitHash, branchName — update everything else
-            all[i] = {
-              ...wc,
-              id: all[i].id,
-              uuid,
-              commitHash: all[i].commitHash,
-              branchName: all[i].branchName,
-            };
+      const bucket = db.comments[wc.commitHash] ?? [];
+
+      // Find existing record by id
+      const existing = bucket.find(c => c.id === wc.id);
+      if (existing) {
+        // Propagate update to ALL copies with same uuid across all hashes
+        const uuid = existing.uuid;
+        for (const hash of Object.keys(db.comments)) {
+          for (let i = 0; i < db.comments[hash].length; i++) {
+            if (db.comments[hash][i].uuid === uuid) {
+              // Keep each copy's own id, commitHash, branchName
+              db.comments[hash][i] = {
+                ...wc,
+                id: db.comments[hash][i].id,
+                uuid,
+                commitHash: db.comments[hash][i].commitHash,
+                branchName: db.comments[hash][i].branchName,
+              };
+            }
           }
         }
       } else {
-        // New comment added externally — add to DB
+        // New comment added externally — add to the hash bucket
         const comment = { ...wc };
         if (!comment.uuid) comment.uuid = comment.id;
         if (!comment.branchName) comment.branchName = this.currentBranch;
-        all.push(comment);
+        if (!db.comments[wc.commitHash]) db.comments[wc.commitHash] = [];
+        db.comments[wc.commitHash].push(comment);
       }
     }
 
-    this.dbSave(all);
+    this.dbSave(db);
   }
 
   // ── CRUD (writes to both working JSON and DB) ─────────────────────────
@@ -338,10 +449,11 @@ export class CommentManager implements vscode.Disposable {
     working.push(comment);
     this.saveWorkingJson(working);
 
-    // DB
-    const all = this.dbLoad();
-    all.push(comment);
-    this.dbSave(all);
+    // DB — add to hash bucket
+    const db = this.dbLoad();
+    if (!db.comments[params.commitHash]) db.comments[params.commitHash] = [];
+    db.comments[params.commitHash].push(comment);
+    this.dbSave(db);
 
     return comment;
   }
@@ -356,16 +468,18 @@ export class CommentManager implements vscode.Disposable {
     if (status === 'addressed') wc.addressedAt = new Date().toISOString();
     this.saveWorkingJson(working);
 
-    // DB — update ALL records with same uuid
-    const all = this.dbLoad();
+    // DB — update ALL copies with same uuid across all hash buckets
+    const db = this.dbLoad();
     const uuid = wc.uuid;
-    for (const c of all) {
-      if (c.uuid === uuid) {
-        c.status = status;
-        if (status === 'addressed') c.addressedAt = new Date().toISOString();
+    for (const hash of Object.keys(db.comments)) {
+      for (const c of db.comments[hash]) {
+        if (c.uuid === uuid) {
+          c.status = status;
+          if (status === 'addressed') c.addressedAt = new Date().toISOString();
+        }
       }
     }
-    this.dbSave(all);
+    this.dbSave(db);
 
     return true;
   }
@@ -382,10 +496,14 @@ export class CommentManager implements vscode.Disposable {
     working.splice(idx, 1);
     this.saveWorkingJson(working);
 
-    // Remove ALL DB records with same uuid
-    const all = this.dbLoad();
-    const filtered = all.filter(c => c.uuid !== uuid);
-    this.dbSave(filtered);
+    // DB — remove ALL copies with same uuid across all hash buckets
+    const db = this.dbLoad();
+    for (const hash of Object.keys(db.comments)) {
+      db.comments[hash] = db.comments[hash].filter(c => c.uuid !== uuid);
+      // Clean up empty buckets
+      if (db.comments[hash].length === 0) delete db.comments[hash];
+    }
+    this.dbSave(db);
 
     return true;
   }
@@ -400,15 +518,17 @@ export class CommentManager implements vscode.Disposable {
     wc.thread.push(entry);
     this.saveWorkingJson(working);
 
-    // DB — update ALL records with same uuid
-    const all = this.dbLoad();
+    // DB — update ALL copies with same uuid across all hash buckets
+    const db = this.dbLoad();
     const uuid = wc.uuid;
-    for (const c of all) {
-      if (c.uuid === uuid) {
-        c.thread.push({ ...entry });
+    for (const hash of Object.keys(db.comments)) {
+      for (const c of db.comments[hash]) {
+        if (c.uuid === uuid) {
+          c.thread.push({ ...entry });
+        }
       }
     }
-    this.dbSave(all);
+    this.dbSave(db);
 
     return true;
   }
@@ -428,47 +548,77 @@ export class CommentManager implements vscode.Disposable {
   // ── Migration ─────────────────────────────────────────────────────────────
 
   /**
-   * Import old per-branch JSON files (`.vscode/commit-reviews/<key>.json`)
-   * into the DB. Called once on repo init. Adds uuid and branchName fields
+   * Import old comment files into the globalState DB.
+   *
+   * Checks two sources:
+   * 1. Per-branch JSON files: `.vscode/commit-reviews/<key>.json`
+   * 2. Flat DB file: `globalStorageUri/<repo>.json`
+   *
+   * Called once when switching to a repo. Adds uuid and branchName fields
    * where missing.
    */
-  migrateOldFiles(): void {
+  migrateOldFiles(globalStorageUri?: vscode.Uri): void {
     if (!this.repoPath) return;
-    const oldDir = path.join(this.repoPath, '.vscode', 'commit-reviews');
-    if (!fs.existsSync(oldDir)) return;
+    const db = this.dbLoad();
+    const existingIds = new Set<string>();
+    for (const hash of Object.keys(db.comments)) {
+      for (const c of db.comments[hash]) existingIds.add(c.id);
+    }
 
-    let entries: string[];
-    try {
-      entries = fs.readdirSync(oldDir).filter(f => f.endsWith('.json'));
-    } catch { return; }
-    if (entries.length === 0) return;
-
-    const all = this.dbLoad();
-    const existingIds = new Set(all.map(c => c.id));
     let imported = 0;
 
-    for (const file of entries) {
+    // ── Source 1: per-branch JSON files ──────────────────────────────────
+    const oldDir = path.join(this.repoPath, '.vscode', 'commit-reviews');
+    if (fs.existsSync(oldDir)) {
       try {
-        const content = JSON.parse(
-          fs.readFileSync(path.join(oldDir, file), 'utf8'),
-        );
-        const reviews: ReviewComment[] = content.reviews ?? [];
-        for (const r of reviews) {
-          if (existingIds.has(r.id)) continue;
-          // Back-fill new fields
-          if (!r.uuid) r.uuid = r.id;
-          if (!r.branchName) r.branchName = file.replace('.json', '');
-          all.push(r);
-          existingIds.add(r.id);
-          imported++;
+        const files = fs.readdirSync(oldDir).filter(f => f.endsWith('.json'));
+        for (const file of files) {
+          try {
+            const content = JSON.parse(
+              fs.readFileSync(path.join(oldDir, file), 'utf8'),
+            );
+            const reviews: ReviewComment[] = content.reviews ?? [];
+            for (const r of reviews) {
+              if (existingIds.has(r.id)) continue;
+              if (!r.uuid) r.uuid = r.id;
+              if (!r.branchName) r.branchName = file.replace('.json', '');
+              if (!db.comments[r.commitHash]) db.comments[r.commitHash] = [];
+              db.comments[r.commitHash].push(r);
+              existingIds.add(r.id);
+              imported++;
+            }
+          } catch { /* skip invalid files */ }
         }
-      } catch { /* skip invalid files */ }
+      } catch { /* can't read dir */ }
+    }
+
+    // ── Source 2: flat globalStorageUri DB file ──────────────────────────
+    if (globalStorageUri) {
+      const repoName = path.basename(this.repoPath);
+      const flatDbPath = path.join(globalStorageUri.fsPath, `${repoName}.json`);
+      if (fs.existsSync(flatDbPath)) {
+        try {
+          const content = JSON.parse(fs.readFileSync(flatDbPath, 'utf8'));
+          const comments: ReviewComment[] = content.comments ?? [];
+          for (const r of comments) {
+            if (existingIds.has(r.id)) continue;
+            if (!r.uuid) r.uuid = r.id;
+            if (!r.branchName) r.branchName = '';
+            if (!db.comments[r.commitHash]) db.comments[r.commitHash] = [];
+            db.comments[r.commitHash].push(r);
+            existingIds.add(r.id);
+            imported++;
+          }
+          // Clean up old file after successful migration
+          fs.unlinkSync(flatDbPath);
+        } catch { /* skip */ }
+      }
     }
 
     if (imported > 0) {
-      this.dbSave(all);
+      this.dbSave(db);
       vscode.window.showInformationMessage(
-        `Commit Review: migrated ${imported} comment(s) from old format.`,
+        `Commit Review: migrated ${imported} comment(s) to new storage.`,
       );
     }
   }

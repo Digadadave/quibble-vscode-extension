@@ -37,7 +37,7 @@ export function activate(context: vscode.ExtensionContext): void {
   );
 
   // ── Native comment controller ─────────────────────────────────────────────
-  activeCommentController = new ReviewCommentController(context, new CommentManager(''));
+  activeCommentController = new ReviewCommentController(context, new CommentManager('', context.globalState));
   context.subscriptions.push(activeCommentController);
 
   // ── Commits sidebar WebviewView ───────────────────────────────────────────
@@ -79,7 +79,7 @@ export function activate(context: vscode.ExtensionContext): void {
   );
 
   // ── Comments sidebar TreeView ────────────────────────────────────────────
-  activeCommentsView = CommentsView.register(context, new CommentManager(''));
+  activeCommentsView = CommentsView.register(context, new CommentManager('', context.globalState));
 
   // When the user clicks a comment: open the diff and navigate to that line.
   activeCommentsView.onFocusComment = async (file, line, commitHash) => {
@@ -109,7 +109,7 @@ export function activate(context: vscode.ExtensionContext): void {
   context.subscriptions.push(commentsTreeView);
 
   // ── Changes sidebar WebviewView ───────────────────────────────────────────
-  activeChangesView = ChangesView.register(context, new GitService(''), new CommentManager(''));
+  activeChangesView = ChangesView.register(context, new GitService(''), new CommentManager('', context.globalState));
 
   // File click → open accumulated branch diff (all files) in DiffPanel, anchored on file
   activeChangesView.onJumpToFile = (file) => {
@@ -265,10 +265,10 @@ export function activate(context: vscode.ExtensionContext): void {
     activeComments?.dispose();
 
     activeGit = new GitService(repoPath);
-    activeComments = new CommentManager(repoPath, context.globalStorageUri);
+    activeComments = new CommentManager(repoPath, context.globalState);
 
-    // Migrate old per-branch JSON files into the DB on first use.
-    activeComments.migrateOldFiles();
+    // Migrate old per-branch JSON files and old flat DB into globalState.
+    activeComments.migrateOldFiles(context.globalStorageUri);
 
     // Start watching the working JSON for external (agent) edits.
     activeComments.startWatching();
@@ -338,6 +338,50 @@ export function activate(context: vscode.ExtensionContext): void {
     vscode.commands.registerCommand('commitReview.copyAgentPrompt', () => {
       if (!activeComments || !activeGit) return;
       copyAgentPrompt(activeGit, activeComments);
+    }),
+  );
+
+  // ── Orphan remap command ────────────────────────────────────────────────
+  context.subscriptions.push(
+    vscode.commands.registerCommand('commitReview.remapOrphans', async () => {
+      if (!activeComments || !activeGit) return;
+      if (!activeComments.hasOrphans) {
+        vscode.window.showInformationMessage('No orphaned comments to remap.');
+        return;
+      }
+
+      const count = activeComments.orphanedComments.length;
+      const branch = activeGit.getCurrentBranch();
+      const commits = activeGit.getCommitsForBranch(branch, 50);
+
+      const items = commits.map(c => ({
+        label: `$(git-commit) ${c.shortHash}`,
+        description: c.message,
+        detail: c.date,
+        hash: c.hash,
+      }));
+
+      const picked = await vscode.window.showQuickPick(items, {
+        placeHolder: `Select a commit to receive ${count} orphaned comment(s) (squash/rebase)`,
+        title: 'Remap Orphaned Comments',
+      });
+
+      if (picked) {
+        activeComments.remapOrphans(picked.hash);
+        refreshAll();
+        vscode.window.showInformationMessage(
+          `Remapped ${count} comment(s) to ${picked.label.replace('$(git-commit) ', '')}.`,
+        );
+      }
+    }),
+  );
+
+  // ── Orphan dismiss command ──────────────────────────────────────────────
+  context.subscriptions.push(
+    vscode.commands.registerCommand('commitReview.dismissOrphans', () => {
+      if (!activeComments) return;
+      activeComments.dismissOrphans();
+      refreshAll();
     }),
   );
 

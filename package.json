@@ -118,6 +118,18 @@
         "title": "Cycle Filter",
         "icon": "$(filter)",
         "category": "Commit Review"
+      },
+      {
+        "command": "commitReview.remapOrphans",
+        "title": "Remap Orphaned Comments",
+        "icon": "$(warning)",
+        "category": "Commit Review"
+      },
+      {
+        "command": "commitReview.dismissOrphans",
+        "title": "Dismiss Orphaned Comments",
+        "icon": "$(close)",
+        "category": "Commit Review"
       }
     ],
     "viewsContainers": {
@@ -168,6 +180,11 @@
           "command": "commitReview.selectRepo",
           "when": "view == commitReview.reviewView",
           "group": "navigation"
+        },
+        {
+          "command": "commitReview.remapOrphans",
+          "when": "view == commitReview.commentsView && commitReview.hasOrphans",
+          "group": "navigation@0"
         },
         {
           "command": "commitReview.comments.cycleFilter",
