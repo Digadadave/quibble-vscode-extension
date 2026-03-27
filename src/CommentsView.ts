@@ -245,9 +245,22 @@ export class CommentsView implements vscode.TreeDataProvider<vscode.TreeItem>, v
       vscode.commands.registerCommand('commitReview.comments.delete', (item: CommentTreeItem) => {
         this.onDeleteComment?.(item.comment.id);
       }),
-      vscode.commands.registerCommand('commitReview.comments.filter', () => this.showFilterPicker()),
+      // Per-group toggle commands — each one flips that group on/off in the submenu
+      ...FILTER_GROUPS.map(g =>
+        vscode.commands.registerCommand(`commitReview.comments.filter.${g.id}`, () => {
+          if (this.activeGroups.has(g.id)) {
+            if (this.activeGroups.size === 1) { return; } // keep at least one active
+            this.activeGroups.delete(g.id);
+          } else {
+            this.activeGroups.add(g.id);
+          }
+          this.syncFilterContext();
+          this.refresh();
+        })
+      ),
     );
 
+    this.syncFilterContext();  // set initial checkmark state
     this.updateViewDescription();
     return this.treeView;
   }
@@ -309,29 +322,14 @@ export class CommentsView implements vscode.TreeDataProvider<vscode.TreeItem>, v
     this._onDidChangeTreeData.fire();
     this.updateViewDescription();
     this.updateViewBadge();
+    this.syncFilterContext();
   }
 
-  private async showFilterPicker(): Promise<void> {
-    const items = FILTER_GROUPS.map(g => ({
-      label:   `$(${g.icon}) ${g.label}`,
-      picked:  this.activeGroups.has(g.id),
-      groupId: g.id,
-    }));
-
-    const picked = await vscode.window.showQuickPick(items, {
-      canPickMany:  true,
-      title:        'Filter Comments',
-      placeHolder:  'Select which statuses to show',
-    });
-
-    if (picked === undefined) { return; } // cancelled — leave filter unchanged
-    if (picked.length === 0) {
-      vscode.window.showWarningMessage('Select at least one status to show.');
-      return;
+  /** Push current activeGroups state to VS Code context so menu checkmarks update. */
+  private syncFilterContext(): void {
+    for (const g of FILTER_GROUPS) {
+      vscode.commands.executeCommand('setContext', `commitReview.filter.${g.id}`, this.activeGroups.has(g.id));
     }
-
-    this.activeGroups = new Set(picked.map(p => p.groupId as FilterGroupId));
-    this.refresh();
   }
 
   private getFilteredComments(): ReviewComment[] {
