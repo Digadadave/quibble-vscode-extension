@@ -2,6 +2,7 @@ import * as vscode from 'vscode';
 import * as path from 'path';
 import { GitService } from './GitService';
 import { CommentManager } from './CommentManager';
+import { buildStatusCssVars } from './icons';
 
 export class ChangesView implements vscode.WebviewViewProvider, vscode.Disposable {
   static readonly viewType = 'commitReview.changesView';
@@ -23,6 +24,9 @@ export class ChangesView implements vscode.WebviewViewProvider, vscode.Disposabl
 
   /** Called when the user clicks the comment badge — open the first comment on that file. */
   onJumpToComment?: (file: string) => void;
+
+  /** Called when the user clicks the jump-to-source arrow — open file at first changed line. */
+  onJumpToSource?: (file: string) => void;
 
   private constructor(
     private context: vscode.ExtensionContext,
@@ -53,6 +57,11 @@ export class ChangesView implements vscode.WebviewViewProvider, vscode.Disposabl
     this.refresh();
   }
 
+  /** Show loading state immediately (call before slow work begins). */
+  showLoading(): void {
+    this._view?.webview.postMessage({ type: 'loading' });
+  }
+
   // ── WebviewViewProvider ───────────────────────────────────────────────────
 
   resolveWebviewView(
@@ -79,6 +88,8 @@ export class ChangesView implements vscode.WebviewViewProvider, vscode.Disposabl
           : this.onJumpToCommitFile?.(msg.hash, msg.file);
       } else if (msg.type === 'jumpToComment') {
         this.onJumpToComment?.(msg.file as string);
+      } else if (msg.type === 'jumpToSource') {
+        this.onJumpToSource?.(msg.file as string);
       }
     }, null, this.disposables);
 
@@ -139,6 +150,7 @@ export class ChangesView implements vscode.WebviewViewProvider, vscode.Disposabl
              style-src ${webview.cspSource} 'unsafe-inline';
              script-src 'nonce-${nonce}';">
   <link href="${cssUri}" rel="stylesheet">
+  ${buildStatusCssVars()}
   <style>
     body { overflow: hidden; display: flex; flex-direction: column; height: 100vh; margin: 0;
            background: var(--vscode-sideBar-background, #252526);
@@ -152,12 +164,6 @@ export class ChangesView implements vscode.WebviewViewProvider, vscode.Disposabl
 <div class="sidebar-section-header">
   <span class="section-title">CHANGES</span>
   <span id="branch-label" class="ch-branch-label"></span>
-  <label class="ch-toggle" title="Toggle between DiffPanel and native VS Code diff">
-    <span class="ch-toggle-label">Panel</span>
-    <input type="checkbox" id="diff-mode-toggle">
-    <span class="ch-toggle-track"></span>
-    <span class="ch-toggle-label">Native</span>
-  </label>
 </div>
 <div id="changes-list"></div>
 

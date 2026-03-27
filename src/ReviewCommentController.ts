@@ -2,17 +2,21 @@ import * as vscode from 'vscode';
 import { CommentManager, ReviewComment, CommentSnapshot, SnapshotLine } from './CommentManager';
 import { GitContentProvider } from './GitContentProvider';
 import { GitService } from './GitService';
+import { ICON_FILES } from './icons';
 
 // ── Status display labels ────────────────────────────────────────────────────
 
 const STATUS_LABELS: Record<string, string> = {
-  'open':         'Open',
-  'in-progress':  'In Progress',
-  'needs-input':  'Needs Input',
-  'addressed':    'Addressed',
-  'resolved':     'Resolved',
-  'dismissed':    'Dismissed',
-  'outdated':     'Outdated',
+  'open':          'Open',
+  'question':      'Question',
+  'agent-replied': 'Agent Replied',
+  'in-progress':   'In Progress',
+  'needs-input':   'Needs Input',
+  'addressed':     'Addressed',
+  'closed':        'Closed',
+  'resolved':      'Resolved',
+  'dismissed':     'Dismissed',
+  'outdated':      'Outdated',
 };
 
 // ── Extended Comment interface ────────────────────────────────────────────────
@@ -40,6 +44,7 @@ export class ReviewCommentController implements vscode.Disposable {
   onCommentMutation?: () => void;
 
   private git: GitService | undefined;
+  private gitUserName = 'reviewer';
   private readonly extensionUri: vscode.Uri;
 
   constructor(
@@ -74,9 +79,10 @@ export class ReviewCommentController implements vscode.Disposable {
 
   /** Switch to a new repo / CommentManager and reload all threads. */
   updateRepo(repoPath: string, comments: CommentManager, git: GitService): void {
-    this.repoPath   = repoPath;
-    this.comments   = comments;
-    this.git        = git;
+    this.repoPath     = repoPath;
+    this.comments     = comments;
+    this.git          = git;
+    this.gitUserName  = git.getUserName();
     this.refresh();
   }
 
@@ -134,7 +140,7 @@ export class ReviewCommentController implements vscode.Disposable {
   private buildComments(rc: ReviewComment): CRComment[] {
     const items: CRComment[] = [{
       reviewId:  rc.id,
-      author:    { name: rc.author, iconPath: this.statusThemeIcon(rc.status) },
+      author:    { name: rc.author === 'reviewer' ? this.gitUserName : rc.author, iconPath: this.statusThemeIcon(rc.status) },
       body:      new vscode.MarkdownString(rc.body),
       mode:      vscode.CommentMode.Preview,
       label:     STATUS_LABELS[rc.status] ?? rc.status,
@@ -146,10 +152,10 @@ export class ReviewCommentController implements vscode.Disposable {
       items.push({
         reviewId:  rc.id,
         author:    {
-          name:     entry.author,
+          name:     entry.author === 'reviewer' ? this.gitUserName : entry.author,
           iconPath: isAgent
-            ? this.mediaUri('icon-agent.svg')
-            : undefined,
+            ? this.mediaUri(ICON_FILES.AGENT)
+            : this.mediaUri(ICON_FILES.BLANK),
         },
         body:      new vscode.MarkdownString(entry.body),
         mode:      vscode.CommentMode.Preview,
@@ -165,7 +171,7 @@ export class ReviewCommentController implements vscode.Disposable {
                       : 'Agent Note';
       items.push({
         reviewId:  rc.id,
-        author:    { name: noteLabel, iconPath: this.mediaUri('icon-agent.svg') },
+        author:    { name: noteLabel, iconPath: this.mediaUri(ICON_FILES.AGENT) },
         body:      new vscode.MarkdownString(rc.resolvedNote),
         mode:      vscode.CommentMode.Preview,
         timestamp: rc.addressedAt ? new Date(rc.addressedAt) : undefined,
@@ -181,18 +187,22 @@ export class ReviewCommentController implements vscode.Disposable {
 
   private statusThemeIcon(status: string): vscode.Uri {
     switch (status) {
-      case 'open':        return this.mediaUri('icon-status-open.svg');
-      case 'in-progress': return this.mediaUri('icon-status-progress.svg');
-      case 'needs-input': return this.mediaUri('icon-status-input.svg');
-      case 'addressed':
-      case 'resolved':    return this.mediaUri('icon-status-addressed.svg');
-      case 'outdated':    return this.mediaUri('icon-status-outdated.svg');
-      default:            return this.mediaUri('icon-status-default.svg');
+      case 'open':          return this.mediaUri(ICON_FILES.STATUS_OPEN);
+      case 'question':
+      case 'needs-input':   return this.mediaUri(ICON_FILES.STATUS_QUESTION);
+      case 'agent-replied':
+      case 'in-progress':   return this.mediaUri(ICON_FILES.STATUS_REPLIED);
+      case 'addressed':     return this.mediaUri(ICON_FILES.STATUS_ADDRESSED);
+      case 'closed':
+      case 'resolved':      return this.mediaUri(ICON_FILES.STATUS_CLOSED);
+      case 'dismissed':
+      case 'outdated':      return this.mediaUri(ICON_FILES.STATUS_DISMISSED);
+      default:              return this.mediaUri(ICON_FILES.STATUS_DEFAULT);
     }
   }
 
   private isClosed(status: string): boolean {
-    return ['resolved', 'dismissed', 'outdated'].includes(status);
+    return ['closed', 'resolved', 'dismissed', 'outdated'].includes(status);
   }
 
   // ── Snapshot capture ─────────────────────────────────────────────────────
@@ -289,18 +299,29 @@ export class ReviewCommentController implements vscode.Disposable {
       };
 
     context.subscriptions.push(
-      vscode.commands.registerCommand('commitReview.comment.resolve', makeStatusAction('resolved')),
+      vscode.commands.registerCommand('commitReview.comment.resolve', makeStatusAction('addressed')),
+      vscode.commands.registerCommand('commitReview.comment.close',   makeStatusAction('dismissed')),
       vscode.commands.registerCommand('commitReview.comment.dismiss', makeStatusAction('dismissed')),
       vscode.commands.registerCommand('commitReview.comment.reopen',  makeStatusAction('open')),
     );
 
+    // Cancel — only disposes new (unsaved) threads; for existing threads VS Code closes the reply box automatically
+    context.subscriptions.push(
+      vscode.commands.registerCommand('commitReview.comment.cancelThread', (reply: vscode.CommentReply) => {
+        if (reply.thread.comments.length === 0) {
+          reply.thread.dispose();
+        }
+      }),
+    );
+
     // ── Delete ──────────────────────────────────────────────────────────────
     context.subscriptions.push(
-      vscode.commands.registerCommand('commitReview.comment.delete', (comment: CRComment) => {
-        if (!comment?.reviewId) return;
-        this.comments.deleteComment(comment.reviewId);
-        this.threads.get(comment.reviewId)?.dispose();
-        this.threads.delete(comment.reviewId);
+      vscode.commands.registerCommand('commitReview.comment.delete', (thread: vscode.CommentThread) => {
+        const first = thread?.comments?.[0] as CRComment | undefined;
+        if (!first?.reviewId) return;
+        this.comments.deleteComment(first.reviewId);
+        this.threads.get(first.reviewId)?.dispose();
+        this.threads.delete(first.reviewId);
         this.onCommentMutation?.();
       }),
     );

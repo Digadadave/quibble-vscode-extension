@@ -3,6 +3,24 @@
 
 const vscode = acquireVsCodeApi();
 
+// ── Icon constants (codicon IDs) ────────────────────────────────────────────
+const ICONS = {
+  COMMENT_UNRESOLVED: 'comment-unresolved',
+  CHECK:              'check',
+  CHECK_ALL:          'check-all',
+  VERIFIED_FILLED:    'verified-filled',
+  SYNC_IGNORED:       'sync-ignored',
+  TRASH:              'trash',
+};
+
+// ── Status transition options ───────────────────────────────────────────────
+const STATUS_OPTIONS = [
+  { status: 'open',      icon: ICONS.COMMENT_UNRESOLVED, label: 'Reopen',   cssVar: '--status-open' },
+  { status: 'addressed', icon: ICONS.CHECK,              label: 'Addressed', cssVar: '--status-addressed' },
+  { status: 'closed',    icon: ICONS.CHECK_ALL,          label: 'Close',    cssVar: '--status-closed' },
+  { status: 'dismissed', icon: ICONS.SYNC_IGNORED,       label: 'Dismiss',  cssVar: '--status-dismissed' },
+];
+
 // ── State ──────────────────────────────────────────────────────────────────
 
 const state = {
@@ -20,6 +38,12 @@ const state = {
   currentOldestShort: '',
   /** @type {string} */
   currentNewestShort: '',
+  /** @type {string} Git user name for display (fallback: 'reviewer') */
+  gitUserName: 'reviewer',
+  /** @type {string} Active repo folder name */
+  repoName: '',
+  /** @type {number} Number of discovered repos (show button only when > 1) */
+  repoCount: 1,
 };
 
 let pendingCommentFile = '';
@@ -52,10 +76,20 @@ const EXPANDER_PX_PER_LINE = 18;
 window.addEventListener('message', (/** @type {MessageEvent} */ event) => {
   const msg = event.data;
   switch (msg.type) {
+    case 'loading': {
+      state.selectedHashes  = new Set();
+      state.currentDiff     = [];
+      const main = document.getElementById('main');
+      if (main) main.innerHTML = '<div class="empty-state"><p>Loading\u2026</p></div>';
+      break;
+    }
     case 'load':
       // Refresh comments + selected set (sent after any comment mutation)
       state.comments       = msg.comments       ?? [];
       state.selectedHashes = new Set(msg.selectedHashes ?? []);
+      if (msg.gitUserName) state.gitUserName = msg.gitUserName;
+      if (msg.repoName  !== undefined) state.repoName  = msg.repoName;
+      if (msg.repoCount !== undefined) state.repoCount = msg.repoCount;
       renderTopBar();
       renderDiff();
       break;
@@ -66,9 +100,17 @@ window.addEventListener('message', (/** @type {MessageEvent} */ event) => {
       state.currentNewestShort  = msg.newestShort   ?? '';
       state.selectedHashes      = new Set(msg.selectedHashes ?? []);
       state.comments            = msg.comments      ?? state.comments;
+      if (msg.gitUserName) state.gitUserName = msg.gitUserName;
+      if (msg.repoName  !== undefined) state.repoName  = msg.repoName;
+      if (msg.repoCount !== undefined) state.repoCount = msg.repoCount;
       renderTopBar();
       renderDiff();
       if (msg.focusCommentId) scrollToComment(/** @type {string} */ (msg.focusCommentId));
+      break;
+    case 'repoInfo':
+      state.repoName  = msg.repoName  ?? '';
+      state.repoCount = msg.repoCount ?? 1;
+      updateRepoButton();
       break;
     case 'focusFile':
       if (msg.file) scrollToFile(/** @type {string} */ (msg.file));
@@ -94,6 +136,11 @@ document.addEventListener('click', (/** @type {MouseEvent} */ e) => {
       composerJustOpened = false; // opened by mouseup — ignore this click entirely
       return;
     }
+    const ta = /** @type {HTMLTextAreaElement|null} */ (composerRow.querySelector('textarea'));
+    if (ta?.value?.trim()) {
+      // Textarea has content — keep composer open, don't process as line click
+      return;
+    }
     closeComposer();
     // fall through — if the click was on a line row, open a new composer for it
   }
@@ -105,6 +152,10 @@ document.addEventListener('click', (/** @type {MouseEvent} */ e) => {
     switch (action) {
       case 'toggle-reviewed':
         toggleMarkReviewed();
+        break;
+
+      case 'select-repo':
+        vscode.postMessage({ type: 'selectRepo' });
         break;
 
       case 'close-composer':
@@ -129,8 +180,8 @@ document.addEventListener('click', (/** @type {MouseEvent} */ e) => {
         break;
       }
 
-      case 'mark-addressed':
-        vscode.postMessage({ type: 'updateStatus', id: btn.getAttribute('data-id'), status: 'addressed' });
+      case 'change-status':
+        vscode.postMessage({ type: 'updateStatus', id: btn.getAttribute('data-id'), status: btn.getAttribute('data-status') });
         break;
 
       case 'delete-comment':
@@ -417,6 +468,20 @@ function renderTopBar() {
   if (btn) {
     btn.textContent = allReviewed ? '\u2713 Reviewed' : 'Mark as reviewed';
     btn.classList.toggle('reviewed', allReviewed);
+  }
+
+  updateRepoButton();
+}
+
+/** Show/hide and label the repo-selector button based on current state. */
+function updateRepoButton() {
+  const repoBtn = /** @type {HTMLElement|null} */ (document.getElementById('repo-select-btn'));
+  if (!repoBtn) return;
+  if (state.repoCount > 1) {
+    repoBtn.style.display = '';
+    repoBtn.textContent = state.repoName || 'Select Repo';
+  } else {
+    repoBtn.style.display = 'none';
   }
 }
 
@@ -749,22 +814,22 @@ function renderThreadRow(comment, colspan) {
   const replies = (comment.thread ?? []).map(/** @param {any} r */ r => `
 <div class="thread-comment ${r.author !== 'reviewer' ? 'agent-comment' : ''}">
   <div class="thread-header">
-    <span class="thread-author ${r.author !== 'reviewer' ? 'agent' : ''}">${esc(r.author)}</span>
+    <span class="thread-author ${r.author !== 'reviewer' ? 'agent' : ''}">${esc(r.author === 'reviewer' ? state.gitUserName : r.author)}</span>
     <span class="thread-date">${formatDate(r.createdAt)}</span>
   </div>
   <div class="thread-body">${esc(r.body)}</div>
 </div>`).join('');
 
-  // Determine available actions based on status
-  let actionButtons = '';
-  if (comment.status !== 'addressed') {
-    actionButtons += `<button class="btn success" data-action="mark-addressed" data-id="${comment.id}">Mark Addressed</button>`;
-  }
+  // Status transition buttons — show all statuses except the current one
+  let actionButtons = STATUS_OPTIONS
+    .filter(o => o.status !== comment.status)
+    .map(o => `<button class="btn status-action-btn" title="${o.label}" data-action="change-status" data-status="${o.status}" data-id="${comment.id}" style="color:var(${o.cssVar})"><i class="codicon codicon-${o.icon}"></i></button>`)
+    .join('');
   if (comment.status === 'open') {
     actionButtons += `<button class="btn" data-action="ask-question" data-id="${comment.id}">Ask Question</button>`;
   }
-  // Delete is always available, pushed to the far right via spacer
-  actionButtons += `<span class="thread-actions-spacer"></span><button class="btn danger" data-action="delete-comment" data-id="${comment.id}">Delete</button>`;
+  // Delete pushed to the far right
+  actionButtons += `<span class="thread-actions-spacer"></span><button class="btn danger" data-action="delete-comment" data-id="${comment.id}"><i class="codicon codicon-${ICONS.TRASH}"></i></button>`;
 
   const statusIndicator = comment.status === 'question'
     ? `<span class="thread-status question">awaiting agent</span>`
@@ -773,10 +838,10 @@ function renderThreadRow(comment, colspan) {
   return `
 <tr class="thread-row" data-comment-id="${comment.id}">
   <td colspan="${tdColspan}">
-    <div class="thread-container">
+    <div class="thread-container status-${comment.status}">
       <div class="thread-comment">
         <div class="thread-header">
-          <span class="thread-author">${esc(comment.author)}</span>
+          <span class="thread-author">${esc(comment.author === 'reviewer' ? state.gitUserName : comment.author)}</span>
           <span class="thread-date">${formatDate(comment.createdAt)}</span>
           ${statusIndicator}
         </div>

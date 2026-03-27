@@ -13,11 +13,9 @@
   --add-num: var(--vscode-diffEditor-insertedLineBackground, rgba(35, 134, 54, 0.35));
   --del-num: var(--vscode-diffEditor-removedLineBackground, rgba(218, 54, 51, 0.35));
   --thread-bg: var(--vscode-editorWidget-background, #252526);
-  --agent-accent: #2ea043;
-  --status-open: #da3633;
-  --status-replied: #e3b341;
-  --status-addressed: #2ea043;
-  --status-resolved: #888;
+  --agent-accent: #a78bca;
+  /* --status-* and --status-*-bg are injected at runtime by buildStatusCssVars()
+     in icons.ts, keeping webview colors in sync with vscode.ThemeColor tokens. */
   --font-mono: var(--vscode-editor-font-family, 'Consolas', monospace);
   --font-ui: var(--vscode-font-family, system-ui, sans-serif);
   --font-size: var(--vscode-editor-font-size, 13px);
@@ -281,12 +279,6 @@ body {
   text-overflow: ellipsis;
 }
 
-.status-badge {
-  flex-shrink: 0;
-  display: block;
-  overflow: visible;
-}
-
 /* ── Right panel ─────────────────────────────────────────────────────────── */
 
 #right-panel {
@@ -328,16 +320,32 @@ body {
   font-weight: 600;
   border: 1px solid transparent;
 }
-.badge.open     { background: rgba(218,54,51,0.15);  border-color: var(--status-open);      color: var(--status-open); }
-.badge.question { background: rgba(88,130,255,0.15); border-color: #8ab4ff;                 color: #8ab4ff; }
-.badge.replied  { background: rgba(227,179,65,0.15); border-color: var(--status-replied);   color: var(--status-replied); }
-.badge.addressed{ background: rgba(46,160,67,0.15);  border-color: var(--status-addressed); color: var(--status-addressed); }
+.badge.open     { background: var(--status-open-bg);      border-color: var(--status-open);      color: var(--status-open); }
+.badge.question { background: var(--status-question-bg);  border-color: var(--status-question);  color: var(--status-question); }
+.badge.replied  { background: var(--status-replied-bg);   border-color: var(--status-replied);   color: var(--status-replied); }
+.badge.addressed{ background: var(--status-addressed-bg); border-color: var(--status-addressed); color: var(--status-addressed); }
 
 .selected-label {
   font-size: 11px;
   color: var(--fg-muted);
   padding: 2px 8px;
 }
+
+.repo-select-btn {
+  background: var(--bg-hover);
+  color: var(--fg);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  padding: 4px 10px;
+  cursor: pointer;
+  font-size: 11px;
+  font-weight: 500;
+  white-space: nowrap;
+  max-width: 140px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.repo-select-btn:hover { border-color: var(--accent); color: var(--accent); }
 
 #mark-reviewed-btn {
   background: var(--accent);
@@ -487,7 +495,7 @@ body {
   width: 40px;
   min-width: 40px;
   text-align: right;
-  padding: 0 6px;
+  padding: 0 10px;
   color: var(--vscode-editorLineNumber-foreground, #858585);
   user-select: none;
   vertical-align: top;
@@ -537,11 +545,19 @@ tr.del-line .line-num.old { background: var(--del-num); }
 }
 
 .thread-container {
-  border-left: 3px solid var(--border);
+  border-left: 2px solid var(--border);
   margin: 4px 8px 4px 52px;
   border-radius: 0 6px 6px 0;
   overflow: hidden;
 }
+.thread-container.status-open          { border-left-color: var(--status-open); }
+.thread-container.status-question      { border-left-color: var(--status-question); }
+.thread-container.status-agent-replied { border-left-color: var(--status-replied); }
+.thread-container.status-addressed     { border-left-color: var(--status-addressed); }
+.thread-container.status-closed,
+.thread-container.status-resolved      { border-left-color: var(--status-closed); }
+.thread-container.status-dismissed,
+.thread-container.status-outdated      { border-left-color: var(--status-dismissed); }
 
 .thread-comment {
   padding: 10px 14px;
@@ -575,11 +591,13 @@ tr.del-line .line-num.old { background: var(--del-num); }
   padding: 2px 6px;
   border-radius: 3px;
 }
-.thread-status.open          { background: rgba(218,54,51,0.2);  color: var(--status-open); }
-.thread-status.question      { background: rgba(88,130,255,0.2); color: #8ab4ff; }
-.thread-status.agent-replied { background: rgba(227,179,65,0.2); color: var(--status-replied); }
-.thread-status.addressed     { background: rgba(46,160,67,0.2);  color: var(--status-addressed); }
-.thread-status.resolved      { background: rgba(128,128,128,0.2); color: var(--status-resolved); }
+.thread-status.open          { background: var(--status-open-bg);       color: var(--status-open); }
+.thread-status.question      { background: var(--status-question-bg);   color: var(--status-question); }
+.thread-status.agent-replied { background: var(--status-replied-bg);    color: var(--status-replied); }
+.thread-status.addressed     { background: var(--status-addressed-bg);  color: var(--status-addressed); }
+.thread-status.resolved      { background: var(--status-closed-bg);     color: var(--status-closed); }
+.thread-status.closed        { background: var(--status-closed-bg);     color: var(--status-closed); }
+.thread-status.dismissed     { background: var(--status-dismissed-bg);  color: var(--status-dismissed); }
 
 .thread-body {
   font-size: 13px;
@@ -611,6 +629,9 @@ tr.del-line .line-num.old { background: var(--del-num); }
 .thread-actions-spacer { flex: 1; }
 .btn.danger { border-color: #f85149; color: #f85149; }
 .btn.danger:hover { background: rgba(248,81,73,0.15); }
+/* Icon-only status transition buttons */
+.status-action-btn { padding: 2px 5px; border-color: transparent; }
+.status-action-btn:hover { border-color: currentColor; background: rgba(128,128,128,0.1); }
 
 /* ── Custom context menu (CommentsView) ──────────────────────────────────── */
 .ctx-menu {
@@ -674,9 +695,9 @@ tr.del-line .line-num.old { background: var(--del-num); }
 .btn.primary { background: var(--accent); color: var(--accent-fg); border-color: var(--accent); }
 .btn.primary:hover { opacity: 0.85; }
 .btn.danger  { border-color: var(--status-open);      color: var(--status-open); }
-.btn.danger:hover  { background: rgba(218,54,51,0.15); }
+.btn.danger:hover  { background: var(--status-open-bg); }
 .btn.success { border-color: var(--status-addressed); color: var(--status-addressed); }
-.btn.success:hover { background: rgba(46,160,67,0.15); }
+.btn.success:hover { background: var(--status-addressed-bg); }
 
 /* ── Inline comment composer ─────────────────────────────────────────────── */
 
@@ -703,9 +724,9 @@ tr.inline-composer-row td {
 .inline-composer-ta {
   width: 100%;
   box-sizing: border-box;
-  background: var(--bg);
+  background: rgba(14, 99, 156, 0.08);
   color: var(--fg);
-  border: 1px solid var(--border);
+  border: 1px solid rgba(14, 99, 156, 0.35);
   border-radius: 4px;
   padding: 8px 10px;
   font-family: var(--font-ui);
@@ -713,7 +734,7 @@ tr.inline-composer-row td {
   resize: vertical;
   min-height: 90px;
 }
-.inline-composer-ta:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 2px rgba(14,99,156,0.25); }
+.inline-composer-ta:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 2px rgba(14,99,156,0.25); background: rgba(14,99,156,0.12); }
 
 .inline-composer-snippet {
   margin: 0;
@@ -979,11 +1000,16 @@ tr.split-add .line-content.old { background: transparent; }
 .thread-question-form textarea:focus { outline: 1px solid var(--accent); }
 .thread-question-actions { display: flex; gap: 8px; justify-content: flex-end; }
 
-/* ── Question status indicator ────────────────────────────────────────────── */
-.thread-status.question { background: rgba(88,130,255,0.2); color: #8ab4ff; }
-.badge.question { background: rgba(88,130,255,0.15); border-color: #8ab4ff; color: #8ab4ff; }
-.sidebar-comment-status.question { background: rgba(88,130,255,0.2); color: #8ab4ff; }
-.sidebar-comment-status.agent-replied { background: rgba(227,179,65,0.2); color: var(--status-replied); }
+/* ── Status indicator overrides ───────────────────────────────────────────── */
+.thread-status.question { background: var(--status-question-bg); color: var(--status-question); }
+.badge.question { background: var(--status-question-bg); border-color: var(--status-question); color: var(--status-question); }
+.sidebar-comment-status.open     { background: var(--status-open-bg);       color: var(--status-open); }
+.sidebar-comment-status.question { background: var(--status-question-bg);   color: var(--status-question); }
+.sidebar-comment-status.agent-replied { background: var(--status-replied-bg); color: var(--status-replied); }
+.sidebar-comment-status.addressed { background: var(--status-addressed-bg); color: var(--status-addressed); }
+.sidebar-comment-status.closed,
+.sidebar-comment-status.resolved { background: var(--status-closed-bg);     color: var(--status-closed); }
+.sidebar-comment-status.dismissed { background: var(--status-dismissed-bg); color: var(--status-dismissed); }
 
 /* ── Hunk expander row ────────────────────────────────────────────────────── */
 
@@ -1027,183 +1053,6 @@ tr.split-add .line-content.old { background: transparent; }
 }
 .expander-label:hover { background: var(--bg-hover); text-decoration: underline; }
 body.expander-resizing { cursor: ns-resize !important; user-select: none; }
-
-/* ── CommentsView — rich hub ─────────────────────────────────────────────── */
-
-/* Summary bar — matches Changes panel header style */
-.cv-summary-bar {
-  padding: 4px 10px;
-  font-size: 11px;
-  display: flex;
-  align-items: center;
-  gap: 5px;
-  flex-wrap: wrap;
-  flex-shrink: 0;
-  border-bottom: 1px solid rgba(128,128,128,0.15);
-  background: var(--vscode-sideBar-background, #252526);
-}
-.sum-open   { color: var(--status-open);      font-weight: 600; }
-.sum-input  { color: var(--status-replied);   font-weight: 600; }
-.sum-closed { color: var(--status-addressed); font-weight: 600; }
-.sum-empty  { color: var(--fg-muted); }
-.sum-sep    { color: var(--fg-muted); margin: 0 2px; }
-
-/* Filter chips */
-.cv-filter-bar {
-  display: flex;
-  gap: 4px;
-  padding: 5px 8px;
-  flex-shrink: 0;
-  border-bottom: 1px solid rgba(128,128,128,0.15);
-  background: var(--vscode-sideBar-background, #252526);
-  flex-wrap: wrap;
-}
-.filter-chip {
-  background: none;
-  border: 1px solid rgba(128,128,128,0.3);
-  border-radius: 12px;
-  color: var(--fg-muted);
-  padding: 2px 9px;
-  font-size: 11px;
-  cursor: pointer;
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-  white-space: nowrap;
-}
-.filter-chip:hover { color: var(--fg); border-color: var(--fg-muted); }
-.filter-chip.active {
-  background: var(--accent);
-  color: var(--accent-fg);
-  border-color: var(--accent);
-}
-.chip-count {
-  background: rgba(255,255,255,0.18);
-  border-radius: 8px;
-  padding: 0 5px;
-  font-size: 10px;
-  font-weight: 700;
-}
-.filter-chip.active .chip-count { background: rgba(255,255,255,0.25); }
-
-/* Empty state */
-.cv-empty {
-  padding: 24px 16px;
-  font-size: 12px;
-  color: var(--fg-muted);
-  text-align: center;
-}
-
-/* Comment card — subtle separator, no heavy borders */
-.comment-card { border-bottom: 1px solid rgba(128,128,128,0.1); }
-.comment-card.card-closed { opacity: 0.6; }
-.comment-card.card-closed:hover { opacity: 1; }
-
-/* Card header — always visible, click to toggle */
-.card-header {
-  display: flex;
-  align-items: center;
-  gap: 5px;
-  padding: 5px 10px 5px 8px;
-  cursor: pointer;
-  user-select: none;
-  min-width: 0;
-}
-.card-header:hover { background: var(--vscode-list-hoverBackground, #2a2d2e); }
-.card-chevron {
-  flex-shrink: 0;
-  font-size: 10px;
-  color: var(--fg-muted);
-  width: 10px;
-  text-align: center;
-}
-.status-badge { flex-shrink: 0; display: block; }
-.card-title {
-  flex: 1;
-  min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  font-size: 11px;
-}
-.card-fname { font-family: var(--font-mono); font-weight: 600; color: var(--fg); }
-.card-dir   { font-family: var(--font-mono); color: var(--fg-muted); font-size: 10px; }
-.card-line  { font-family: var(--font-mono); color: var(--fg-muted); font-size: 10px; }
-.card-date  { flex-shrink: 0; font-size: 10px; color: var(--fg-muted); }
-
-/* Card body — collapsible content */
-.card-body {
-  padding: 0 10px 10px 24px;
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-}
-.card-main-body {
-  font-size: 12px;
-  line-height: 1.5;
-  color: var(--fg);
-  white-space: pre-wrap;
-  word-break: break-word;
-}
-.card-snippet {
-  font-family: var(--font-mono);
-  font-size: 11px;
-  color: var(--fg-muted);
-  background: var(--bg);
-  border-left: 3px solid var(--accent);
-  border-radius: 0 3px 3px 0;
-  padding: 5px 8px;
-  margin: 0;
-  overflow-x: auto;
-  white-space: pre;
-}
-
-/* Thread reply */
-.card-reply {
-  border-left: 2px solid var(--border);
-  padding: 5px 8px;
-  margin-left: 2px;
-  border-radius: 0 4px 4px 0;
-}
-.card-reply.reply-agent { border-left-color: #a371f7; background: rgba(163,113,247,0.05); }
-.card-reply.reply-note  { border-left-color: var(--status-addressed); background: rgba(46,160,67,0.06); }
-
-.reply-meta {
-  display: flex;
-  align-items: center;
-  gap: 5px;
-  margin-bottom: 3px;
-}
-.agent-icon    { flex-shrink: 0; display: block; }
-.reply-author  { font-size: 11px; font-weight: 600; color: var(--fg); }
-.reply-author.agent-author { color: #a371f7; }
-.reply-date    { font-size: 10px; color: var(--fg-muted); }
-.reply-body    { font-size: 12px; line-height: 1.5; color: var(--fg); white-space: pre-wrap; word-break: break-word; }
-
-/* Card action buttons */
-.card-actions {
-  display: flex;
-  gap: 5px;
-  flex-wrap: wrap;
-  padding-top: 6px;
-  border-top: 1px solid var(--border);
-  margin-top: 2px;
-}
-.card-btn {
-  padding: 3px 9px;
-  border-radius: 4px;
-  cursor: pointer;
-  font-size: 11px;
-  font-weight: 500;
-  border: 1px solid var(--border);
-  background: var(--bg-hover);
-  color: var(--fg);
-}
-.card-btn:hover       { border-color: var(--accent); color: var(--accent); }
-.card-btn.primary-btn { background: var(--accent); color: var(--accent-fg); border-color: var(--accent); }
-.card-btn.primary-btn:hover   { opacity: 0.85; }
-.card-btn.success-btn { border-color: var(--status-addressed); color: var(--status-addressed); }
-.card-btn.success-btn:hover   { background: rgba(46,160,67,0.15); }
 
 /* ── Changes panel (.ch-*) ──────────────────────────────────────────────── */
 
@@ -1422,4 +1271,27 @@ body.expander-resizing { cursor: ns-resize !important; user-select: none; }
   color: var(--vscode-descriptionForeground, #888);
   font-size: 12px;
 }
+
+.ch-load-more {
+  padding: 6px 12px;
+  font-size: 11px;
+  color: var(--vscode-textLink-foreground, #4ea6ea);
+  cursor: pointer;
+  user-select: none;
+}
+.ch-load-more:hover { text-decoration: underline; }
+
+/* Jump-to-source arrow — hidden until file row is hovered */
+.ch-jump-source {
+  flex-shrink: 0;
+  font-size: 12px;
+  color: var(--vscode-descriptionForeground, #888);
+  opacity: 0;
+  cursor: pointer;
+  line-height: 1;
+  padding: 0 2px;
+  transition: opacity 0.1s;
+}
+.ch-row:hover .ch-jump-source { opacity: 1; }
+.ch-jump-source:hover { color: var(--vscode-textLink-foreground, #4ea6ea); }
 

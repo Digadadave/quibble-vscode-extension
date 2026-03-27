@@ -128,9 +128,13 @@ export class GitService {
   getCommitsForBranch(branch: string, limit = 30): GitCommit[] {
     const sep = '\x1f';
     const rs = '\x1e';
-    // Use %x1f/%x1e so git outputs the control chars — avoids shell mangling
     const format = '--format=%H%x1f%h%x1f%s%x1f%ai%x1f%an%x1f%D%x1e';
-    const raw = exec(`git log "${branch}" ${format} -${limit}`, this.repoPath);
+    // Scope to commits unique to this branch (since merge-base with main/master).
+    // Falls back to full log if no merge-base can be found (e.g. on main itself).
+    const base = this.getMergeBase(branch);
+    const range = base ? `"${base}..${branch}"` : `"${branch}" -${limit}`;
+    const limitFlag = base ? `-${limit}` : '';
+    const raw = exec(`git log ${range} ${format} ${limitFlag}`, this.repoPath);
     if (!raw) return [];
 
     return raw
@@ -374,6 +378,20 @@ export class GitService {
       result.push({ path: filePath, status, commits: fileCommitList, ...stats });
     }
     return result;
+  }
+
+  getUserName(): string {
+    return exec('git config user.name', this.repoPath) || 'reviewer';
+  }
+
+  /** Returns the 1-based line number of the first change for `file` on the current branch. */
+  getFirstChangedLine(file: string): number {
+    const branch = this.getCurrentBranch();
+    const base   = this.getMergeBase(branch);
+    if (!base) return 1;
+    const raw = exec(`git diff -U0 "${base}" HEAD -- "${file}"`, this.repoPath);
+    const match = raw.match(/@@ -\d+(?:,\d+)? \+(\d+)(?:,\d+)? @@/);
+    return match ? Math.max(1, parseInt(match[1])) : 1;
   }
 
   getFileContentAtCommit(hash: string, filePath: string): string {

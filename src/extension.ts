@@ -8,6 +8,7 @@ import { ChangesView } from './ChangesView';
 import { DiffPanel } from './DiffPanel';
 import { GitContentProvider } from './GitContentProvider';
 import { ReviewCommentController } from './ReviewCommentController';
+import { ICONS } from './icons';
 
 // ── Mutable active-repo state ────────────────────────────────────────────────
 
@@ -19,6 +20,10 @@ let activeChangesView: ChangesView | undefined;
 let activeCommentController: ReviewCommentController | undefined;
 let statusBar: vscode.StatusBarItem | undefined;
 let commentChangeDisposable: vscode.Disposable | undefined;
+/** Disposables for the .git/HEAD and .git/refs watchers of the active repo. */
+let gitFsWatchers: vscode.Disposable[] = [];
+/** The branch name last loaded — used to detect branch switches vs. same-branch commits. */
+let activeBranch = '';
 
 export function activate(context: vscode.ExtensionContext): void {
   const repos = discoverAllRepos();
@@ -33,7 +38,7 @@ export function activate(context: vscode.ExtensionContext): void {
   );
 
   // ── Native comment controller ─────────────────────────────────────────────
-  activeCommentController = new ReviewCommentController(context, new CommentManager(''));
+  activeCommentController = new ReviewCommentController(context, new CommentManager('', context.globalState));
   context.subscriptions.push(activeCommentController);
 
   // ── Commits sidebar WebviewView ───────────────────────────────────────────
@@ -74,8 +79,8 @@ export function activate(context: vscode.ExtensionContext): void {
     ),
   );
 
-  // ── Comments sidebar WebviewView ──────────────────────────────────────────
-  activeCommentsView = CommentsView.register(context, new CommentManager(''));
+  // ── Comments sidebar TreeView ────────────────────────────────────────────
+  activeCommentsView = CommentsView.register(context, new CommentManager('', context.globalState));
 
   // When the user clicks a comment: open the diff and navigate to that line.
   activeCommentsView.onFocusComment = async (file, line, commitHash) => {
@@ -87,30 +92,25 @@ export function activate(context: vscode.ExtensionContext): void {
     }, 300);
   };
 
-  // When the user right-click-deletes a comment from the sidebar.
+  // When the user deletes a comment from the tree.
   activeCommentsView.onDeleteComment = (id) => {
     if (!activeComments) return;
     activeComments.deleteComment(id);
     refreshAll();
   };
 
-  // When the user changes a comment's status from the hub.
+  // When the user changes a comment's status from the tree.
   activeCommentsView.onUpdateStatus = (id, status) => {
     if (!activeComments) return;
     activeComments.updateStatus(id, status as import('./CommentManager').CommentStatus);
     refreshAll();
   };
 
-  context.subscriptions.push(
-    vscode.window.registerWebviewViewProvider(
-      CommentsView.viewType,
-      activeCommentsView,
-      { webviewOptions: { retainContextWhenHidden: true } },
-    ),
-  );
+  const commentsTreeView = activeCommentsView.createTreeView();
+  context.subscriptions.push(commentsTreeView);
 
   // ── Changes sidebar WebviewView ───────────────────────────────────────────
-  activeChangesView = ChangesView.register(context, new GitService(''), new CommentManager(''));
+  activeChangesView = ChangesView.register(context, new GitService(''), new CommentManager('', context.globalState));
 
   // File click → open accumulated branch diff (all files) in DiffPanel, anchored on file
   activeChangesView.onJumpToFile = (file) => {
@@ -122,6 +122,8 @@ export function activate(context: vscode.ExtensionContext): void {
     const hashes = activeGit.getBranchCommitHashes(branch);
     const panel  = DiffPanel.createOrShow(context, activeGit, activeComments);
     panel.onCommentMutation = refreshAll;
+    panel.onSelectRepo = () => vscode.commands.executeCommand('commitReview.selectRepo');
+    panel.setRepoInfo(path.basename(activeGit.getRepoPath()), discoverAllRepos().length);
     panel.showBranchDiff(base, head, hashes);
     panel.focusFile(file);
   };
@@ -131,6 +133,8 @@ export function activate(context: vscode.ExtensionContext): void {
     if (!activeGit || !activeComments) return;
     const panel = DiffPanel.createOrShow(context, activeGit, activeComments);
     panel.onCommentMutation = refreshAll;
+    panel.onSelectRepo = () => vscode.commands.executeCommand('commitReview.selectRepo');
+    panel.setRepoInfo(path.basename(activeGit.getRepoPath()), discoverAllRepos().length);
     panel.showSelection([hash]);
     panel.focusFile(file);
   };
@@ -152,6 +156,21 @@ export function activate(context: vscode.ExtensionContext): void {
   activeChangesView.onJumpToCommitFileNative = async (hash, file) => {
     if (!activeGit) return;
     await openNativeDiff(activeGit, file, hash);
+  };
+
+  // Jump-to-source arrow → open the file in the editor at the first changed line
+  activeChangesView.onJumpToSource = async (file) => {
+    if (!activeGit) return;
+    const repoPath = activeGit.getRepoPath();
+    const absPath  = path.join(repoPath, file);
+    const line     = activeGit.getFirstChangedLine(file);
+    try {
+      const doc = await vscode.workspace.openTextDocument(absPath);
+      const editor = await vscode.window.showTextDocument(doc, { preview: true });
+      const pos = new vscode.Position(Math.max(0, line - 1), 0);
+      editor.selection = new vscode.Selection(pos, pos);
+      editor.revealRange(new vscode.Range(pos, pos), vscode.TextEditorRevealType.InCenter);
+    } catch { /* file may not exist */ }
   };
 
   // Comment badge click → open the diff at the first comment on that file
@@ -235,33 +254,90 @@ export function activate(context: vscode.ExtensionContext): void {
   // Wire the comment controller's mutation callback.
   if (activeCommentController) activeCommentController.onCommentMutation = refreshAll;
 
+  // ── Git change handler ─────────────────────────────────────────────────────
+  // Called when .git/HEAD changes (branch switch) or .git/refs/heads/** changes
+  // (new commit on current branch, or any branch update).
+  function onGitChange(): void {
+    if (!activeGit || !activeComments) return;
+    const branch = activeGit.getCurrentBranch();
+    const hashes = activeGit.getBranchCommitHashes(branch);
+
+    if (branch !== activeBranch) {
+      // Branch switched — re-populate the working JSON from the DB.
+      activeBranch = branch;
+      activeComments.switchBranch(branch, hashes);
+    } else {
+      // Same branch, new commit — re-populate (new hash is now in the set)
+      // and refresh the commits list.
+      activeComments.switchBranch(branch, hashes);
+    }
+
+    refreshAll();
+  }
+
   // ── Switch to a repo ──────────────────────────────────────────────────────
   function switchToRepo(repoPath: string): void {
+    // Show loading state in all panels immediately
+    activeReviewPanel?.showLoading();
+    activeChangesView?.showLoading();
+    activeCommentsView?.showLoading();
+    DiffPanel.getInstance()?.showLoading();
+
+    // Tear down previous watchers
+    for (const d of gitFsWatchers) d.dispose();
+    gitFsWatchers = [];
+    activeBranch = '';
     commentChangeDisposable?.dispose();
     activeComments?.dispose();
 
-    activeGit      = new GitService(repoPath);
-    activeComments = new CommentManager(repoPath);
+    activeGit = new GitService(repoPath);
+    activeComments = new CommentManager(repoPath, context.globalState);
+
+    // Migrate old per-branch JSON files and old flat DB into globalState.
+    activeComments.migrateOldFiles(context.globalStorageUri);
+
+    // Start watching the working JSON for external (agent) edits.
     activeComments.startWatching();
 
     // Keep the content provider's git service up to date.
     gitContentProvider.setGit(activeGit);
-
-    // Push updated services into views.
     activeReviewPanel?.updateServices(activeGit);
     activeCommentsView?.updateServices(activeComments);
     activeChangesView?.updateServices(activeGit, activeComments);
     activeCommentController?.updateRepo(repoPath, activeComments, activeGit);
-
-    // Wire the mutation callback for the new controller instance.
     if (activeCommentController) activeCommentController.onCommentMutation = refreshAll;
 
-    // Auto-refresh when reviews.json changes externally (agent updates).
+    // Auto-refresh when the working JSON changes externally (agent updates).
     commentChangeDisposable = activeComments.onDidChange(refreshAll);
 
-    updateStatusBar();
+    // Initialise the working JSON for the current branch.
+    const branch = activeGit.getCurrentBranch();
+    const hashes = activeGit.getBranchCommitHashes(branch);
+    activeBranch = branch;
+    activeComments.switchBranch(branch, hashes);
 
-    const repoName = path.basename(repoPath);
+    // Watch .git/HEAD for branch switches and .git/refs/heads/** for new commits.
+    const headWatcher = vscode.workspace.createFileSystemWatcher(
+      new vscode.RelativePattern(repoPath, '.git/HEAD'),
+    );
+    const refsWatcher = vscode.workspace.createFileSystemWatcher(
+      new vscode.RelativePattern(repoPath, '.git/refs/heads/**'),
+    );
+    headWatcher.onDidChange(onGitChange);
+    refsWatcher.onDidChange(onGitChange);
+    refsWatcher.onDidCreate(onGitChange);
+    gitFsWatchers.push(headWatcher, refsWatcher);
+
+    refreshAll();
+
+    const repoName  = path.basename(repoPath);
+    const repoCount = discoverAllRepos().length;
+    const diffPanel = DiffPanel.getInstance();
+    if (diffPanel) {
+      diffPanel.onSelectRepo = () => vscode.commands.executeCommand('commitReview.selectRepo');
+      diffPanel.setRepoInfo(repoName, repoCount);
+    }
+
     vscode.window.showInformationMessage(`Commit Review: switched to ${repoName}`);
   }
 
@@ -298,6 +374,50 @@ export function activate(context: vscode.ExtensionContext): void {
     }),
   );
 
+  // ── Orphan remap command ────────────────────────────────────────────────
+  context.subscriptions.push(
+    vscode.commands.registerCommand('commitReview.remapOrphans', async () => {
+      if (!activeComments || !activeGit) return;
+      if (!activeComments.hasOrphans) {
+        vscode.window.showInformationMessage('No orphaned comments to remap.');
+        return;
+      }
+
+      const count = activeComments.orphanedComments.length;
+      const branch = activeGit.getCurrentBranch();
+      const commits = activeGit.getCommitsForBranch(branch, 50);
+
+      const items = commits.map(c => ({
+        label: `$(${ICONS.GIT_COMMIT}) ${c.shortHash}`,
+        description: c.message,
+        detail: c.date,
+        hash: c.hash,
+      }));
+
+      const picked = await vscode.window.showQuickPick(items, {
+        placeHolder: `Select a commit to receive ${count} orphaned comment(s) (squash/rebase)`,
+        title: 'Remap Orphaned Comments',
+      });
+
+      if (picked) {
+        activeComments.remapOrphans(picked.hash);
+        refreshAll();
+        vscode.window.showInformationMessage(
+          `Remapped ${count} comment(s) to ${picked.label.replace(`$(${ICONS.GIT_COMMIT}) `, '')}.`,
+        );
+      }
+    }),
+  );
+
+  // ── Orphan dismiss command ──────────────────────────────────────────────
+  context.subscriptions.push(
+    vscode.commands.registerCommand('commitReview.dismissOrphans', () => {
+      if (!activeComments) return;
+      activeComments.dismissOrphans();
+      refreshAll();
+    }),
+  );
+
   // ── Auto-select repo ──────────────────────────────────────────────────────
   if (repos.length === 1) {
     switchToRepo(repos[0]);
@@ -310,6 +430,8 @@ export function activate(context: vscode.ExtensionContext): void {
 }
 
 export function deactivate(): void {
+  for (const d of gitFsWatchers) d.dispose();
+  gitFsWatchers = [];
   commentChangeDisposable?.dispose();
   activeComments?.dispose();
 }
@@ -386,14 +508,14 @@ function discoverAllRepos(): string[] {
 function updateStatusBar(): void {
   if (!statusBar) return;
   if (!activeGit) {
-    statusBar.text = '$(git-pull-request) Select Repo';
+    statusBar.text = `$(${ICONS.GIT_PULL_REQUEST}) Select Repo`;
     statusBar.show();
     return;
   }
   const repoName = path.basename(activeGit.getRepoPath());
   const open = activeComments?.getOpenComments() ?? [];
   statusBar.text = open.length > 0
-    ? `$(comment) ${repoName}: ${open.length} comment${open.length !== 1 ? 's' : ''}`
-    : `$(git-pull-request) ${repoName}`;
+    ? `$(${ICONS.COMMENT}) ${repoName}: ${open.length} comment${open.length !== 1 ? 's' : ''}`
+    : `$(${ICONS.GIT_PULL_REQUEST}) ${repoName}`;
   statusBar.show();
 }

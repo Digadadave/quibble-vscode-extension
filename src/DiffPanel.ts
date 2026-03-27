@@ -2,6 +2,7 @@ import * as vscode from 'vscode';
 import * as path from 'path';
 import { GitService } from './GitService';
 import { CommentManager, ReviewComment } from './CommentManager';
+import { ICONS, buildStatusCssVars } from './icons';
 
 export class DiffPanel implements vscode.Disposable {
   static readonly viewType = 'commitReview.diff';
@@ -12,9 +13,14 @@ export class DiffPanel implements vscode.Disposable {
 
   /** Hashes currently displayed; kept so comment refreshes can resend them. */
   private currentHashes: string[] = [];
+  private gitUserName = 'reviewer';
+  private repoName = '';
+  private repoCount = 1;
 
   /** Called by extension after any comment mutation, to refresh both panels. */
   onCommentMutation?: () => void;
+  /** Called when the user clicks the repo-selector button in the top bar. */
+  onSelectRepo?: () => void;
 
   private constructor(
     private context: vscode.ExtensionContext,
@@ -32,6 +38,7 @@ export class DiffPanel implements vscode.Disposable {
       }
     );
 
+    this.gitUserName = this.git.getUserName();
     this.panel.onDidDispose(() => this.dispose(), null, this.disposables);
     this.panel.webview.onDidReceiveMessage(msg => this.handleMessage(msg), null, this.disposables);
     this.panel.webview.html = this.buildHtml();
@@ -89,7 +96,22 @@ export class DiffPanel implements vscode.Disposable {
       comments: this.comments.load(),
       oldestShort: baseHash.slice(0, 7),
       newestShort: headHash.slice(0, 7),
+      gitUserName: this.gitUserName,
+      repoName:    this.repoName,
+      repoCount:   this.repoCount,
     });
+  }
+
+  /** Update the repo label / count shown in the top bar. */
+  /** Show loading state immediately (call before slow work begins). */
+  showLoading(): void {
+    this.panel.webview.postMessage({ type: 'loading' });
+  }
+
+  setRepoInfo(repoName: string, repoCount: number): void {
+    this.repoName  = repoName;
+    this.repoCount = repoCount;
+    this.panel.webview.postMessage({ type: 'repoInfo', repoName, repoCount });
   }
 
   /** Refresh comments without recomputing the diff (called after mutations). */
@@ -98,6 +120,9 @@ export class DiffPanel implements vscode.Disposable {
       type: 'load',
       comments: this.comments.load(),
       selectedHashes: this.currentHashes,
+      gitUserName: this.gitUserName,
+      repoName:    this.repoName,
+      repoCount:   this.repoCount,
     });
   }
 
@@ -134,6 +159,7 @@ export class DiffPanel implements vscode.Disposable {
   updateServices(git: GitService, comments: CommentManager): void {
     this.git = git;
     this.comments = comments;
+    this.gitUserName = this.git.getUserName();
     this.currentHashes = [];
     this.panel.webview.postMessage({ type: 'diffResult', parsedDiff: [], changedFiles: [], selectedHashes: [] });
   }
@@ -175,6 +201,10 @@ export class DiffPanel implements vscode.Disposable {
 
       case 'copyAgentPrompt':
         this.copyAgentPrompt();
+        break;
+
+      case 'selectRepo':
+        this.onSelectRepo?.();
         break;
 
       case 'exportReviews': {
@@ -221,6 +251,9 @@ export class DiffPanel implements vscode.Disposable {
         changedFiles: [],
         selectedHashes: [],
         comments: this.comments.load(),
+        gitUserName: this.gitUserName,
+      repoName:    this.repoName,
+      repoCount:   this.repoCount,
       });
       return;
     }
@@ -246,6 +279,9 @@ export class DiffPanel implements vscode.Disposable {
       oldestShort: log.find(c => c.hash === oldestHash)?.shortHash ?? oldestHash.slice(0, 7),
       newestShort: log.find(c => c.hash === newestHash)?.shortHash ?? newestHash.slice(0, 7),
       focusCommentId,
+      gitUserName: this.gitUserName,
+      repoName:    this.repoName,
+      repoCount:   this.repoCount,
     });
   }
 
@@ -311,6 +347,7 @@ export class DiffPanel implements vscode.Disposable {
              style-src ${webview.cspSource} 'unsafe-inline';
              script-src 'nonce-${nonce}';">
   <link href="${cssUri}" rel="stylesheet">
+  ${buildStatusCssVars()}
   <title>Commit Review</title>
 </head>
 <body>
@@ -322,6 +359,7 @@ export class DiffPanel implements vscode.Disposable {
     <span class="badge addressed" id="badge-addressed">0 addressed</span>
     <span id="selected-count" class="selected-label">0 commits selected</span>
   </div>
+  <button id="repo-select-btn" class="btn repo-select-btn" data-action="select-repo" style="display:none" title="Switch repository"><i class="codicon codicon-${ICONS.REPO}"></i></button>
   <button id="mark-reviewed-btn" data-action="toggle-reviewed">Mark as reviewed</button>
 </div>
 
