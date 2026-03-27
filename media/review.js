@@ -12,6 +12,7 @@ const ICONS = {
   SYNC_IGNORED:       'sync-ignored',
   TRASH:              'trash',
   ARROW_RIGHT:        'arrow-right',
+  GO_TO_FILE:         'go-to-file',
 };
 
 // ── Status transition options ───────────────────────────────────────────────
@@ -104,8 +105,20 @@ window.addEventListener('message', (/** @type {MessageEvent} */ event) => {
       if (msg.gitUserName) state.gitUserName = msg.gitUserName;
       if (msg.repoName  !== undefined) state.repoName  = msg.repoName;
       if (msg.repoCount !== undefined) state.repoCount = msg.repoCount;
+      console.log('[CommitReview] diffResult received', {
+        parsedDiffFiles: state.currentDiff.length,
+        selectedHashes: state.selectedHashes.size,
+        newestShort: state.currentNewestShort,
+        oldestShort: state.currentOldestShort,
+      });
       renderTopBar();
-      renderDiff();
+      try {
+        renderDiff();
+      } catch (err) {
+        console.error('[CommitReview] renderDiff crashed:', err);
+        const main = document.getElementById('main');
+        if (main) main.innerHTML = `<div class="empty-state"><h2>Render error</h2><pre style="font-size:11px;white-space:pre-wrap">${String(err)}</pre></div>`;
+      }
       if (msg.focusCommentId) scrollToComment(/** @type {string} */ (msg.focusCommentId));
       break;
     case 'repoInfo':
@@ -839,7 +852,7 @@ function renderThreadRow(comment, colspan) {
     actionButtons += `<button class="btn" data-action="ask-question" data-id="${comment.id}">Ask Question</button>`;
   }
   // Open source file at comment line
-  actionButtons += `<button class="btn" title="Go to source file" data-action="open-source" data-file="${esc(comment.file)}" data-line="${comment.line}" data-commit="${esc(comment.commitHash)}"><i class="codicon codicon-${ICONS.ARROW_RIGHT}"></i></button>`;
+  actionButtons += `<button class="btn" title="Open File" data-action="open-source" data-file="${esc(comment.file)}" data-line="${comment.line}" data-commit="${esc(comment.commitHash)}"><i class="codicon codicon-${ICONS.GO_TO_FILE}"></i></button>`;
   // Delete pushed to the far right
   actionButtons += `<span class="thread-actions-spacer"></span><button class="btn danger" data-action="delete-comment" data-id="${comment.id}"><i class="codicon codicon-${ICONS.TRASH}"></i></button>`;
 

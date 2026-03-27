@@ -88,6 +88,14 @@ export class DiffPanel implements vscode.Disposable {
     const parsedDiff   = this.git.parseDiff(rawDiff);
     const changedFiles = this.git.getDirectChangedFiles(baseHash, headHash);
 
+    console.log('[CommitReview] showBranchDiff', {
+      baseHash, headHash,
+      rawDiffLen: rawDiff.length,
+      parsedDiffFiles: parsedDiff.length,
+      changedFiles: changedFiles.length,
+      branchHashes: branchHashes.length,
+    });
+
     this.panel.webview.postMessage({
       type: 'diffResult',
       parsedDiff,

@@ -59,7 +59,7 @@ export interface DiffLine {
 
 function exec(cmd: string, cwd: string): string {
   try {
-    return execSync(cmd, { cwd, encoding: 'utf8', maxBuffer: 10 * 1024 * 1024 }).trim();
+    return execSync(cmd, { cwd, encoding: 'utf8', maxBuffer: 10 * 1024 * 1024, stdio: ['pipe', 'pipe', 'pipe'] }).trim();
   } catch {
     return '';
   }
