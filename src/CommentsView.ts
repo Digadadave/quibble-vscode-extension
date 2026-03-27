@@ -25,9 +25,22 @@ const STATUS_META: Record<string, StatusMeta> = {
   'outdated':      { label: 'Outdated',      icon: ICONS.SYNC_IGNORED,       color: new vscode.ThemeColor(STATUS_COLORS.dismissed.token) },
 };
 
-// ── Filter types ──────────────────────────────────────────────────────────────
+// ── Filter groups ─────────────────────────────────────────────────────────────
+// Each group maps a picker label → the set of raw status strings it covers.
 
-type Filter = 'all' | 'open' | 'needs-input' | 'closed';
+const FILTER_GROUPS = [
+  { id: 'open',      label: 'Open',                  icon: ICONS.COMMENT_UNRESOLVED, statuses: ['open'] },
+  { id: 'question',  label: 'Question / Needs Input', icon: ICONS.QUESTION,           statuses: ['question', 'needs-input'] },
+  { id: 'replied',   label: 'Agent Replied',          icon: ICONS.COMMENT_DISCUSSION, statuses: ['agent-replied', 'in-progress'] },
+  { id: 'addressed', label: 'Addressed',              icon: ICONS.CHECK,              statuses: ['addressed'] },
+  { id: 'closed',    label: 'Closed / Resolved',      icon: ICONS.CHECK_ALL,          statuses: ['closed', 'resolved'] },
+  { id: 'dismissed', label: 'Dismissed / Outdated',   icon: ICONS.SYNC_IGNORED,       statuses: ['dismissed', 'outdated'] },
+] as const;
+
+type FilterGroupId = typeof FILTER_GROUPS[number]['id'];
+
+// Default: everything visible except closed and dismissed
+const DEFAULT_ACTIVE_GROUPS = new Set<FilterGroupId>(['open', 'question', 'replied', 'addressed']);
 
 // ── Tree items ────────────────────────────────────────────────────────────────
 
@@ -177,7 +190,7 @@ export class CommentsView implements vscode.TreeDataProvider<vscode.TreeItem>, v
 
   private treeView: vscode.TreeView<vscode.TreeItem> | undefined;
   private disposables: vscode.Disposable[] = [];
-  private filter: Filter = 'all';
+  private activeGroups: Set<FilterGroupId> = new Set(DEFAULT_ACTIVE_GROUPS);
 
   /** Called when the user clicks a comment — open the diff at that commit and scroll to the comment. */
   onFocusComment?: (file: string, line: number, commitHash: string, commentId: string) => void;
@@ -232,10 +245,7 @@ export class CommentsView implements vscode.TreeDataProvider<vscode.TreeItem>, v
       vscode.commands.registerCommand('commitReview.comments.delete', (item: CommentTreeItem) => {
         this.onDeleteComment?.(item.comment.id);
       }),
-      vscode.commands.registerCommand('commitReview.comments.filterAll', () => this.setFilter('all')),
-      vscode.commands.registerCommand('commitReview.comments.filterOpen', () => this.setFilter('open')),
-      vscode.commands.registerCommand('commitReview.comments.filterNeedsInput', () => this.setFilter('needs-input')),
-      vscode.commands.registerCommand('commitReview.comments.filterClosed', () => this.setFilter('closed')),
+      vscode.commands.registerCommand('commitReview.comments.filter', () => this.showFilterPicker()),
     );
 
     this.updateViewDescription();
@@ -301,32 +311,47 @@ export class CommentsView implements vscode.TreeDataProvider<vscode.TreeItem>, v
     this.updateViewBadge();
   }
 
-  private setFilter(filter: Filter): void {
-    this.filter = filter;
+  private async showFilterPicker(): Promise<void> {
+    const items = FILTER_GROUPS.map(g => ({
+      label:   `$(${g.icon}) ${g.label}`,
+      picked:  this.activeGroups.has(g.id),
+      groupId: g.id,
+    }));
+
+    const picked = await vscode.window.showQuickPick(items, {
+      canPickMany:  true,
+      title:        'Filter Comments',
+      placeHolder:  'Select which statuses to show',
+    });
+
+    if (picked === undefined) { return; } // cancelled — leave filter unchanged
+    if (picked.length === 0) {
+      vscode.window.showWarningMessage('Select at least one status to show.');
+      return;
+    }
+
+    this.activeGroups = new Set(picked.map(p => p.groupId as FilterGroupId));
     this.refresh();
   }
 
   private getFilteredComments(): ReviewComment[] {
-    const all = this.comments.load();
-    switch (this.filter) {
-      case 'open':
-        return all.filter(c => !CLOSED_STATUSES.has(c.status) && c.status !== 'needs-input');
-      case 'needs-input':
-        return all.filter(c => c.status === 'needs-input');
-      case 'closed':
-        return all.filter(c => CLOSED_STATUSES.has(c.status));
-      default:
-        return all;
+    const allowed = new Set<string>();
+    for (const g of FILTER_GROUPS) {
+      if (this.activeGroups.has(g.id)) {
+        for (const s of g.statuses) { allowed.add(s); }
+      }
     }
+    return this.comments.load().filter(c => allowed.has(c.status));
   }
 
   private updateViewDescription(): void {
     if (!this.treeView) return;
-    const filterLabel = this.filter === 'all' ? '' : ` — ${this.filter}`;
     const all = this.comments.load();
-    const openCount = all.filter(c => !CLOSED_STATUSES.has(c.status)).length;
-    const closedCount = all.filter(c => CLOSED_STATUSES.has(c.status)).length;
-    this.treeView.description = `${openCount} open, ${closedCount} closed${filterLabel}`;
+    const openCount   = all.filter(c => !CLOSED_STATUSES.has(c.status)).length;
+    const closedCount = all.filter(c =>  CLOSED_STATUSES.has(c.status)).length;
+    const isFiltered  = this.activeGroups.size < FILTER_GROUPS.length;
+    const filterSuffix = isFiltered ? ' — filtered' : '';
+    this.treeView.description = `${openCount} open, ${closedCount} closed${filterSuffix}`;
   }
 
   private updateViewBadge(): void {

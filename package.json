@@ -105,27 +105,9 @@
         "category": "Commit Review"
       },
       {
-        "command": "commitReview.comments.filterAll",
-        "title": "Show All Comments",
-        "icon": "$(list-flat)",
-        "category": "Commit Review"
-      },
-      {
-        "command": "commitReview.comments.filterOpen",
-        "title": "Show Open Comments",
-        "icon": "$(circle-filled)",
-        "category": "Commit Review"
-      },
-      {
-        "command": "commitReview.comments.filterNeedsInput",
-        "title": "Show Needs Input",
-        "icon": "$(question)",
-        "category": "Commit Review"
-      },
-      {
-        "command": "commitReview.comments.filterClosed",
-        "title": "Show Closed Comments",
-        "icon": "$(pass-filled)",
+        "command": "commitReview.comments.filter",
+        "title": "Filter Comments",
+        "icon": "$(filter)",
         "category": "Commit Review"
       },
       {
@@ -183,32 +165,7 @@
         }
       }
     },
-    "submenus": [
-      {
-        "id": "commitReview.filterMenu",
-        "label": "Filter Comments",
-        "icon": "$(filter)"
-      }
-    ],
     "menus": {
-      "commitReview.filterMenu": [
-        {
-          "command": "commitReview.comments.filterAll",
-          "group": "1@1"
-        },
-        {
-          "command": "commitReview.comments.filterOpen",
-          "group": "1@2"
-        },
-        {
-          "command": "commitReview.comments.filterNeedsInput",
-          "group": "1@3"
-        },
-        {
-          "command": "commitReview.comments.filterClosed",
-          "group": "1@4"
-        }
-      ],
       "view/title": [
         {
           "command": "commitReview.selectRepo",
@@ -231,7 +188,7 @@
           "group": "navigation@0"
         },
         {
-          "submenu": "commitReview.filterMenu",
+          "command": "commitReview.comments.filter",
           "when": "view == commitReview.commentsView",
           "group": "navigation"
         }
