@@ -8,7 +8,6 @@ The extension stores review data in VS Code's `globalState` (keyed by repo path)
 - **`src/extension.ts`** — activation, command registration, repo switching, wiring
 - **`src/ReviewPanel.ts`** — sidebar WebviewView: branches list
 - **`src/CommentsView.ts`** — sidebar TreeDataProvider: comments list
-- **`src/DiffPanel.ts`** — editor WebviewPanel: diff view + inline comments
 - **`src/ChangesView.ts`** — sidebar WebviewView: changed files list
 - **`src/CommentManager.ts`** — CRUD for globalState comment DB
 - **`src/GitService.ts`** — git log, diff, branch listing (shell-exec wrapper)
@@ -16,7 +15,6 @@ The extension stores review data in VS Code's `globalState` (keyed by repo path)
 - **`src/icons.ts`** — single source of truth for all icons, colors, and CSS vars
 - **`media/sidebar.js`** — webview JS for ReviewPanel
 - **`media/comments.js`** — webview JS for CommentsView (if present)
-- **`media/review.js`** — webview JS for DiffPanel
 - **`media/review.css`** — shared CSS for all webviews
 
 ## Constants and Icons — Critical Rules
@@ -55,15 +53,14 @@ The `FILTER_GROUPS` array groups related statuses for the multi-select filter pi
 When adding a new status, update both `STATUS_META` and `FILTER_GROUPS`.
 
 ## Data Flow
-1. Sidebar (branches) → user clicks branch → `branchSelected` msg → extension
-2. Extension → loads commits → `DiffPanel.setBranchCommits(branch, commits)`
-3. DiffPanel commit picker → user selects → `selectionChanged` msg → `DiffPanel.ts`
-4. DiffPanel.ts computes diff, sends `diffResult` to webview, fires `onSelectionChanged`
-5. Extension `onSelectionChanged` → `CommentsView.updateComments(comments, hashes)`
+1. Sidebar (commits) → user clicks commit → `selectionChanged` msg → extension
+2. Extension → `openNativeDiff(git, file, hash)` → `vscode.diff` with `GitContentProvider` URIs
+3. Comments → `ReviewCommentController` (native VS Code comment API)
+4. Comment mutations → `onCommentMutation` callback → `refreshAll()` → all views refresh
 
 ## Mutation / Refresh Pattern
 - `CommentManager.save()` must **not** fire `_onDidChange.fire()` — that event is for external/agent file changes only (via file watcher)
-- Internal mutations are handled by the `onCommentMutation` callback in DiffPanel
+- Internal mutations are handled by the `onCommentMutation` callback in `ReviewCommentController`
 - Avoid double-refresh bugs: only one code path should trigger a UI refresh per user action
 
 ## Webview Conventions
