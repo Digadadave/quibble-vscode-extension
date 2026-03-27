@@ -65,6 +65,8 @@
 
   let files     = [];
   let branch    = '';
+  /** @type {'panel'|'native'} */
+  let diffMode  = 'native';
   /** @type {'files'|'commits'} */
   let viewMode  = 'files';
   /** @type {Map<string,string>}  hash → color */
@@ -162,6 +164,15 @@
     render();
   });
 
+  // ── Diff mode toggle ───────────────────────────────────────────────────────
+
+  const toggle = document.getElementById('diff-mode-toggle');
+  if (toggle) {
+    toggle.addEventListener('change', () => {
+      diffMode = toggle.checked ? 'native' : 'panel';
+    });
+  }
+
   // ── View mode (set by native title-bar command via postMessage) ────────────
 
   function setViewMode(mode) {
@@ -197,7 +208,7 @@
       e.stopPropagation();
       const hash = fileItem.getAttribute('data-hash');
       const file = fileItem.getAttribute('data-file');
-      if (hash && file) vscode.postMessage({ type: 'jumpToCommitFile', hash, file });
+      if (hash && file) vscode.postMessage({ type: 'jumpToCommitFile', hash, file, diffMode });
       return;
     }
 
@@ -228,7 +239,7 @@
     if (commentBadge) {
       e.stopPropagation();
       const file = commentBadge.closest('[data-file]')?.getAttribute('data-file');
-      if (file) vscode.postMessage({ type: 'jumpToComment', file });
+      if (file) vscode.postMessage({ type: 'jumpToComment', file, diffMode });
       return;
     }
 
@@ -238,7 +249,7 @@
       e.stopPropagation();
       const hash = commitItem.getAttribute('data-hash');
       const file = commitItem.closest('[data-file]')?.getAttribute('data-file');
-      if (hash && file) vscode.postMessage({ type: 'jumpToCommitFile', hash, file });
+      if (hash && file) vscode.postMessage({ type: 'jumpToCommitFile', hash, file, diffMode });
       return;
     }
 
@@ -257,7 +268,7 @@
       const file = row.dataset.file;
       expandedFiles.delete(file);
       render();
-      vscode.postMessage({ type: 'jumpToFile', file });
+      vscode.postMessage({ type: 'jumpToFile', file, diffMode });
     }
   });
 

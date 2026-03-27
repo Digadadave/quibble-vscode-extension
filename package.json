@@ -249,36 +249,6 @@
           "command": "commitReview.comments.filterPicker",
           "when": "view == commitReview.commentsView",
           "group": "navigation@1"
-        },
-        {
-          "command": "commitReview.comments.filter.open",
-          "when": "view == commitReview.commentsView",
-          "group": "1_filter@1"
-        },
-        {
-          "command": "commitReview.comments.filter.question",
-          "when": "view == commitReview.commentsView",
-          "group": "1_filter@2"
-        },
-        {
-          "command": "commitReview.comments.filter.replied",
-          "when": "view == commitReview.commentsView",
-          "group": "1_filter@3"
-        },
-        {
-          "command": "commitReview.comments.filter.addressed",
-          "when": "view == commitReview.commentsView",
-          "group": "1_filter@4"
-        },
-        {
-          "command": "commitReview.comments.filter.approved",
-          "when": "view == commitReview.commentsView",
-          "group": "1_filter@5"
-        },
-        {
-          "command": "commitReview.comments.filter.dismissed",
-          "when": "view == commitReview.commentsView",
-          "group": "1_filter@6"
         }
       ],
       "view/item/context": [
