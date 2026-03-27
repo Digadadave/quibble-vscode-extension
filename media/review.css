@@ -499,7 +499,7 @@ body {
   width: 40px;
   min-width: 40px;
   text-align: right;
-  padding: 0 6px;
+  padding: 0 10px;
   color: var(--vscode-editorLineNumber-foreground, #858585);
   user-select: none;
   vertical-align: top;
@@ -633,6 +633,9 @@ tr.del-line .line-num.old { background: var(--del-num); }
 .thread-actions-spacer { flex: 1; }
 .btn.danger { border-color: #f85149; color: #f85149; }
 .btn.danger:hover { background: rgba(248,81,73,0.15); }
+/* Icon-only status transition buttons */
+.status-action-btn { padding: 2px 5px; border-color: transparent; }
+.status-action-btn:hover { border-color: currentColor; background: rgba(128,128,128,0.1); }
 
 /* ── Custom context menu (CommentsView) ──────────────────────────────────── */
 .ctx-menu {

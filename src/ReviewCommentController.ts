@@ -6,13 +6,16 @@ import { GitService } from './GitService';
 // ── Status display labels ────────────────────────────────────────────────────
 
 const STATUS_LABELS: Record<string, string> = {
-  'open':         'Open',
-  'in-progress':  'In Progress',
-  'needs-input':  'Needs Input',
-  'addressed':    'Addressed',
-  'resolved':     'Resolved',
-  'dismissed':    'Dismissed',
-  'outdated':     'Outdated',
+  'open':          'Open',
+  'question':      'Question',
+  'agent-replied': 'Agent Replied',
+  'in-progress':   'In Progress',
+  'needs-input':   'Needs Input',
+  'addressed':     'Addressed',
+  'closed':        'Closed',
+  'resolved':      'Resolved',
+  'dismissed':     'Dismissed',
+  'outdated':      'Outdated',
 };
 
 // ── Extended Comment interface ────────────────────────────────────────────────
@@ -151,7 +154,7 @@ export class ReviewCommentController implements vscode.Disposable {
           name:     entry.author === 'reviewer' ? this.gitUserName : entry.author,
           iconPath: isAgent
             ? this.mediaUri('icon-agent.svg')
-            : undefined,
+            : this.mediaUri('icon-blank.svg'),
         },
         body:      new vscode.MarkdownString(entry.body),
         mode:      vscode.CommentMode.Preview,
@@ -198,7 +201,7 @@ export class ReviewCommentController implements vscode.Disposable {
   }
 
   private isClosed(status: string): boolean {
-    return ['resolved', 'dismissed', 'outdated'].includes(status);
+    return ['closed', 'resolved', 'dismissed', 'outdated'].includes(status);
   }
 
   // ── Snapshot capture ─────────────────────────────────────────────────────
@@ -295,9 +298,17 @@ export class ReviewCommentController implements vscode.Disposable {
       };
 
     context.subscriptions.push(
-      vscode.commands.registerCommand('commitReview.comment.resolve', makeStatusAction('resolved')),
+      vscode.commands.registerCommand('commitReview.comment.resolve', makeStatusAction('addressed')),
+      vscode.commands.registerCommand('commitReview.comment.close',   makeStatusAction('closed')),
       vscode.commands.registerCommand('commitReview.comment.dismiss', makeStatusAction('dismissed')),
       vscode.commands.registerCommand('commitReview.comment.reopen',  makeStatusAction('open')),
+    );
+
+    // Cancel — disposes a new (unsaved) thread without doing anything
+    context.subscriptions.push(
+      vscode.commands.registerCommand('commitReview.comment.cancelThread', (reply: vscode.CommentReply) => {
+        reply.thread.dispose();
+      }),
     );
 
     // ── Delete ──────────────────────────────────────────────────────────────

@@ -37,14 +37,25 @@
       },
       {
         "command": "commitReview.comment.resolve",
-        "title": "Resolve",
-        "icon": "$(pass-filled)",
+        "title": "Mark Addressed",
+        "icon": "$(check)",
+        "category": "Commit Review"
+      },
+      {
+        "command": "commitReview.comment.close",
+        "title": "Close",
+        "icon": "$(archive)",
         "category": "Commit Review"
       },
       {
         "command": "commitReview.comment.dismiss",
         "title": "Dismiss",
-        "icon": "$(circle-slash)",
+        "icon": "$(sync-ignored)",
+        "category": "Commit Review"
+      },
+      {
+        "command": "commitReview.comment.cancelThread",
+        "title": "Cancel",
         "category": "Commit Review"
       },
       {
@@ -266,7 +277,7 @@
       ],
       "comments/commentThread/context": [
         {
-          "command": "commitReview.comment.dismiss",
+          "command": "commitReview.comment.cancelThread",
           "group": "inline@2",
           "when": "commentController == commit-review"
         },
@@ -280,23 +291,28 @@
       "comments/commentThread/title": [
         {
           "command": "commitReview.comment.delete",
-          "group": "inline@3",
-          "when": "commentController == commit-review"
+          "group": "inline@5",
+          "when": "commentController == commit-review && commentThread =~ /status:/"
         },
         {
           "command": "commitReview.comment.resolve",
           "group": "inline@1",
-          "when": "commentController == commit-review && commentThread =~ /status:(open|in-progress|needs-input|addressed|outdated)/"
+          "when": "commentController == commit-review && commentThread =~ /status:(open|question|agent-replied|in-progress|needs-input)/"
+        },
+        {
+          "command": "commitReview.comment.close",
+          "group": "inline@2",
+          "when": "commentController == commit-review && commentThread =~ /status:(open|question|agent-replied|in-progress|needs-input|addressed)/"
         },
         {
           "command": "commitReview.comment.dismiss",
-          "group": "inline@2",
-          "when": "commentController == commit-review && commentThread =~ /status:(open|in-progress|needs-input|addressed|outdated)/"
+          "group": "inline@3",
+          "when": "commentController == commit-review && commentThread =~ /status:(open|question|agent-replied|in-progress|needs-input|addressed|closed)/"
         },
         {
           "command": "commitReview.comment.reopen",
           "group": "inline@4",
-          "when": "commentController == commit-review && commentThread =~ /status:(resolved|dismissed|outdated)/"
+          "when": "commentController == commit-review && commentThread =~ /status:(resolved|closed|dismissed|outdated)/"
         }
       ]
     }

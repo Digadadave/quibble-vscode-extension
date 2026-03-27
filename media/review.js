@@ -155,8 +155,8 @@ document.addEventListener('click', (/** @type {MouseEvent} */ e) => {
         break;
       }
 
-      case 'mark-addressed':
-        vscode.postMessage({ type: 'updateStatus', id: btn.getAttribute('data-id'), status: 'addressed' });
+      case 'change-status':
+        vscode.postMessage({ type: 'updateStatus', id: btn.getAttribute('data-id'), status: btn.getAttribute('data-status') });
         break;
 
       case 'delete-comment':
@@ -795,16 +795,22 @@ function renderThreadRow(comment, colspan) {
   <div class="thread-body">${esc(r.body)}</div>
 </div>`).join('');
 
-  // Determine available actions based on status
-  let actionButtons = '';
-  if (comment.status !== 'addressed') {
-    actionButtons += `<button class="btn success" data-action="mark-addressed" data-id="${comment.id}">Mark Addressed</button>`;
-  }
+  // Status transition buttons — show all statuses except the current one
+  const STATUS_OPTIONS = [
+    { status: 'open',      icon: 'comment-unresolved', label: 'Reopen',   cssVar: '--status-open' },
+    { status: 'addressed', icon: 'check',              label: 'Addressed', cssVar: '--status-addressed' },
+    { status: 'closed',    icon: 'archive',            label: 'Close',    cssVar: '--status-closed' },
+    { status: 'dismissed', icon: 'sync-ignored',       label: 'Dismiss',  cssVar: '--status-dismissed' },
+  ];
+  let actionButtons = STATUS_OPTIONS
+    .filter(o => o.status !== comment.status)
+    .map(o => `<button class="btn status-action-btn" title="${o.label}" data-action="change-status" data-status="${o.status}" data-id="${comment.id}" style="color:var(${o.cssVar})"><i class="codicon codicon-${o.icon}"></i></button>`)
+    .join('');
   if (comment.status === 'open') {
     actionButtons += `<button class="btn" data-action="ask-question" data-id="${comment.id}">Ask Question</button>`;
   }
-  // Delete is always available, pushed to the far right via spacer
-  actionButtons += `<span class="thread-actions-spacer"></span><button class="btn danger" data-action="delete-comment" data-id="${comment.id}">Delete</button>`;
+  // Delete pushed to the far right
+  actionButtons += `<span class="thread-actions-spacer"></span><button class="btn danger" data-action="delete-comment" data-id="${comment.id}"><i class="codicon codicon-trash"></i></button>`;
 
   const statusIndicator = comment.status === 'question'
     ? `<span class="thread-status question">awaiting agent</span>`
