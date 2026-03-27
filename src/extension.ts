@@ -146,11 +146,15 @@ export function activate(context: vscode.ExtensionContext): void {
     const branch = activeGit.getCurrentBranch();
     const base   = activeGit.getMergeBase(branch);
     const head   = activeGit.getHeadHash();
-    console.log('[CommitReview] onJumpToFileNative', { file, branch, base, head });
     if (!base || !head) return;
-    const repoPath = activeGit.getRepoPath();
-    const oldUri = GitContentProvider.makeUri(repoPath, file, base, 'old');
-    const newUri = GitContentProvider.makeUri(repoPath, file, head, 'new');
+    const repoPath  = activeGit.getRepoPath();
+    const changedFiles = activeGit.getDirectChangedFiles(base, head);
+    const fileStatus   = changedFiles.find(f => f.path === file)?.status ?? 'M';
+    // For added files (A), the old side is empty. For deleted files (D), the new side is empty.
+    const oldRef = fileStatus === 'A' ? '__empty__' : base;
+    const newRef = fileStatus === 'D' ? '__empty__' : head;
+    const oldUri = GitContentProvider.makeUri(repoPath, file, oldRef, 'old');
+    const newUri = GitContentProvider.makeUri(repoPath, file, newRef, 'new');
     await vscode.commands.executeCommand('vscode.diff', oldUri, newUri, `${path.basename(file)} (branch changes)`);
   };
 

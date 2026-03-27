@@ -382,6 +382,9 @@ export class GitService {
 
     const result: BranchFileChange[] = [];
     for (const [filePath, fileCommitList] of fileCommits) {
+      // Skip files with no net change base→HEAD (added then deleted/renamed within the branch).
+      // They appear in per-commit data but not in the cumulative diff.
+      if (!statusMap.has(filePath)) continue;
       const stats = statsMap.get(filePath) ?? { insertions: 0, deletions: 0 };
       const status = statusMap.get(filePath) ?? 'M';
       result.push({ path: filePath, status, commits: fileCommitList, ...stats });
