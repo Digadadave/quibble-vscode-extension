@@ -14,8 +14,8 @@
   --del-num: var(--vscode-diffEditor-removedLineBackground, rgba(218, 54, 51, 0.35));
   --thread-bg: var(--vscode-editorWidget-background, #252526);
   --agent-accent: #a78bca;
-  --status-open: #c4a054;
-  --status-question: #6c9bcf;
+  --status-open: #6c9bcf;
+  --status-question: #c08060;
   --status-replied: #a78bca;
   --status-addressed: #73a66c;
   --status-closed: #8a8a9e;
@@ -324,8 +324,8 @@ body {
   font-weight: 600;
   border: 1px solid transparent;
 }
-.badge.open     { background: rgba(196,160,84,0.15);  border-color: var(--status-open);      color: var(--status-open); }
-.badge.question { background: rgba(108,155,207,0.15); border-color: var(--status-question); color: var(--status-question); }
+.badge.open     { background: rgba(108,155,207,0.15);  border-color: var(--status-open);      color: var(--status-open); }
+.badge.question { background: rgba(192,128,96,0.15);  border-color: var(--status-question); color: var(--status-question); }
 .badge.replied  { background: rgba(167,139,202,0.15); border-color: var(--status-replied);  color: var(--status-replied); }
 .badge.addressed{ background: rgba(115,166,108,0.15); border-color: var(--status-addressed); color: var(--status-addressed); }
 
@@ -595,8 +595,8 @@ tr.del-line .line-num.old { background: var(--del-num); }
   padding: 2px 6px;
   border-radius: 3px;
 }
-.thread-status.open          { background: rgba(196,160,84,0.2);  color: var(--status-open); }
-.thread-status.question      { background: rgba(108,155,207,0.2); color: var(--status-question); }
+.thread-status.open          { background: rgba(108,155,207,0.2);  color: var(--status-open); }
+.thread-status.question      { background: rgba(192,128,96,0.2);   color: var(--status-question); }
 .thread-status.agent-replied { background: rgba(167,139,202,0.2); color: var(--status-replied); }
 .thread-status.addressed     { background: rgba(115,166,108,0.2); color: var(--status-addressed); }
 .thread-status.resolved      { background: rgba(138,138,158,0.2); color: var(--status-closed); }
@@ -699,7 +699,7 @@ tr.del-line .line-num.old { background: var(--del-num); }
 .btn.primary { background: var(--accent); color: var(--accent-fg); border-color: var(--accent); }
 .btn.primary:hover { opacity: 0.85; }
 .btn.danger  { border-color: var(--status-open);      color: var(--status-open); }
-.btn.danger:hover  { background: rgba(196,160,84,0.15); }
+.btn.danger:hover  { background: rgba(108,155,207,0.15); }
 .btn.success { border-color: var(--status-addressed); color: var(--status-addressed); }
 .btn.success:hover { background: rgba(115,166,108,0.15); }
 
@@ -1005,9 +1005,9 @@ tr.split-add .line-content.old { background: transparent; }
 .thread-question-actions { display: flex; gap: 8px; justify-content: flex-end; }
 
 /* ── Status indicator overrides ───────────────────────────────────────────── */
-.thread-status.question { background: rgba(108,155,207,0.2); color: var(--status-question); }
-.badge.question { background: rgba(108,155,207,0.15); border-color: var(--status-question); color: var(--status-question); }
-.sidebar-comment-status.question { background: rgba(108,155,207,0.2); color: var(--status-question); }
+.thread-status.question { background: rgba(192,128,96,0.2); color: var(--status-question); }
+.badge.question { background: rgba(192,128,96,0.15); border-color: var(--status-question); color: var(--status-question); }
+.sidebar-comment-status.question { background: rgba(192,128,96,0.2); color: var(--status-question); }
 .sidebar-comment-status.agent-replied { background: rgba(167,139,202,0.2); color: var(--status-replied); }
 .sidebar-comment-status.addressed { background: rgba(115,166,108,0.2); color: var(--status-addressed); }
 .sidebar-comment-status.closed,
