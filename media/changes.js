@@ -52,9 +52,8 @@
   const DEFAULT_ICON = { label: 'F', color: '#888' };
 
   // Inline SVG icons
-  const SVG_COMMENT = `<svg width="11" height="11" viewBox="0 0 16 16" fill="currentColor"><path d="M1 2.5A1.5 1.5 0 012.5 1h11A1.5 1.5 0 0115 2.5v8A1.5 1.5 0 0113.5 12H9l-3.5 3.5V12H2.5A1.5 1.5 0 011 10.5v-8z"/></svg>`;
-  // Unicode icons (no codicon CSS required in this webview)
-  const ARROW_RIGHT = '\u2192'; // →
+  const SVG_COMMENT   = `<svg width="11" height="11" viewBox="0 0 16 16" fill="currentColor"><path d="M1 2.5A1.5 1.5 0 012.5 1h11A1.5 1.5 0 0115 2.5v8A1.5 1.5 0 0113.5 12H9l-3.5 3.5V12H2.5A1.5 1.5 0 011 10.5v-8z"/></svg>`;
+  const ICON_OPEN_FILE = `<i class="codicon codicon-go-to-file"></i>`;
 
   // A/M/D/R status letter colors
   const STATUS_COLORS = {
@@ -68,11 +67,15 @@
   let branch    = '';
   /** @type {'panel'|'native'} */
   let diffMode  = 'native';
+  /** @type {'files'|'commits'} */
+  let viewMode  = 'files';
   /** @type {Map<string,string>}  hash → color */
   const commitColorMap = new Map();
   let colorIndex = 0;
   /** @type {Set<string>}  file paths whose commit list is expanded */
   const expandedFiles = new Set();
+  /** @type {Set<string>}  commit hashes whose file list is expanded */
+  const expandedCommits = new Set();
 
   const PAGE_SIZE = 20;
   let visibleCount = PAGE_SIZE;
@@ -134,6 +137,10 @@
       if (list) list.innerHTML = '<div class="ch-empty">Loading\u2026</div>';
       return;
     }
+    if (msg.type === 'setViewMode') {
+      setViewMode(msg.mode);
+      return;
+    }
     if (msg.type !== 'load') return;
 
     branch = msg.branch || '';
@@ -166,6 +173,13 @@
     });
   }
 
+  // ── View mode (set by native title-bar command via postMessage) ────────────
+
+  function setViewMode(mode) {
+    viewMode = mode;
+    render();
+  }
+
   // ── Toggle helper ──────────────────────────────────────────────────────────
 
   function toggleExpand(file) {
@@ -179,7 +193,39 @@
   document.addEventListener('click', e => {
     const target = /** @type {HTMLElement} */ (e.target);
 
-    // Jump-to-source button → open file at first changed line
+    // ── Commits view: open-file button on a file item ──
+    const jumpFile = target.closest('.ch-jump-file');
+    if (jumpFile) {
+      e.stopPropagation();
+      const file = jumpFile.getAttribute('data-file');
+      if (file) vscode.postMessage({ type: 'jumpToSource', file });
+      return;
+    }
+
+    // ── Commits view: click a file item → open that commit's diff ──
+    const fileItem = target.closest('.ch-file-item');
+    if (fileItem) {
+      e.stopPropagation();
+      const hash = fileItem.getAttribute('data-hash');
+      const file = fileItem.getAttribute('data-file');
+      if (hash && file) vscode.postMessage({ type: 'jumpToCommitFile', hash, file, diffMode });
+      return;
+    }
+
+    // ── Commits view: click a commit row → toggle expand ──
+    const commitRow = target.closest('.ch-commit-row');
+    if (commitRow) {
+      e.stopPropagation();
+      const hash = commitRow.getAttribute('data-hash');
+      if (hash) {
+        if (expandedCommits.has(hash)) { expandedCommits.delete(hash); }
+        else                           { expandedCommits.add(hash);    }
+        render();
+      }
+      return;
+    }
+
+    // ── Files view: jump-to-source button → open file at first changed line ──
     const jumpBtn = target.closest('.ch-jump-source');
     if (jumpBtn) {
       e.stopPropagation();
@@ -188,7 +234,7 @@
       return;
     }
 
-    // Comment badge → focus first comment on this file
+    // ── Files view: comment badge → focus first comment on this file ──
     const commentBadge = target.closest('.ch-comment-badge');
     if (commentBadge) {
       e.stopPropagation();
@@ -197,7 +243,7 @@
       return;
     }
 
-    // Hash badge INSIDE a commit-list item → open commit diff (list stays open)
+    // ── Files view: commit item → open commit diff ──
     const commitItem = target.closest('.ch-commit-item');
     if (commitItem) {
       e.stopPropagation();
@@ -207,7 +253,7 @@
       return;
     }
 
-    // Hash badge OR count badge IN the file row → toggle expand (no navigation)
+    // ── Files view: hash/count badge in file row → toggle expand ──
     const rowBadge = target.closest('.ch-badge-hash, .ch-badge-more');
     if (rowBadge) {
       e.stopPropagation();
@@ -216,7 +262,7 @@
       return;
     }
 
-    // File row click → collapse list then open cumulative branch diff
+    // ── Files view: file row click → collapse + open cumulative diff ──
     const row = target.closest('.ch-row');
     if (row && row.dataset.file) {
       const file = row.dataset.file;
@@ -237,6 +283,11 @@
       return;
     }
 
+    if (viewMode === 'commits') {
+      renderCommitView(list);
+      return;
+    }
+
     const visible   = files.slice(0, visibleCount);
     const remaining = files.length - visibleCount;
     const moreHtml  = remaining > 0
@@ -244,6 +295,88 @@
       : '';
 
     list.innerHTML = visible.map(renderFileBlock).join('') + moreHtml;
+  }
+
+  // ── Commits view ───────────────────────────────────────────────────────────
+
+  /** Invert the files-by-commit structure into commits-by-file. */
+  function buildCommitData() {
+    /** @type {Map<string, {hash:string, shortHash:string, message:string, files:object[]}>} */
+    const commitMap = new Map();
+    for (const file of files) {
+      for (const c of file.commits) {
+        if (!commitMap.has(c.hash)) {
+          commitMap.set(c.hash, { hash: c.hash, shortHash: c.shortHash, message: c.message, files: [] });
+        }
+        commitMap.get(c.hash).files.push({
+          path: file.path,
+          status: file.status,
+          insertions: c.insertions,
+          deletions: c.deletions,
+          commentCount: file.commentCount || 0,
+        });
+      }
+    }
+    return [...commitMap.values()];
+  }
+
+  function renderCommitView(list) {
+    const commits = buildCommitData();
+    list.innerHTML = commits.map(renderCommitBlock).join('');
+  }
+
+  function renderCommitBlock(commit) {
+    const color  = getCommitColor(commit.hash);
+    const tColor = badgeTextColor(color);
+    const isExpanded = expandedCommits.has(commit.hash);
+
+    const totalIns = commit.files.reduce((s, f) => s + f.insertions, 0);
+    const totalDel = commit.files.reduce((s, f) => s + f.deletions, 0);
+    const ins = totalIns > 0 ? `<span class="ch-ins">+${totalIns}</span>` : '';
+    const del = totalDel > 0 ? `<span class="ch-del">-${totalDel}</span>` : '';
+    const statsHtml = (ins || del) ? `<span class="ch-stats">${del}${ins}</span>` : '';
+
+    const arrow = isExpanded ? '\u25be' : '\u25b8'; // ▾ / ▸
+
+    const rowHtml = `<div class="ch-commit-row${isExpanded ? ' ch-expanded' : ''}" data-hash="${esc(commit.hash)}">`
+      + `<span class="ch-badge ch-badge-hash" style="background:${color};color:${tColor}">${esc(commit.shortHash)}</span>`
+      + `<span class="ch-commit-msg">${esc(commit.message)}</span>`
+      + `<span class="ch-spacer"></span>`
+      + statsHtml
+      + `<span class="ch-expand-arrow">${arrow}</span>`
+      + `</div>`;
+
+    let fileListHtml = '';
+    if (isExpanded) {
+      fileListHtml = '<div class="ch-file-list">'
+        + commit.files.map(f => renderFileItem(f, commit.hash)).join('')
+        + '</div>';
+    }
+
+    return `<div class="ch-commit-block" data-hash="${esc(commit.hash)}">${rowHtml}${fileListHtml}</div>`;
+  }
+
+  function renderFileItem(file, commitHash) {
+    const name   = file.path.split('/').pop() || file.path;
+    const folder = getFolder(file.path);
+    const icon   = getFileIcon(file.path);
+    const statusColor = STATUS_COLORS[file.status] || STATUS_COLORS.M;
+
+    const ins = file.insertions > 0 ? `<span class="ch-ins">+${file.insertions}</span>` : '';
+    const del = file.deletions  > 0 ? `<span class="ch-del">-${file.deletions}</span>`  : '';
+    const statsHtml = (ins || del) ? `<span class="ch-commit-stats">${del}${ins}</span>` : '';
+
+    const iconHtml   = `<span class="ch-file-icon" style="color:${icon.color}">${esc(icon.label)}</span>`;
+    const nameHtml   = `<span class="ch-filename">${esc(name)}</span>`;
+    const folderHtml = folder ? `<span class="ch-folder">${esc(folder)}</span>` : '';
+    const statusHtml = `<span class="ch-status" style="color:${statusColor}">${esc(file.status)}</span>`;
+    const jumpHtml   = `<span class="ch-jump-file" data-file="${esc(file.path)}" title="Open File">${ICON_OPEN_FILE}</span>`;
+
+    return `<div class="ch-file-item" data-hash="${esc(commitHash)}" data-file="${esc(file.path)}">`
+      + iconHtml + nameHtml + folderHtml
+      + `<span class="ch-spacer"></span>`
+      + jumpHtml + statsHtml + statusHtml
+      + `</div>`;
   }
 
   document.addEventListener('click', e => {
@@ -304,7 +437,7 @@
         + '</div>';
     }
 
-    const jumpHtml = `<span class="ch-jump-source" data-action="jump-source" data-file="${esc(file.path)}" title="Go to first change">${ARROW_RIGHT}</span>`;
+    const jumpHtml = `<span class="ch-jump-source" data-action="jump-source" data-file="${esc(file.path)}" title="Open File">${ICON_OPEN_FILE}</span>`;
 
     return `<div class="ch-file-block${isExpanded ? ' ch-expanded' : ''}" data-file="${esc(file.path)}">`
       + `<div class="ch-row" data-file="${esc(file.path)}" title="${esc(file.path)}">`

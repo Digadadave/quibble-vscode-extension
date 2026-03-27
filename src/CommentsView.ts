@@ -258,11 +258,27 @@ export class CommentsView implements vscode.TreeDataProvider<vscode.TreeItem>, v
       vscode.commands.registerCommand('commitReview.comments.delete', (item: CommentTreeItem) => {
         this.onDeleteComment?.(item.comment.id);
       }),
-      // Per-group toggle commands — each one flips that group on/off in the submenu
+      // Multi-select filter picker — opens a checkable quick pick
+      vscode.commands.registerCommand('commitReview.comments.filterPicker', async () => {
+        const picks = await vscode.window.showQuickPick(
+          FILTER_GROUPS.map(g => ({
+            label: `$(${g.icon}) ${g.label}`,
+            picked: this.activeGroups.has(g.id),
+            id: g.id,
+          })),
+          { canPickMany: true, title: 'Filter Comments', placeHolder: 'Select visible statuses' },
+        );
+        if (picks === undefined) return; // cancelled
+        const chosen = new Set(picks.map(p => p.id as FilterGroupId));
+        this.activeGroups = chosen.size > 0 ? chosen : new Set(DEFAULT_ACTIVE_GROUPS);
+        this.syncFilterContext();
+        this.refresh();
+      }),
+      // Keep per-group commands registered (used by syncFilterContext context keys)
       ...FILTER_GROUPS.map(g =>
         vscode.commands.registerCommand(`commitReview.comments.filter.${g.id}`, () => {
           if (this.activeGroups.has(g.id)) {
-            if (this.activeGroups.size === 1) { return; } // keep at least one active
+            if (this.activeGroups.size === 1) { return; }
             this.activeGroups.delete(g.id);
           } else {
             this.activeGroups.add(g.id);

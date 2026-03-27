@@ -1288,10 +1288,10 @@ body.expander-resizing { cursor: ns-resize !important; user-select: none; }
 }
 .ch-load-more:hover { text-decoration: underline; }
 
-/* Jump-to-source arrow — hidden until file row is hovered */
+/* Jump-to-source icon — hidden until file row is hovered */
 .ch-jump-source {
   flex-shrink: 0;
-  font-size: 12px;
+  font-size: 14px;
   color: var(--vscode-descriptionForeground, #888);
   opacity: 0;
   cursor: pointer;
@@ -1301,4 +1301,60 @@ body.expander-resizing { cursor: ns-resize !important; user-select: none; }
 }
 .ch-row:hover .ch-jump-source { opacity: 1; }
 .ch-jump-source:hover { color: var(--vscode-textLink-foreground, #4ea6ea); }
+
+/* ── Commits view (.ch-commit-block / .ch-commit-row / .ch-file-list) ────── */
+
+.ch-commit-block {}
+
+.ch-commit-row {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  padding: 4px 10px;
+  cursor: pointer;
+  user-select: none;
+  min-width: 0;
+  background: var(--vscode-sideBar-background, #252526);
+}
+.ch-commit-row:hover { background: var(--vscode-list-hoverBackground, #2a2d2e); }
+
+/* Expand arrow: fixed width, muted */
+.ch-expand-arrow {
+  flex-shrink: 0;
+  font-size: 10px;
+  color: var(--vscode-descriptionForeground, #888);
+  line-height: 1;
+}
+
+/* Expanded file list under a commit row */
+.ch-file-list {
+  padding: 2px 0 4px 0;
+  background: var(--vscode-sideBar-background, #252526);
+}
+
+.ch-file-item {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  padding: 3px 10px 3px 16px;
+  cursor: pointer;
+  user-select: none;
+  min-width: 0;
+  font-size: 11px;
+}
+.ch-file-item:hover { background: var(--vscode-list-hoverBackground, rgba(255,255,255,0.04)); }
+
+/* Open-file icon on file items — hidden until the item is hovered */
+.ch-jump-file {
+  flex-shrink: 0;
+  font-size: 14px;
+  color: var(--vscode-descriptionForeground, #888);
+  opacity: 0;
+  cursor: pointer;
+  line-height: 1;
+  padding: 0 2px;
+  transition: opacity 0.1s;
+}
+.ch-file-item:hover .ch-jump-file { opacity: 1; }
+.ch-jump-file:hover { color: var(--vscode-textLink-foreground, #4ea6ea); }
 

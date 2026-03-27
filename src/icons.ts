@@ -20,6 +20,7 @@ export const ICONS = {
   QUESTION:           'question',
   TRASH:              'trash',
   ARROW_RIGHT:        'arrow-right',
+  GO_TO_FILE:         'go-to-file',
   // People
   HUBOT:              'hubot',
   PERSON:             'person',

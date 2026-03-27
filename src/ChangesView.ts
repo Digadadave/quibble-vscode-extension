@@ -11,6 +11,7 @@ export class ChangesView implements vscode.WebviewViewProvider, vscode.Disposabl
   private _view?: vscode.WebviewView;
   private disposables: vscode.Disposable[] = [];
   private cachedData: { branch: string; files: object[] } | null = null;
+  private viewMode: 'files' | 'commits' = 'files';
 
   /** Called when the user clicks a file row — open the cumulative diff for that file. */
   onJumpToFile?: (file: string) => void;
@@ -55,6 +56,20 @@ export class ChangesView implements vscode.WebviewViewProvider, vscode.Disposabl
     this.git = git;
     this.comments = comments;
     this.refresh();
+  }
+
+  /** Register the view-mode toggle commands. Call once after register(). */
+  registerCommands(context: vscode.ExtensionContext): void {
+    const setMode = (mode: 'files' | 'commits') => {
+      this.viewMode = mode;
+      vscode.commands.executeCommand('setContext', 'commitReview.changesViewMode', mode);
+      this._view?.webview.postMessage({ type: 'setViewMode', mode });
+    };
+    context.subscriptions.push(
+      vscode.commands.registerCommand('commitReview.changes.toCommitsView', () => setMode('commits')),
+      vscode.commands.registerCommand('commitReview.changes.toFilesView',   () => setMode('files')),
+    );
+    vscode.commands.executeCommand('setContext', 'commitReview.changesViewMode', this.viewMode);
   }
 
   /** Show loading state immediately (call before slow work begins). */

@@ -105,6 +105,24 @@
         "category": "Commit Review"
       },
       {
+        "command": "commitReview.changes.toCommitsView",
+        "title": "Switch to Commits View",
+        "icon": "$(list-tree)",
+        "category": "Commit Review"
+      },
+      {
+        "command": "commitReview.changes.toFilesView",
+        "title": "Switch to Files View",
+        "icon": "$(list-flat)",
+        "category": "Commit Review"
+      },
+      {
+        "command": "commitReview.comments.filterPicker",
+        "title": "Filter Comments",
+        "icon": "$(filter)",
+        "category": "Commit Review"
+      },
+      {
         "command": "commitReview.comments.filter.open",
         "title": "Open",
         "category": "Commit Review",
@@ -213,39 +231,24 @@
           "group": "navigation"
         },
         {
+          "command": "commitReview.changes.toCommitsView",
+          "when": "view == commitReview.changesView && commitReview.changesViewMode != 'commits'",
+          "group": "navigation"
+        },
+        {
+          "command": "commitReview.changes.toFilesView",
+          "when": "view == commitReview.changesView && commitReview.changesViewMode == 'commits'",
+          "group": "navigation"
+        },
+        {
           "command": "commitReview.remapOrphans",
           "when": "view == commitReview.commentsView && commitReview.hasOrphans",
           "group": "navigation@0"
         },
         {
-          "command": "commitReview.comments.filter.open",
+          "command": "commitReview.comments.filterPicker",
           "when": "view == commitReview.commentsView",
-          "group": "2_filter@1"
-        },
-        {
-          "command": "commitReview.comments.filter.question",
-          "when": "view == commitReview.commentsView",
-          "group": "2_filter@2"
-        },
-        {
-          "command": "commitReview.comments.filter.replied",
-          "when": "view == commitReview.commentsView",
-          "group": "2_filter@3"
-        },
-        {
-          "command": "commitReview.comments.filter.addressed",
-          "when": "view == commitReview.commentsView",
-          "group": "2_filter@4"
-        },
-        {
-          "command": "commitReview.comments.filter.approved",
-          "when": "view == commitReview.commentsView",
-          "group": "2_filter@5"
-        },
-        {
-          "command": "commitReview.comments.filter.dismissed",
-          "when": "view == commitReview.commentsView",
-          "group": "2_filter@6"
+          "group": "navigation@1"
         }
       ],
       "view/item/context": [
