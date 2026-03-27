@@ -12,13 +12,16 @@ interface StatusMeta {
 }
 
 const STATUS_META: Record<string, StatusMeta> = {
-  'open':        { label: 'Open',        icon: 'circle-filled',      color: new vscode.ThemeColor('testing.iconFailed') },
-  'in-progress': { label: 'In Progress', icon: 'loading~spin',       color: new vscode.ThemeColor('progressBar.background') },
-  'needs-input': { label: 'Needs Input', icon: 'question',           color: new vscode.ThemeColor('editorWarning.foreground') },
-  'addressed':   { label: 'Addressed',   icon: 'check',              color: new vscode.ThemeColor('testing.iconPassed') },
-  'resolved':    { label: 'Resolved',    icon: 'pass-filled',        color: new vscode.ThemeColor('testing.iconPassed') },
-  'dismissed':   { label: 'Dismissed',   icon: 'circle-slash',       color: new vscode.ThemeColor('disabledForeground') },
-  'outdated':    { label: 'Outdated',    icon: 'warning',            color: new vscode.ThemeColor('disabledForeground') },
+  'open':          { label: 'Open',          icon: 'comment-unresolved',          color: new vscode.ThemeColor('editorWarning.foreground') },
+  'question':      { label: 'Question',      icon: 'question',                    color: new vscode.ThemeColor('editorInfo.foreground') },
+  'needs-input':   { label: 'Needs Input',   icon: 'question',                    color: new vscode.ThemeColor('editorInfo.foreground') },
+  'agent-replied': { label: 'Agent Replied',  icon: 'comment-discussion',         color: new vscode.ThemeColor('terminal.ansiMagenta') },
+  'in-progress':   { label: 'In Progress',   icon: 'comment-discussion',          color: new vscode.ThemeColor('terminal.ansiMagenta') },
+  'addressed':     { label: 'Addressed',     icon: 'check',                       color: new vscode.ThemeColor('testing.iconPassed') },
+  'closed':        { label: 'Closed',        icon: 'archive',                     color: new vscode.ThemeColor('descriptionForeground') },
+  'resolved':      { label: 'Resolved',      icon: 'archive',                     color: new vscode.ThemeColor('descriptionForeground') },
+  'dismissed':     { label: 'Dismissed',     icon: 'sync-ignored',                color: new vscode.ThemeColor('disabledForeground') },
+  'outdated':      { label: 'Outdated',      icon: 'sync-ignored',                color: new vscode.ThemeColor('disabledForeground') },
 };
 
 // ── Filter types ──────────────────────────────────────────────────────────────

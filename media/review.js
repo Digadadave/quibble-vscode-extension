@@ -813,7 +813,7 @@ function renderThreadRow(comment, colspan) {
   return `
 <tr class="thread-row" data-comment-id="${comment.id}">
   <td colspan="${tdColspan}">
-    <div class="thread-container">
+    <div class="thread-container status-${comment.status}">
       <div class="thread-comment">
         <div class="thread-header">
           <span class="thread-author">${esc(comment.author === 'reviewer' ? state.gitUserName : comment.author)}</span>

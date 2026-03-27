@@ -183,13 +183,17 @@ export class ReviewCommentController implements vscode.Disposable {
 
   private statusThemeIcon(status: string): vscode.Uri {
     switch (status) {
-      case 'open':        return this.mediaUri('icon-status-open.svg');
-      case 'in-progress': return this.mediaUri('icon-status-progress.svg');
-      case 'needs-input': return this.mediaUri('icon-status-input.svg');
-      case 'addressed':
-      case 'resolved':    return this.mediaUri('icon-status-addressed.svg');
-      case 'outdated':    return this.mediaUri('icon-status-outdated.svg');
-      default:            return this.mediaUri('icon-status-default.svg');
+      case 'open':          return this.mediaUri('icon-status-open.svg');
+      case 'question':
+      case 'needs-input':   return this.mediaUri('icon-status-question.svg');
+      case 'agent-replied':
+      case 'in-progress':   return this.mediaUri('icon-status-replied.svg');
+      case 'addressed':     return this.mediaUri('icon-status-addressed.svg');
+      case 'closed':
+      case 'resolved':      return this.mediaUri('icon-status-closed.svg');
+      case 'dismissed':
+      case 'outdated':      return this.mediaUri('icon-status-dismissed.svg');
+      default:              return this.mediaUri('icon-status-default.svg');
     }
   }
 
