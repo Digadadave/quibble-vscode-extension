@@ -195,40 +195,7 @@
         }
       }
     },
-    "submenus": [
-      {
-        "id": "commitReview.filterMenu",
-        "label": "Filter Comments",
-        "icon": "$(filter)"
-      }
-    ],
     "menus": {
-      "commitReview.filterMenu": [
-        {
-          "command": "commitReview.comments.filter.open",
-          "group": "1@1"
-        },
-        {
-          "command": "commitReview.comments.filter.question",
-          "group": "1@2"
-        },
-        {
-          "command": "commitReview.comments.filter.replied",
-          "group": "1@3"
-        },
-        {
-          "command": "commitReview.comments.filter.addressed",
-          "group": "1@4"
-        },
-        {
-          "command": "commitReview.comments.filter.approved",
-          "group": "1@5"
-        },
-        {
-          "command": "commitReview.comments.filter.dismissed",
-          "group": "1@6"
-        }
-      ],
       "view/title": [
         {
           "command": "commitReview.selectRepo",
@@ -251,9 +218,34 @@
           "group": "navigation@0"
         },
         {
-          "submenu": "commitReview.filterMenu",
+          "command": "commitReview.comments.filter.open",
           "when": "view == commitReview.commentsView",
-          "group": "navigation"
+          "group": "2_filter@1"
+        },
+        {
+          "command": "commitReview.comments.filter.question",
+          "when": "view == commitReview.commentsView",
+          "group": "2_filter@2"
+        },
+        {
+          "command": "commitReview.comments.filter.replied",
+          "when": "view == commitReview.commentsView",
+          "group": "2_filter@3"
+        },
+        {
+          "command": "commitReview.comments.filter.addressed",
+          "when": "view == commitReview.commentsView",
+          "group": "2_filter@4"
+        },
+        {
+          "command": "commitReview.comments.filter.approved",
+          "when": "view == commitReview.commentsView",
+          "group": "2_filter@5"
+        },
+        {
+          "command": "commitReview.comments.filter.dismissed",
+          "when": "view == commitReview.commentsView",
+          "group": "2_filter@6"
         }
       ],
       "view/item/context": [

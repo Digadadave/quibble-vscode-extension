@@ -1,0 +1,17 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "TypeScript Watch",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": ["run", "watch"],
+      "port": 0
+    },
+    {
+      "name": "Color Preview",
+      "runtimeExecutable": "python3",
+      "runtimeArgs": ["-m", "http.server", "7654", "--directory", "/tmp"],
+      "port": 7654
+    }
+  ]
+}

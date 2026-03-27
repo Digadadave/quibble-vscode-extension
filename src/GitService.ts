@@ -312,36 +312,10 @@ export class GitService {
     return raw.split('\n').filter(Boolean);
   }
 
-  /**
-   * Returns the merge-base commit hash between this branch and the default branch.
-   *
-   * After merging the default branch INTO the feature branch, the standard
-   * `git merge-base` advances to the tip of the default branch — losing
-   * the branch's original fork point.  To handle this, we walk only
-   * first-parent links from `branch` and find the oldest commit that is NOT
-   * reachable from the default branch.  Its parent is the original fork
-   * point, even after merge commits.
-   */
+  /** Returns the merge-base commit hash between this branch and the default branch. */
   getMergeBase(branch: string): string {
     const defaultRef = this.findDefaultRef();
     if (!defaultRef) return '';
-
-    // Walk first-parent commits unique to this branch (oldest first).
-    const revList = exec(
-      `git rev-list --first-parent --reverse "${branch}" --not "${defaultRef}"`,
-      this.repoPath,
-    );
-    if (revList) {
-      const firstCommit = revList.split('\n')[0];
-      if (firstCommit) {
-        const parent = exec(`git rev-parse --verify "${firstCommit}^"`, this.repoPath);
-        if (parent) return parent;
-        // Root commit (no parent) — use the commit itself as the base.
-        return firstCommit;
-      }
-    }
-
-    // Fallback: standard merge-base (e.g. when branch IS the default branch).
     return exec(`git merge-base "${branch}" "${defaultRef}"`, this.repoPath);
   }
 
