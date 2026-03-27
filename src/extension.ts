@@ -121,6 +121,8 @@ export function activate(context: vscode.ExtensionContext): void {
     const hashes = activeGit.getBranchCommitHashes(branch);
     const panel  = DiffPanel.createOrShow(context, activeGit, activeComments);
     panel.onCommentMutation = refreshAll;
+    panel.onSelectRepo = () => vscode.commands.executeCommand('commitReview.selectRepo');
+    panel.setRepoInfo(path.basename(activeGit.getRepoPath()), discoverAllRepos().length);
     panel.showBranchDiff(base, head, hashes);
     panel.focusFile(file);
   };
@@ -130,6 +132,8 @@ export function activate(context: vscode.ExtensionContext): void {
     if (!activeGit || !activeComments) return;
     const panel = DiffPanel.createOrShow(context, activeGit, activeComments);
     panel.onCommentMutation = refreshAll;
+    panel.onSelectRepo = () => vscode.commands.executeCommand('commitReview.selectRepo');
+    panel.setRepoInfo(path.basename(activeGit.getRepoPath()), discoverAllRepos().length);
     panel.showSelection([hash]);
     panel.focusFile(file);
   };
@@ -319,7 +323,14 @@ export function activate(context: vscode.ExtensionContext): void {
 
     refreshAll();
 
-    const repoName = path.basename(repoPath);
+    const repoName  = path.basename(repoPath);
+    const repoCount = discoverAllRepos().length;
+    const diffPanel = DiffPanel.getInstance();
+    if (diffPanel) {
+      diffPanel.onSelectRepo = () => vscode.commands.executeCommand('commitReview.selectRepo');
+      diffPanel.setRepoInfo(repoName, repoCount);
+    }
+
     vscode.window.showInformationMessage(`Commit Review: switched to ${repoName}`);
   }
 

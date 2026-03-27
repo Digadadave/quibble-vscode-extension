@@ -22,6 +22,10 @@ const state = {
   currentNewestShort: '',
   /** @type {string} Git user name for display (fallback: 'reviewer') */
   gitUserName: 'reviewer',
+  /** @type {string} Active repo folder name */
+  repoName: '',
+  /** @type {number} Number of discovered repos (show button only when > 1) */
+  repoCount: 1,
 };
 
 let pendingCommentFile = '';
@@ -59,6 +63,8 @@ window.addEventListener('message', (/** @type {MessageEvent} */ event) => {
       state.comments       = msg.comments       ?? [];
       state.selectedHashes = new Set(msg.selectedHashes ?? []);
       if (msg.gitUserName) state.gitUserName = msg.gitUserName;
+      if (msg.repoName  !== undefined) state.repoName  = msg.repoName;
+      if (msg.repoCount !== undefined) state.repoCount = msg.repoCount;
       renderTopBar();
       renderDiff();
       break;
@@ -70,9 +76,16 @@ window.addEventListener('message', (/** @type {MessageEvent} */ event) => {
       state.selectedHashes      = new Set(msg.selectedHashes ?? []);
       state.comments            = msg.comments      ?? state.comments;
       if (msg.gitUserName) state.gitUserName = msg.gitUserName;
+      if (msg.repoName  !== undefined) state.repoName  = msg.repoName;
+      if (msg.repoCount !== undefined) state.repoCount = msg.repoCount;
       renderTopBar();
       renderDiff();
       if (msg.focusCommentId) scrollToComment(/** @type {string} */ (msg.focusCommentId));
+      break;
+    case 'repoInfo':
+      state.repoName  = msg.repoName  ?? '';
+      state.repoCount = msg.repoCount ?? 1;
+      updateRepoButton();
       break;
     case 'focusFile':
       if (msg.file) scrollToFile(/** @type {string} */ (msg.file));
@@ -114,6 +127,10 @@ document.addEventListener('click', (/** @type {MouseEvent} */ e) => {
     switch (action) {
       case 'toggle-reviewed':
         toggleMarkReviewed();
+        break;
+
+      case 'select-repo':
+        vscode.postMessage({ type: 'selectRepo' });
         break;
 
       case 'close-composer':
@@ -426,6 +443,20 @@ function renderTopBar() {
   if (btn) {
     btn.textContent = allReviewed ? '\u2713 Reviewed' : 'Mark as reviewed';
     btn.classList.toggle('reviewed', allReviewed);
+  }
+
+  updateRepoButton();
+}
+
+/** Show/hide and label the repo-selector button based on current state. */
+function updateRepoButton() {
+  const repoBtn = /** @type {HTMLElement|null} */ (document.getElementById('repo-select-btn'));
+  if (!repoBtn) return;
+  if (state.repoCount > 1) {
+    repoBtn.style.display = '';
+    repoBtn.textContent = state.repoName || 'Select Repo';
+  } else {
+    repoBtn.style.display = 'none';
   }
 }
 
