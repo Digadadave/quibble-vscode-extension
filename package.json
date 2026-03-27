@@ -7,8 +7,12 @@
   "engines": {
     "vscode": "^1.85.0"
   },
-  "categories": ["Other"],
-  "activationEvents": ["onStartupFinished"],
+  "categories": [
+    "Other"
+  ],
+  "activationEvents": [
+    "onStartupFinished"
+  ],
   "main": "./out/extension.js",
   "contributes": {
     "commands": [
@@ -44,7 +48,7 @@
       {
         "command": "commitReview.comment.close",
         "title": "Close",
-        "icon": "$(archive)",
+        "icon": "$(verified-filled)",
         "category": "Commit Review"
       },
       {
@@ -73,13 +77,13 @@
       {
         "command": "commitReview.comments.resolve",
         "title": "Resolve",
-        "icon": "$(pass-filled)",
+        "icon": "$(check)",
         "category": "Commit Review"
       },
       {
         "command": "commitReview.comments.dismiss",
         "title": "Dismiss",
-        "icon": "$(circle-slash)",
+        "icon": "$(sync-ignored)",
         "category": "Commit Review"
       },
       {
@@ -122,12 +126,6 @@
         "command": "commitReview.comments.filterClosed",
         "title": "Show Closed Comments",
         "icon": "$(pass-filled)",
-        "category": "Commit Review"
-      },
-      {
-        "command": "commitReview.comments.cycleFilter",
-        "title": "Cycle Filter",
-        "icon": "$(filter)",
         "category": "Commit Review"
       },
       {
@@ -185,7 +183,32 @@
         }
       }
     },
+    "submenus": [
+      {
+        "id": "commitReview.filterMenu",
+        "label": "Filter Comments",
+        "icon": "$(filter)"
+      }
+    ],
     "menus": {
+      "commitReview.filterMenu": [
+        {
+          "command": "commitReview.comments.filterAll",
+          "group": "1@1"
+        },
+        {
+          "command": "commitReview.comments.filterOpen",
+          "group": "1@2"
+        },
+        {
+          "command": "commitReview.comments.filterNeedsInput",
+          "group": "1@3"
+        },
+        {
+          "command": "commitReview.comments.filterClosed",
+          "group": "1@4"
+        }
+      ],
       "view/title": [
         {
           "command": "commitReview.selectRepo",
@@ -208,29 +231,9 @@
           "group": "navigation@0"
         },
         {
-          "command": "commitReview.comments.cycleFilter",
+          "submenu": "commitReview.filterMenu",
           "when": "view == commitReview.commentsView",
           "group": "navigation"
-        },
-        {
-          "command": "commitReview.comments.filterAll",
-          "when": "view == commitReview.commentsView",
-          "group": "1_filter@1"
-        },
-        {
-          "command": "commitReview.comments.filterOpen",
-          "when": "view == commitReview.commentsView",
-          "group": "1_filter@2"
-        },
-        {
-          "command": "commitReview.comments.filterNeedsInput",
-          "when": "view == commitReview.commentsView",
-          "group": "1_filter@3"
-        },
-        {
-          "command": "commitReview.comments.filterClosed",
-          "when": "view == commitReview.commentsView",
-          "group": "1_filter@4"
         }
       ],
       "view/item/context": [

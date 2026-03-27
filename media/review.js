@@ -58,6 +58,13 @@ const EXPANDER_PX_PER_LINE = 18;
 window.addEventListener('message', (/** @type {MessageEvent} */ event) => {
   const msg = event.data;
   switch (msg.type) {
+    case 'loading': {
+      state.selectedHashes  = new Set();
+      state.currentDiff     = [];
+      const main = document.getElementById('main');
+      if (main) main.innerHTML = '<div class="empty-state"><p>Loading\u2026</p></div>';
+      break;
+    }
     case 'load':
       // Refresh comments + selected set (sent after any comment mutation)
       state.comments       = msg.comments       ?? [];
@@ -799,7 +806,7 @@ function renderThreadRow(comment, colspan) {
   const STATUS_OPTIONS = [
     { status: 'open',      icon: 'comment-unresolved', label: 'Reopen',   cssVar: '--status-open' },
     { status: 'addressed', icon: 'check',              label: 'Addressed', cssVar: '--status-addressed' },
-    { status: 'closed',    icon: 'archive',            label: 'Close',    cssVar: '--status-closed' },
+    { status: 'closed',    icon: 'verified-filled',    label: 'Close',    cssVar: '--status-closed' },
     { status: 'dismissed', icon: 'sync-ignored',       label: 'Dismiss',  cssVar: '--status-dismissed' },
   ];
   let actionButtons = STATUS_OPTIONS

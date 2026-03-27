@@ -18,8 +18,8 @@ const STATUS_META: Record<string, StatusMeta> = {
   'agent-replied': { label: 'Agent Replied',  icon: 'comment-discussion',         color: new vscode.ThemeColor('terminal.ansiMagenta') },
   'in-progress':   { label: 'In Progress',   icon: 'comment-discussion',          color: new vscode.ThemeColor('terminal.ansiMagenta') },
   'addressed':     { label: 'Addressed',     icon: 'check',                       color: new vscode.ThemeColor('testing.iconPassed') },
-  'closed':        { label: 'Closed',        icon: 'archive',                     color: new vscode.ThemeColor('descriptionForeground') },
-  'resolved':      { label: 'Resolved',      icon: 'archive',                     color: new vscode.ThemeColor('descriptionForeground') },
+  'closed':        { label: 'Closed',        icon: 'verified-filled',                     color: new vscode.ThemeColor('descriptionForeground') },
+  'resolved':      { label: 'Resolved',      icon: 'verified-filled',                     color: new vscode.ThemeColor('descriptionForeground') },
   'dismissed':     { label: 'Dismissed',     icon: 'sync-ignored',                color: new vscode.ThemeColor('disabledForeground') },
   'outdated':      { label: 'Outdated',      icon: 'sync-ignored',                color: new vscode.ThemeColor('disabledForeground') },
 };
@@ -235,11 +235,6 @@ export class CommentsView implements vscode.TreeDataProvider<vscode.TreeItem>, v
       vscode.commands.registerCommand('commitReview.comments.filterOpen', () => this.setFilter('open')),
       vscode.commands.registerCommand('commitReview.comments.filterNeedsInput', () => this.setFilter('needs-input')),
       vscode.commands.registerCommand('commitReview.comments.filterClosed', () => this.setFilter('closed')),
-      vscode.commands.registerCommand('commitReview.comments.cycleFilter', () => {
-        const order: Filter[] = ['all', 'open', 'needs-input', 'closed'];
-        const idx = order.indexOf(this.filter);
-        this.setFilter(order[(idx + 1) % order.length]);
-      }),
     );
 
     this.updateViewDescription();
@@ -293,7 +288,13 @@ export class CommentsView implements vscode.TreeDataProvider<vscode.TreeItem>, v
 
   // ── Data ──────────────────────────────────────────────────────────────────
 
+  /** Show loading state immediately (call before slow work begins). */
+  showLoading(): void {
+    if (this.treeView) { this.treeView.message = 'Loading…'; }
+  }
+
   refresh(): void {
+    if (this.treeView) { this.treeView.message = undefined; }
     this._onDidChangeTreeData.fire();
     this.updateViewDescription();
     this.updateViewBadge();
