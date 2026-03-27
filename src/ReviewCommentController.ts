@@ -127,7 +127,7 @@ export class ReviewCommentController implements vscode.Disposable {
       ? vscode.CommentThreadCollapsibleState.Collapsed
       : vscode.CommentThreadCollapsibleState.Expanded;
     thread.contextValue       = `status:${rc.status}`;
-    thread.canReply           = false;
+    thread.canReply           = true;
     thread.comments           = this.buildComments(rc);
 
     this.threads.set(rc.id, thread);
