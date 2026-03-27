@@ -13,7 +13,7 @@ const STATUS_LABELS: Record<string, string> = {
   'in-progress':   'In Progress',
   'needs-input':   'Needs Input',
   'addressed':     'Addressed',
-  'closed':        'Closed',
+  'approved':      'Approved',
   'resolved':      'Resolved',
   'dismissed':     'Dismissed',
   'outdated':      'Outdated',
@@ -193,8 +193,8 @@ export class ReviewCommentController implements vscode.Disposable {
       case 'agent-replied':
       case 'in-progress':   return this.mediaUri(ICON_FILES.STATUS_REPLIED);
       case 'addressed':     return this.mediaUri(ICON_FILES.STATUS_ADDRESSED);
-      case 'closed':
-      case 'resolved':      return this.mediaUri(ICON_FILES.STATUS_CLOSED);
+      case 'approved':
+      case 'resolved':      return this.mediaUri(ICON_FILES.STATUS_APPROVED);
       case 'dismissed':
       case 'outdated':      return this.mediaUri(ICON_FILES.STATUS_DISMISSED);
       default:              return this.mediaUri(ICON_FILES.STATUS_DEFAULT);
@@ -202,7 +202,7 @@ export class ReviewCommentController implements vscode.Disposable {
   }
 
   private isClosed(status: string): boolean {
-    return ['closed', 'resolved', 'dismissed', 'outdated'].includes(status);
+    return ['approved', 'resolved', 'dismissed', 'outdated'].includes(status);
   }
 
   // ── Snapshot capture ─────────────────────────────────────────────────────
@@ -300,7 +300,7 @@ export class ReviewCommentController implements vscode.Disposable {
 
     context.subscriptions.push(
       vscode.commands.registerCommand('commitReview.comment.resolve', makeStatusAction('addressed')),
-      vscode.commands.registerCommand('commitReview.comment.close',   makeStatusAction('dismissed')),
+      vscode.commands.registerCommand('commitReview.comment.close',   makeStatusAction('approved')),
       vscode.commands.registerCommand('commitReview.comment.dismiss', makeStatusAction('dismissed')),
       vscode.commands.registerCommand('commitReview.comment.reopen',  makeStatusAction('open')),
     );

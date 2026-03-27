@@ -4,7 +4,7 @@ import { ICONS, STATUS_COLORS } from './icons';
 
 // ── Status metadata ──────────────────────────────────────────────────────────
 
-const CLOSED_STATUSES = new Set<CommentStatus>(['resolved', 'dismissed', 'outdated']);
+const CLOSED_STATUSES = new Set<CommentStatus>(['approved', 'resolved', 'dismissed', 'outdated']);
 
 interface StatusMeta {
   label: string;
@@ -19,8 +19,8 @@ const STATUS_META: Record<string, StatusMeta> = {
   'agent-replied': { label: 'Agent Replied', icon: ICONS.COMMENT_DISCUSSION, color: new vscode.ThemeColor(STATUS_COLORS.replied.token) },
   'in-progress':   { label: 'In Progress',   icon: ICONS.COMMENT_DISCUSSION, color: new vscode.ThemeColor(STATUS_COLORS.replied.token) },
   'addressed':     { label: 'Addressed',     icon: ICONS.CHECK,              color: new vscode.ThemeColor(STATUS_COLORS.addressed.token) },
-  'closed':        { label: 'Closed',        icon: ICONS.CHECK_ALL,          color: new vscode.ThemeColor(STATUS_COLORS.closed.token) },
-  'resolved':      { label: 'Resolved',      icon: ICONS.CHECK_ALL,          color: new vscode.ThemeColor(STATUS_COLORS.closed.token) },
+  'approved':      { label: 'Approved',      icon: ICONS.CHECK_ALL,          color: new vscode.ThemeColor(STATUS_COLORS.approved.token) },
+  'resolved':      { label: 'Resolved',      icon: ICONS.CHECK_ALL,          color: new vscode.ThemeColor(STATUS_COLORS.approved.token) },
   'dismissed':     { label: 'Dismissed',     icon: ICONS.SYNC_IGNORED,       color: new vscode.ThemeColor(STATUS_COLORS.dismissed.token) },
   'outdated':      { label: 'Outdated',      icon: ICONS.SYNC_IGNORED,       color: new vscode.ThemeColor(STATUS_COLORS.dismissed.token) },
 };
@@ -33,7 +33,7 @@ const FILTER_GROUPS = [
   { id: 'question',  label: 'Question / Needs Input', icon: ICONS.QUESTION,           statuses: ['question', 'needs-input'] },
   { id: 'replied',   label: 'Agent Replied',          icon: ICONS.COMMENT_DISCUSSION, statuses: ['agent-replied', 'in-progress'] },
   { id: 'addressed', label: 'Addressed',              icon: ICONS.CHECK,              statuses: ['addressed'] },
-  { id: 'closed',    label: 'Closed / Resolved',      icon: ICONS.CHECK_ALL,          statuses: ['closed', 'resolved'] },
+  { id: 'approved',  label: 'Approved / Resolved',    icon: ICONS.CHECK_ALL,          statuses: ['approved', 'resolved'] },
   { id: 'dismissed', label: 'Dismissed / Outdated',   icon: ICONS.SYNC_IGNORED,       statuses: ['dismissed', 'outdated'] },
 ] as const;
 
@@ -82,7 +82,7 @@ export class CommentTreeItem extends vscode.TreeItem {
 
     // Context value for menu filtering
     const isClosed = CLOSED_STATUSES.has(comment.status);
-    this.contextValue = isClosed ? 'comment-closed'
+    this.contextValue = isClosed ? 'comment-approved'
       : comment.status === 'addressed' ? 'comment-addressed'
       : 'comment-open';
 

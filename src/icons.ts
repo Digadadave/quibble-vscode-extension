@@ -46,7 +46,7 @@ export const STATUS_COLORS = {
   question:  { token: 'editorWarning.foreground', fallback: '#c08060', bgFallback: 'rgba(192,128,96,0.15)'  },
   replied:   { token: 'terminal.ansiMagenta',     fallback: '#a78bca', bgFallback: 'rgba(167,139,202,0.15)' },
   addressed: { token: 'testing.iconPassed',       fallback: '#73a66c', bgFallback: 'rgba(115,166,108,0.15)' },
-  closed:    { token: 'testing.iconPassed',       fallback: '#73a66c', bgFallback: 'rgba(115,166,108,0.15)' },
+  approved:  { token: 'testing.iconPassed',       fallback: '#8bbc85', bgFallback: 'rgba(139,188,133,0.15)' },
   dismissed: { token: 'disabledForeground',       fallback: '#888888', bgFallback: 'rgba(136,136,136,0.15)' },
 } as const;
 
@@ -77,7 +77,7 @@ export const ICON_FILES = {
   STATUS_QUESTION:  'icon-status-question.svg',
   STATUS_REPLIED:   'icon-status-replied.svg',
   STATUS_ADDRESSED: 'icon-status-addressed.svg',
-  STATUS_CLOSED:    'icon-status-closed.svg',
+  STATUS_APPROVED:  'icon-status-approved.svg',
   STATUS_DISMISSED: 'icon-status-dismissed.svg',
   STATUS_DEFAULT:   'icon-status-default.svg',
 } as const;

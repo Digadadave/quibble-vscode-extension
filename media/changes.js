@@ -104,7 +104,12 @@
 
   function getFolder(filePath) {
     const parts = filePath.split('/');
-    return parts.length > 1 ? parts.slice(0, -1).join('/') : '';
+    if (parts.length <= 1) return '';
+    const folderParts = parts.slice(0, -1);
+    // Show at most 2 levels of parent depth
+    return folderParts.length > 2
+      ? '\u2026/' + folderParts.slice(-2).join('/')
+      : folderParts.join('/');
   }
 
   /** Show plain number up to 9; show "+9" (with plus) only when capped. */

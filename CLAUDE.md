@@ -39,7 +39,7 @@ Current status → color mapping (from `STATUS_COLORS`):
 | question   | coral      | `#c08060` |
 | replied    | purple     | `#a78bca` |
 | addressed  | green      | `#73a66c` |
-| closed     | green      | `#73a66c` |
+| approved   | faded green| `#8bbc85` |
 | dismissed  | grey       | `#888888` |
 
 ### CSS variables
@@ -48,7 +48,7 @@ Current status → color mapping (from `STATUS_COLORS`):
 - All other theme colors in CSS use `var(--vscode-*)` tokens with hex fallbacks
 
 ## Comment Status Model
-`CommentStatus = 'open' | 'in-progress' | 'needs-input' | 'addressed' | 'resolved' | 'dismissed' | 'outdated'`
+`CommentStatus = 'open' | 'in-progress' | 'needs-input' | 'addressed' | 'approved' | 'resolved' | 'dismissed' | 'outdated'`
 
 The `STATUS_META` record in `CommentsView.ts` maps each status to a `{ label, icon, color }`.
 The `FILTER_GROUPS` array groups related statuses for the multi-select filter picker.

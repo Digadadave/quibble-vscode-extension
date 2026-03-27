@@ -18,7 +18,7 @@ const ICONS = {
 const STATUS_OPTIONS = [
   { status: 'open',      icon: ICONS.COMMENT_UNRESOLVED, label: 'Reopen',   cssVar: '--status-open' },
   { status: 'addressed', icon: ICONS.CHECK,              label: 'Addressed', cssVar: '--status-addressed' },
-  { status: 'closed',    icon: ICONS.CHECK_ALL,          label: 'Close',    cssVar: '--status-closed' },
+  { status: 'approved',  icon: ICONS.CHECK_ALL,          label: 'Approve',  cssVar: '--status-approved' },
   { status: 'dismissed', icon: ICONS.SYNC_IGNORED,       label: 'Dismiss',  cssVar: '--status-dismissed' },
 ];
 
