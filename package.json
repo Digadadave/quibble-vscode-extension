@@ -107,32 +107,38 @@
       {
         "command": "commitReview.comments.filter.open",
         "title": "Open",
-        "category": "Commit Review"
+        "category": "Commit Review",
+        "toggled": "commitReview.filter.open"
       },
       {
         "command": "commitReview.comments.filter.question",
         "title": "Question / Needs Input",
-        "category": "Commit Review"
+        "category": "Commit Review",
+        "toggled": "commitReview.filter.question"
       },
       {
         "command": "commitReview.comments.filter.replied",
         "title": "Agent Replied",
-        "category": "Commit Review"
+        "category": "Commit Review",
+        "toggled": "commitReview.filter.replied"
       },
       {
         "command": "commitReview.comments.filter.addressed",
         "title": "Addressed",
-        "category": "Commit Review"
+        "category": "Commit Review",
+        "toggled": "commitReview.filter.addressed"
       },
       {
         "command": "commitReview.comments.filter.closed",
         "title": "Closed / Resolved",
-        "category": "Commit Review"
+        "category": "Commit Review",
+        "toggled": "commitReview.filter.closed"
       },
       {
         "command": "commitReview.comments.filter.dismissed",
         "title": "Dismissed / Outdated",
-        "category": "Commit Review"
+        "category": "Commit Review",
+        "toggled": "commitReview.filter.dismissed"
       },
       {
         "command": "commitReview.remapOrphans",
@@ -200,33 +206,27 @@
       "commitReview.filterMenu": [
         {
           "command": "commitReview.comments.filter.open",
-          "group": "1@1",
-          "checked": "commitReview.filter.open"
+          "group": "1@1"
         },
         {
           "command": "commitReview.comments.filter.question",
-          "group": "1@2",
-          "checked": "commitReview.filter.question"
+          "group": "1@2"
         },
         {
           "command": "commitReview.comments.filter.replied",
-          "group": "1@3",
-          "checked": "commitReview.filter.replied"
+          "group": "1@3"
         },
         {
           "command": "commitReview.comments.filter.addressed",
-          "group": "1@4",
-          "checked": "commitReview.filter.addressed"
+          "group": "1@4"
         },
         {
           "command": "commitReview.comments.filter.closed",
-          "group": "1@5",
-          "checked": "commitReview.filter.closed"
+          "group": "1@5"
         },
         {
           "command": "commitReview.comments.filter.dismissed",
-          "group": "1@6",
-          "checked": "commitReview.filter.dismissed"
+          "group": "1@6"
         }
       ],
       "view/title": [
