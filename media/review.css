@@ -14,12 +14,8 @@
   --del-num: var(--vscode-diffEditor-removedLineBackground, rgba(218, 54, 51, 0.35));
   --thread-bg: var(--vscode-editorWidget-background, #252526);
   --agent-accent: #a78bca;
-  --status-open: #6c9bcf;
-  --status-question: #c08060;
-  --status-replied: #a78bca;
-  --status-addressed: #73a66c;
-  --status-closed: #8a8a9e;
-  --status-dismissed: #888888;
+  /* --status-* and --status-*-bg are injected at runtime by buildStatusCssVars()
+     in icons.ts, keeping webview colors in sync with vscode.ThemeColor tokens. */
   --font-mono: var(--vscode-editor-font-family, 'Consolas', monospace);
   --font-ui: var(--vscode-font-family, system-ui, sans-serif);
   --font-size: var(--vscode-editor-font-size, 13px);
@@ -324,10 +320,10 @@ body {
   font-weight: 600;
   border: 1px solid transparent;
 }
-.badge.open     { background: rgba(108,155,207,0.15);  border-color: var(--status-open);      color: var(--status-open); }
-.badge.question { background: rgba(192,128,96,0.15);  border-color: var(--status-question); color: var(--status-question); }
-.badge.replied  { background: rgba(167,139,202,0.15); border-color: var(--status-replied);  color: var(--status-replied); }
-.badge.addressed{ background: rgba(115,166,108,0.15); border-color: var(--status-addressed); color: var(--status-addressed); }
+.badge.open     { background: var(--status-open-bg);      border-color: var(--status-open);      color: var(--status-open); }
+.badge.question { background: var(--status-question-bg);  border-color: var(--status-question);  color: var(--status-question); }
+.badge.replied  { background: var(--status-replied-bg);   border-color: var(--status-replied);   color: var(--status-replied); }
+.badge.addressed{ background: var(--status-addressed-bg); border-color: var(--status-addressed); color: var(--status-addressed); }
 
 .selected-label {
   font-size: 11px;
@@ -595,13 +591,13 @@ tr.del-line .line-num.old { background: var(--del-num); }
   padding: 2px 6px;
   border-radius: 3px;
 }
-.thread-status.open          { background: rgba(108,155,207,0.2);  color: var(--status-open); }
-.thread-status.question      { background: rgba(192,128,96,0.2);   color: var(--status-question); }
-.thread-status.agent-replied { background: rgba(167,139,202,0.2); color: var(--status-replied); }
-.thread-status.addressed     { background: rgba(115,166,108,0.2); color: var(--status-addressed); }
-.thread-status.resolved      { background: rgba(138,138,158,0.2); color: var(--status-closed); }
-.thread-status.closed        { background: rgba(138,138,158,0.2); color: var(--status-closed); }
-.thread-status.dismissed     { background: rgba(136,136,136,0.2); color: var(--status-dismissed); }
+.thread-status.open          { background: var(--status-open-bg);       color: var(--status-open); }
+.thread-status.question      { background: var(--status-question-bg);   color: var(--status-question); }
+.thread-status.agent-replied { background: var(--status-replied-bg);    color: var(--status-replied); }
+.thread-status.addressed     { background: var(--status-addressed-bg);  color: var(--status-addressed); }
+.thread-status.resolved      { background: var(--status-closed-bg);     color: var(--status-closed); }
+.thread-status.closed        { background: var(--status-closed-bg);     color: var(--status-closed); }
+.thread-status.dismissed     { background: var(--status-dismissed-bg);  color: var(--status-dismissed); }
 
 .thread-body {
   font-size: 13px;
@@ -699,9 +695,9 @@ tr.del-line .line-num.old { background: var(--del-num); }
 .btn.primary { background: var(--accent); color: var(--accent-fg); border-color: var(--accent); }
 .btn.primary:hover { opacity: 0.85; }
 .btn.danger  { border-color: var(--status-open);      color: var(--status-open); }
-.btn.danger:hover  { background: rgba(108,155,207,0.15); }
+.btn.danger:hover  { background: var(--status-open-bg); }
 .btn.success { border-color: var(--status-addressed); color: var(--status-addressed); }
-.btn.success:hover { background: rgba(115,166,108,0.15); }
+.btn.success:hover { background: var(--status-addressed-bg); }
 
 /* ── Inline comment composer ─────────────────────────────────────────────── */
 
@@ -1005,14 +1001,15 @@ tr.split-add .line-content.old { background: transparent; }
 .thread-question-actions { display: flex; gap: 8px; justify-content: flex-end; }
 
 /* ── Status indicator overrides ───────────────────────────────────────────── */
-.thread-status.question { background: rgba(192,128,96,0.2); color: var(--status-question); }
-.badge.question { background: rgba(192,128,96,0.15); border-color: var(--status-question); color: var(--status-question); }
-.sidebar-comment-status.question { background: rgba(192,128,96,0.2); color: var(--status-question); }
-.sidebar-comment-status.agent-replied { background: rgba(167,139,202,0.2); color: var(--status-replied); }
-.sidebar-comment-status.addressed { background: rgba(115,166,108,0.2); color: var(--status-addressed); }
+.thread-status.question { background: var(--status-question-bg); color: var(--status-question); }
+.badge.question { background: var(--status-question-bg); border-color: var(--status-question); color: var(--status-question); }
+.sidebar-comment-status.open     { background: var(--status-open-bg);       color: var(--status-open); }
+.sidebar-comment-status.question { background: var(--status-question-bg);   color: var(--status-question); }
+.sidebar-comment-status.agent-replied { background: var(--status-replied-bg); color: var(--status-replied); }
+.sidebar-comment-status.addressed { background: var(--status-addressed-bg); color: var(--status-addressed); }
 .sidebar-comment-status.closed,
-.sidebar-comment-status.resolved { background: rgba(138,138,158,0.2); color: var(--status-closed); }
-.sidebar-comment-status.dismissed { background: rgba(136,136,136,0.2); color: var(--status-dismissed); }
+.sidebar-comment-status.resolved { background: var(--status-closed-bg);     color: var(--status-closed); }
+.sidebar-comment-status.dismissed { background: var(--status-dismissed-bg); color: var(--status-dismissed); }
 
 /* ── Hunk expander row ────────────────────────────────────────────────────── */
 

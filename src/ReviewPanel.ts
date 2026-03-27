@@ -1,6 +1,7 @@
 import * as vscode from 'vscode';
 import * as path from 'path';
 import { GitService, GitCommit, FileWithStats } from './GitService';
+import { buildStatusCssVars } from './icons';
 
 export class ReviewPanel implements vscode.WebviewViewProvider, vscode.Disposable {
   static readonly viewType = 'commitReview.reviewView';
@@ -44,6 +45,11 @@ export class ReviewPanel implements vscode.WebviewViewProvider, vscode.Disposabl
   updateServices(git: GitService): void {
     this.git = git;
     this.sendCommits();
+  }
+
+  /** Show loading state immediately (call before slow work begins). */
+  showLoading(): void {
+    this._view?.webview.postMessage({ type: 'loading' });
   }
 
   // ── WebviewViewProvider ───────────────────────────────────────────────────
@@ -117,6 +123,7 @@ export class ReviewPanel implements vscode.WebviewViewProvider, vscode.Disposabl
              style-src ${webview.cspSource} 'unsafe-inline';
              script-src 'nonce-${nonce}';">
   <link href="${cssUri}" rel="stylesheet">
+  ${buildStatusCssVars()}
   <style>
     body { overflow: hidden; display: flex; flex-direction: column; height: 100vh; }
     #sidebar { width: 100% !important; max-width: 100% !important; min-width: 0 !important; height: 100%; }

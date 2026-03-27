@@ -8,6 +8,7 @@ import { ChangesView } from './ChangesView';
 import { DiffPanel } from './DiffPanel';
 import { GitContentProvider } from './GitContentProvider';
 import { ReviewCommentController } from './ReviewCommentController';
+import { ICONS } from './icons';
 
 // ── Mutable active-repo state ────────────────────────────────────────────────
 
@@ -276,6 +277,12 @@ export function activate(context: vscode.ExtensionContext): void {
 
   // ── Switch to a repo ──────────────────────────────────────────────────────
   function switchToRepo(repoPath: string): void {
+    // Show loading state in all panels immediately
+    activeReviewPanel?.showLoading();
+    activeChangesView?.showLoading();
+    activeCommentsView?.showLoading();
+    DiffPanel.getInstance()?.showLoading();
+
     // Tear down previous watchers
     for (const d of gitFsWatchers) d.dispose();
     gitFsWatchers = [];
@@ -381,7 +388,7 @@ export function activate(context: vscode.ExtensionContext): void {
       const commits = activeGit.getCommitsForBranch(branch, 50);
 
       const items = commits.map(c => ({
-        label: `$(git-commit) ${c.shortHash}`,
+        label: `$(${ICONS.GIT_COMMIT}) ${c.shortHash}`,
         description: c.message,
         detail: c.date,
         hash: c.hash,
@@ -396,7 +403,7 @@ export function activate(context: vscode.ExtensionContext): void {
         activeComments.remapOrphans(picked.hash);
         refreshAll();
         vscode.window.showInformationMessage(
-          `Remapped ${count} comment(s) to ${picked.label.replace('$(git-commit) ', '')}.`,
+          `Remapped ${count} comment(s) to ${picked.label.replace(`$(${ICONS.GIT_COMMIT}) `, '')}.`,
         );
       }
     }),
@@ -501,14 +508,14 @@ function discoverAllRepos(): string[] {
 function updateStatusBar(): void {
   if (!statusBar) return;
   if (!activeGit) {
-    statusBar.text = '$(git-pull-request) Select Repo';
+    statusBar.text = `$(${ICONS.GIT_PULL_REQUEST}) Select Repo`;
     statusBar.show();
     return;
   }
   const repoName = path.basename(activeGit.getRepoPath());
   const open = activeComments?.getOpenComments() ?? [];
   statusBar.text = open.length > 0
-    ? `$(comment) ${repoName}: ${open.length} comment${open.length !== 1 ? 's' : ''}`
-    : `$(git-pull-request) ${repoName}`;
+    ? `$(${ICONS.COMMENT}) ${repoName}: ${open.length} comment${open.length !== 1 ? 's' : ''}`
+    : `$(${ICONS.GIT_PULL_REQUEST}) ${repoName}`;
   statusBar.show();
 }

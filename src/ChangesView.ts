@@ -2,6 +2,7 @@ import * as vscode from 'vscode';
 import * as path from 'path';
 import { GitService } from './GitService';
 import { CommentManager } from './CommentManager';
+import { buildStatusCssVars } from './icons';
 
 export class ChangesView implements vscode.WebviewViewProvider, vscode.Disposable {
   static readonly viewType = 'commitReview.changesView';
@@ -54,6 +55,11 @@ export class ChangesView implements vscode.WebviewViewProvider, vscode.Disposabl
     this.git = git;
     this.comments = comments;
     this.refresh();
+  }
+
+  /** Show loading state immediately (call before slow work begins). */
+  showLoading(): void {
+    this._view?.webview.postMessage({ type: 'loading' });
   }
 
   // ── WebviewViewProvider ───────────────────────────────────────────────────
@@ -144,6 +150,7 @@ export class ChangesView implements vscode.WebviewViewProvider, vscode.Disposabl
              style-src ${webview.cspSource} 'unsafe-inline';
              script-src 'nonce-${nonce}';">
   <link href="${cssUri}" rel="stylesheet">
+  ${buildStatusCssVars()}
   <style>
     body { overflow: hidden; display: flex; flex-direction: column; height: 100vh; margin: 0;
            background: var(--vscode-sideBar-background, #252526);

@@ -51,6 +51,9 @@
   };
   const DEFAULT_ICON = { label: 'F', color: '#888' };
 
+  // Inline SVG icons
+  const SVG_COMMENT = `<svg width="11" height="11" viewBox="0 0 16 16" fill="currentColor"><path d="M1 2.5A1.5 1.5 0 012.5 1h11A1.5 1.5 0 0115 2.5v8A1.5 1.5 0 0113.5 12H9l-3.5 3.5V12H2.5A1.5 1.5 0 011 10.5v-8z"/></svg>`;
+
   // A/M/D/R status letter colors
   const STATUS_COLORS = {
     A: 'var(--vscode-gitDecoration-addedResourceForeground,   #2ea043)',
@@ -119,6 +122,11 @@
 
   window.addEventListener('message', e => {
     const msg = e.data;
+    if (msg.type === 'loading') {
+      const list = document.getElementById('changes-list');
+      if (list) list.innerHTML = '<div class="ch-empty">Loading\u2026</div>';
+      return;
+    }
     if (msg.type !== 'load') return;
 
     branch = msg.branch || '';
@@ -256,7 +264,7 @@
     // ── Comment badge — RIGHT of folder
     const commentHtml = file.commentCount > 0
       ? `<span class="ch-comment-badge" title="${file.commentCount} comment${file.commentCount !== 1 ? 's' : ''}">`
-        + `<svg width="11" height="11" viewBox="0 0 16 16" fill="currentColor"><path d="M1 2.5A1.5 1.5 0 012.5 1h11A1.5 1.5 0 0115 2.5v8A1.5 1.5 0 0113.5 12H9l-3.5 3.5V12H2.5A1.5 1.5 0 011 10.5v-8z"/></svg>`
+        + SVG_COMMENT
         + `\u00a0${file.commentCount}</span>`
       : '';
 
@@ -317,6 +325,8 @@
       const label = total > 9 ? '+9' : String(total);
       const tip2  = `${total} commit${total !== 1 ? 's' : ''}`;
       html += `<span class="ch-badge ch-badge-more ch-badge-count" title="${tip2}">${label}</span>`;
+    } else {
+      html += `<span class="ch-badge ch-badge-count" style="visibility:hidden" aria-hidden="true">1</span>`;
     }
 
     return html;

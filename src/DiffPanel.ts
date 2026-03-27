@@ -2,6 +2,7 @@ import * as vscode from 'vscode';
 import * as path from 'path';
 import { GitService } from './GitService';
 import { CommentManager, ReviewComment } from './CommentManager';
+import { ICONS, buildStatusCssVars } from './icons';
 
 export class DiffPanel implements vscode.Disposable {
   static readonly viewType = 'commitReview.diff';
@@ -102,6 +103,11 @@ export class DiffPanel implements vscode.Disposable {
   }
 
   /** Update the repo label / count shown in the top bar. */
+  /** Show loading state immediately (call before slow work begins). */
+  showLoading(): void {
+    this.panel.webview.postMessage({ type: 'loading' });
+  }
+
   setRepoInfo(repoName: string, repoCount: number): void {
     this.repoName  = repoName;
     this.repoCount = repoCount;
@@ -341,6 +347,7 @@ export class DiffPanel implements vscode.Disposable {
              style-src ${webview.cspSource} 'unsafe-inline';
              script-src 'nonce-${nonce}';">
   <link href="${cssUri}" rel="stylesheet">
+  ${buildStatusCssVars()}
   <title>Commit Review</title>
 </head>
 <body>
@@ -352,7 +359,7 @@ export class DiffPanel implements vscode.Disposable {
     <span class="badge addressed" id="badge-addressed">0 addressed</span>
     <span id="selected-count" class="selected-label">0 commits selected</span>
   </div>
-  <button id="repo-select-btn" class="btn repo-select-btn" data-action="select-repo" style="display:none" title="Switch repository">$(repo)</button>
+  <button id="repo-select-btn" class="btn repo-select-btn" data-action="select-repo" style="display:none" title="Switch repository"><i class="codicon codicon-${ICONS.REPO}"></i></button>
   <button id="mark-reviewed-btn" data-action="toggle-reviewed">Mark as reviewed</button>
 </div>
 

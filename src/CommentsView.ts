@@ -1,5 +1,6 @@
 import * as vscode from 'vscode';
 import { CommentManager, ReviewComment, CommentStatus } from './CommentManager';
+import { ICONS, STATUS_COLORS } from './icons';
 
 // ── Status metadata ──────────────────────────────────────────────────────────
 
@@ -12,16 +13,16 @@ interface StatusMeta {
 }
 
 const STATUS_META: Record<string, StatusMeta> = {
-  'open':          { label: 'Open',          icon: 'comment-unresolved',          color: new vscode.ThemeColor('editorWarning.foreground') },
-  'question':      { label: 'Question',      icon: 'question',                    color: new vscode.ThemeColor('editorInfo.foreground') },
-  'needs-input':   { label: 'Needs Input',   icon: 'question',                    color: new vscode.ThemeColor('editorInfo.foreground') },
-  'agent-replied': { label: 'Agent Replied',  icon: 'comment-discussion',         color: new vscode.ThemeColor('terminal.ansiMagenta') },
-  'in-progress':   { label: 'In Progress',   icon: 'comment-discussion',          color: new vscode.ThemeColor('terminal.ansiMagenta') },
-  'addressed':     { label: 'Addressed',     icon: 'check',                       color: new vscode.ThemeColor('testing.iconPassed') },
-  'closed':        { label: 'Closed',        icon: 'verified-filled',                     color: new vscode.ThemeColor('descriptionForeground') },
-  'resolved':      { label: 'Resolved',      icon: 'verified-filled',                     color: new vscode.ThemeColor('descriptionForeground') },
-  'dismissed':     { label: 'Dismissed',     icon: 'sync-ignored',                color: new vscode.ThemeColor('disabledForeground') },
-  'outdated':      { label: 'Outdated',      icon: 'sync-ignored',                color: new vscode.ThemeColor('disabledForeground') },
+  'open':          { label: 'Open',          icon: ICONS.COMMENT_UNRESOLVED, color: new vscode.ThemeColor(STATUS_COLORS.open.token) },
+  'question':      { label: 'Question',      icon: ICONS.QUESTION,           color: new vscode.ThemeColor(STATUS_COLORS.question.token) },
+  'needs-input':   { label: 'Needs Input',   icon: ICONS.QUESTION,           color: new vscode.ThemeColor(STATUS_COLORS.question.token) },
+  'agent-replied': { label: 'Agent Replied', icon: ICONS.COMMENT_DISCUSSION, color: new vscode.ThemeColor(STATUS_COLORS.replied.token) },
+  'in-progress':   { label: 'In Progress',   icon: ICONS.COMMENT_DISCUSSION, color: new vscode.ThemeColor(STATUS_COLORS.replied.token) },
+  'addressed':     { label: 'Addressed',     icon: ICONS.CHECK,              color: new vscode.ThemeColor(STATUS_COLORS.addressed.token) },
+  'closed':        { label: 'Closed',        icon: ICONS.CHECK_ALL,          color: new vscode.ThemeColor(STATUS_COLORS.closed.token) },
+  'resolved':      { label: 'Resolved',      icon: ICONS.CHECK_ALL,          color: new vscode.ThemeColor(STATUS_COLORS.closed.token) },
+  'dismissed':     { label: 'Dismissed',     icon: ICONS.SYNC_IGNORED,       color: new vscode.ThemeColor(STATUS_COLORS.dismissed.token) },
+  'outdated':      { label: 'Outdated',      icon: ICONS.SYNC_IGNORED,       color: new vscode.ThemeColor(STATUS_COLORS.dismissed.token) },
 };
 
 // ── Filter types ──────────────────────────────────────────────────────────────
@@ -90,14 +91,14 @@ export class CommentTreeItem extends vscode.TreeItem {
     if (c.thread && c.thread.length > 0) {
       md.appendMarkdown('---\n\n');
       for (const t of c.thread) {
-        const icon = t.author !== 'reviewer' ? '$(hubot)' : '$(person)';
+        const icon = t.author !== 'reviewer' ? `$(${ICONS.HUBOT})` : `$(${ICONS.PERSON})`;
         md.appendMarkdown(`${icon} **${t.author}**: ${t.body}\n\n`);
       }
     }
 
     if (c.resolvedNote) {
       md.appendMarkdown('---\n\n');
-      md.appendMarkdown(`$(hubot) *${c.resolvedNote}*\n`);
+      md.appendMarkdown(`$(${ICONS.HUBOT}) *${c.resolvedNote}*\n`);
     }
 
     if (c.createdAt) {

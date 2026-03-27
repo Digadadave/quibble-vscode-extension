@@ -2,6 +2,7 @@ import * as vscode from 'vscode';
 import { CommentManager, ReviewComment, CommentSnapshot, SnapshotLine } from './CommentManager';
 import { GitContentProvider } from './GitContentProvider';
 import { GitService } from './GitService';
+import { ICON_FILES } from './icons';
 
 // ── Status display labels ────────────────────────────────────────────────────
 
@@ -153,8 +154,8 @@ export class ReviewCommentController implements vscode.Disposable {
         author:    {
           name:     entry.author === 'reviewer' ? this.gitUserName : entry.author,
           iconPath: isAgent
-            ? this.mediaUri('icon-agent.svg')
-            : this.mediaUri('icon-blank.svg'),
+            ? this.mediaUri(ICON_FILES.AGENT)
+            : this.mediaUri(ICON_FILES.BLANK),
         },
         body:      new vscode.MarkdownString(entry.body),
         mode:      vscode.CommentMode.Preview,
@@ -170,7 +171,7 @@ export class ReviewCommentController implements vscode.Disposable {
                       : 'Agent Note';
       items.push({
         reviewId:  rc.id,
-        author:    { name: noteLabel, iconPath: this.mediaUri('icon-agent.svg') },
+        author:    { name: noteLabel, iconPath: this.mediaUri(ICON_FILES.AGENT) },
         body:      new vscode.MarkdownString(rc.resolvedNote),
         mode:      vscode.CommentMode.Preview,
         timestamp: rc.addressedAt ? new Date(rc.addressedAt) : undefined,
@@ -186,17 +187,17 @@ export class ReviewCommentController implements vscode.Disposable {
 
   private statusThemeIcon(status: string): vscode.Uri {
     switch (status) {
-      case 'open':          return this.mediaUri('icon-status-open.svg');
+      case 'open':          return this.mediaUri(ICON_FILES.STATUS_OPEN);
       case 'question':
-      case 'needs-input':   return this.mediaUri('icon-status-question.svg');
+      case 'needs-input':   return this.mediaUri(ICON_FILES.STATUS_QUESTION);
       case 'agent-replied':
-      case 'in-progress':   return this.mediaUri('icon-status-replied.svg');
-      case 'addressed':     return this.mediaUri('icon-status-addressed.svg');
+      case 'in-progress':   return this.mediaUri(ICON_FILES.STATUS_REPLIED);
+      case 'addressed':     return this.mediaUri(ICON_FILES.STATUS_ADDRESSED);
       case 'closed':
-      case 'resolved':      return this.mediaUri('icon-status-closed.svg');
+      case 'resolved':      return this.mediaUri(ICON_FILES.STATUS_CLOSED);
       case 'dismissed':
-      case 'outdated':      return this.mediaUri('icon-status-dismissed.svg');
-      default:              return this.mediaUri('icon-status-default.svg');
+      case 'outdated':      return this.mediaUri(ICON_FILES.STATUS_DISMISSED);
+      default:              return this.mediaUri(ICON_FILES.STATUS_DEFAULT);
     }
   }
 

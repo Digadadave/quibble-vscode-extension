@@ -1,6 +1,7 @@
 import * as vscode from 'vscode';
 import { GitService, GitCommit, ChangedFile } from './GitService';
 import { CommentManager, ReviewComment } from './CommentManager';
+import { ICONS } from './icons';
 
 // ─── Tree item types ────────────────────────────────────────────────────────
 
@@ -53,7 +54,7 @@ export class ReviewTreeProvider implements vscode.TreeDataProvider<ReviewTreeIte
   private getRoots(): ReviewTreeItem[] {
     const branch = this.git.getCurrentBranch();
     const branchNode = new ReviewTreeItem(
-      `$(git-branch) ${branch}`,
+      `$(${ICONS.GIT_BRANCH}) ${branch}`,
       vscode.TreeItemCollapsibleState.Expanded,
       'branch'
     );
@@ -61,7 +62,7 @@ export class ReviewTreeProvider implements vscode.TreeDataProvider<ReviewTreeIte
 
     const openCount = this.comments.getOpenComments().length;
     const commentsNode = new ReviewTreeItem(
-      `$(comment-discussion) Open Comments (${openCount})`,
+      `$(${ICONS.COMMENT_DISCUSSION}) Open Comments (${openCount})`,
       openCount > 0
         ? vscode.TreeItemCollapsibleState.Collapsed
         : vscode.TreeItemCollapsibleState.None,
@@ -78,9 +79,9 @@ export class ReviewTreeProvider implements vscode.TreeDataProvider<ReviewTreeIte
     const commits = this.git.getLog(30);
     return commits.map(commit => {
       const commentCount = this.comments.getCommentsForCommit(commit.hash).length;
-      const badge = commentCount > 0 ? ` $(comment) ${commentCount}` : '';
+      const badge = commentCount > 0 ? ` $(${ICONS.COMMENT}) ${commentCount}` : '';
       const node = new ReviewTreeItem(
-        `$(git-commit) ${commit.shortHash} — ${commit.message}${badge}`,
+        `$(${ICONS.GIT_COMMIT}) ${commit.shortHash} — ${commit.message}${badge}`,
         vscode.TreeItemCollapsibleState.Collapsed,
         'commit',
         { commit }
@@ -106,7 +107,7 @@ export class ReviewTreeProvider implements vscode.TreeDataProvider<ReviewTreeIte
 
     return files.map(file => {
       const count = commentsByFile.get(file.path) ?? 0;
-      const badge = count > 0 ? ` $(comment) ${count}` : '';
+      const badge = count > 0 ? ` $(${ICONS.COMMENT}) ${count}` : '';
       const statusIcon = statusToIcon(file.status);
       const node = new ReviewTreeItem(
         `${statusIcon} ${file.path}${badge}`,
@@ -133,7 +134,7 @@ export class ReviewTreeProvider implements vscode.TreeDataProvider<ReviewTreeIte
         ? comment.body.slice(0, 50) + '…'
         : comment.body;
       const node = new ReviewTreeItem(
-        `$(circle-slash) ${comment.file}:${comment.line} — ${short}`,
+        `$(${ICONS.CIRCLE_SLASH}) ${comment.file}:${comment.line} — ${short}`,
         vscode.TreeItemCollapsibleState.None,
         'comment',
         { comment }
@@ -152,9 +153,9 @@ export class ReviewTreeProvider implements vscode.TreeDataProvider<ReviewTreeIte
 
 function statusToIcon(status: string): string {
   switch (status) {
-    case 'A': return '$(diff-added)';
-    case 'D': return '$(diff-removed)';
-    case 'R': return '$(diff-renamed)';
-    default:  return '$(diff-modified)';
+    case 'A': return `$(${ICONS.DIFF_ADDED})`;
+    case 'D': return `$(${ICONS.DIFF_REMOVED})`;
+    case 'R': return `$(${ICONS.DIFF_RENAMED})`;
+    default:  return `$(${ICONS.DIFF_MODIFIED})`;
   }
 }
