@@ -1136,6 +1136,7 @@ body.expander-resizing { cursor: ns-resize !important; user-select: none; }
   opacity: 0.85;
 }
 
+/* Filename: shrinks last — only truncates after everything else is gone */
 .ch-filename {
   font-size: 12px;
   font-weight: 500;
@@ -1143,35 +1144,37 @@ body.expander-resizing { cursor: ns-resize !important; user-select: none; }
   overflow: hidden;
   text-overflow: ellipsis;
   flex-shrink: 1;
-  min-width: 0;
+  min-width: 40px;
 }
 
-/* Comment badge — right of folder label, clickable */
+/* Comment badge: disappears before stats (priority 3) */
 .ch-comment-badge {
   display: inline-flex;
   align-items: center;
   gap: 2px;
   font-size: 10px;
   color: var(--vscode-descriptionForeground, #888);
-  flex-shrink: 0;
+  flex-shrink: 3;
+  min-width: 0;
+  overflow: hidden;
   cursor: pointer;
 }
 .ch-comment-badge:hover { color: var(--vscode-foreground, #ccc); }
-.ch-comment-badge svg { opacity: 0.7; }
+.ch-comment-badge svg { opacity: 0.7; flex-shrink: 0; }
 
-/* Folder path */
+/* Folder path: disappears first (priority 4) */
 .ch-folder {
   font-size: 11px;
   color: var(--vscode-descriptionForeground, #888);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
-  flex-shrink: 1;
+  flex-shrink: 4;
   min-width: 0;
 }
 
-/* Spacer pushes right-side content to the end */
-.ch-spacer { flex: 1; }
+/* Spacer: compresses first before any content element shrinks */
+.ch-spacer { flex: 1 10 0; min-width: 0; }
 
 /* Badge (shared by row and expanded commit items) */
 .ch-badge {
@@ -1198,19 +1201,23 @@ body.expander-resizing { cursor: ns-resize !important; user-select: none; }
 }
 .ch-badge-more:hover { filter: brightness(1.15); }
 
-/* Fixed-width count badge (1…9 or +9 when capped) — same space always */
+/* Fixed-width count badge: disappears after stats (priority 1) */
 .ch-badge-count {
-  min-width: 20px;
+  min-width: 0;
   padding: 1px 4px;
   text-align: center;
+  overflow: hidden;
+  flex-shrink: 1;
 }
 
-/* +/- stats */
+/* +/- stats: disappears after comment badge (priority 2) */
 .ch-stats {
   font-size: 11px;
   font-family: var(--vscode-editor-font-family, monospace);
   white-space: nowrap;
-  flex-shrink: 0;
+  overflow: hidden;
+  flex-shrink: 2;
+  min-width: 0;
 }
 .ch-ins { color: var(--vscode-gitDecoration-addedResourceForeground, #2ea043); }
 .ch-del { color: var(--vscode-gitDecoration-deletedResourceForeground, #f85149); }

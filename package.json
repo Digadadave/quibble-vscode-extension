@@ -269,12 +269,12 @@
         },
         {
           "command": "commitReview.comments.reopen",
-          "when": "view == commitReview.commentsView && viewItem == comment-closed",
+          "when": "view == commitReview.commentsView && (viewItem == comment-closed || viewItem == comment-addressed)",
           "group": "inline@1"
         },
         {
           "command": "commitReview.comments.delete",
-          "when": "view == commitReview.commentsView && (viewItem == comment-open || viewItem == comment-closed)",
+          "when": "view == commitReview.commentsView && (viewItem == comment-open || viewItem == comment-closed || viewItem == comment-addressed)",
           "group": "inline@3"
         },
         {
@@ -289,12 +289,12 @@
         },
         {
           "command": "commitReview.comments.reopen",
-          "when": "view == commitReview.commentsView && viewItem == comment-closed",
+          "when": "view == commitReview.commentsView && (viewItem == comment-closed || viewItem == comment-addressed)",
           "group": "1_status@1"
         },
         {
           "command": "commitReview.comments.delete",
-          "when": "view == commitReview.commentsView && (viewItem == comment-open || viewItem == comment-closed)",
+          "when": "view == commitReview.commentsView && (viewItem == comment-open || viewItem == comment-closed || viewItem == comment-addressed)",
           "group": "2_manage@1"
         }
       ],

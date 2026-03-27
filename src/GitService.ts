@@ -130,11 +130,12 @@ export class GitService {
     const rs = '\x1e';
     const format = '--format=%H%x1f%h%x1f%s%x1f%ai%x1f%an%x1f%D%x1e';
     // Scope to commits unique to this branch (since merge-base with main/master).
+    // --first-parent excludes commits merged in from the default branch.
     // Falls back to full log if no merge-base can be found (e.g. on main itself).
     const base = this.getMergeBase(branch);
     const range = base ? `"${base}..${branch}"` : `"${branch}" -${limit}`;
     const limitFlag = base ? `-${limit}` : '';
-    const raw = exec(`git log ${range} ${format} ${limitFlag}`, this.repoPath);
+    const raw = exec(`git log --first-parent ${range} ${format} ${limitFlag}`, this.repoPath);
     if (!raw) return [];
 
     return raw
@@ -306,17 +307,50 @@ export class GitService {
   getBranchCommitHashes(branch: string): string[] {
     const base = this.getMergeBase(branch);
     if (!base) return [];
-    const raw = exec(`git log "${base}..${branch}" --format=%H`, this.repoPath);
+    const raw = exec(`git log --first-parent "${base}..${branch}" --format=%H`, this.repoPath);
     if (!raw) return [];
     return raw.split('\n').filter(Boolean);
   }
 
-  /** Returns the merge-base commit hash between this branch and main/master. */
+  /**
+   * Returns the merge-base commit hash between this branch and the default branch.
+   *
+   * After merging the default branch INTO the feature branch, the standard
+   * `git merge-base` advances to the tip of the default branch — losing
+   * the branch's original fork point.  To handle this, we walk only
+   * first-parent links from `branch` and find the oldest commit that is NOT
+   * reachable from the default branch.  Its parent is the original fork
+   * point, even after merge commits.
+   */
   getMergeBase(branch: string): string {
-    return (
-      exec(`git merge-base "${branch}" main`, this.repoPath) ||
-      exec(`git merge-base "${branch}" master`, this.repoPath)
+    const defaultRef = this.findDefaultRef();
+    if (!defaultRef) return '';
+
+    // Walk first-parent commits unique to this branch (oldest first).
+    const revList = exec(
+      `git rev-list --first-parent --reverse "${branch}" --not "${defaultRef}"`,
+      this.repoPath,
     );
+    if (revList) {
+      const firstCommit = revList.split('\n')[0];
+      if (firstCommit) {
+        const parent = exec(`git rev-parse --verify "${firstCommit}^"`, this.repoPath);
+        if (parent) return parent;
+        // Root commit (no parent) — use the commit itself as the base.
+        return firstCommit;
+      }
+    }
+
+    // Fallback: standard merge-base (e.g. when branch IS the default branch).
+    return exec(`git merge-base "${branch}" "${defaultRef}"`, this.repoPath);
+  }
+
+  /** Returns the first valid default branch ref. */
+  private findDefaultRef(): string {
+    for (const ref of ['origin/HEAD', 'origin/main', 'origin/master', 'main', 'master']) {
+      if (exec(`git rev-parse --verify "${ref}"`, this.repoPath)) return ref;
+    }
+    return '';
   }
 
   /**
@@ -327,11 +361,12 @@ export class GitService {
     const base = this.getMergeBase(branch);
     if (!base) return [];
 
-    // Get commits on this branch since merge-base (newest first)
+    // Get commits on this branch since merge-base (newest first).
+    // --first-parent excludes commits merged in from the default branch.
     const sep = '\x1f';
     const rs  = '\x1e';
     const commitsRaw = exec(
-      `git log "${base}..${branch}" --format=%H%x1f%h%x1f%s%x1e`,
+      `git log --first-parent "${base}..${branch}" --format=%H%x1f%h%x1f%s%x1e`,
       this.repoPath,
     );
     if (!commitsRaw) return [];

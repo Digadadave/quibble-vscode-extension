@@ -19,6 +19,7 @@ export const ICONS = {
   SYNC_IGNORED:       'sync-ignored',
   QUESTION:           'question',
   TRASH:              'trash',
+  ARROW_RIGHT:        'arrow-right',
   // People
   HUBOT:              'hubot',
   PERSON:             'person',

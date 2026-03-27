@@ -82,7 +82,9 @@ export class CommentTreeItem extends vscode.TreeItem {
 
     // Context value for menu filtering
     const isClosed = CLOSED_STATUSES.has(comment.status);
-    this.contextValue = isClosed ? 'comment-closed' : 'comment-open';
+    this.contextValue = isClosed ? 'comment-closed'
+      : comment.status === 'addressed' ? 'comment-addressed'
+      : 'comment-open';
 
     this.id = comment.id;
   }
@@ -128,6 +130,7 @@ export class ThreadTreeItem extends vscode.TreeItem {
     public readonly body: string,
     public readonly createdAt: string,
     public readonly isAgent: boolean,
+    public readonly parentComment: ReviewComment,
   ) {
     super(author, vscode.TreeItemCollapsibleState.None);
 
@@ -145,8 +148,12 @@ export class ThreadTreeItem extends vscode.TreeItem {
     if (createdAt) md.appendMarkdown(`\n\n*${formatDate(createdAt)}*`);
     this.tooltip = md;
 
-    // Not clickable
-    this.command = undefined;
+    // Click → navigate to parent comment in diff
+    this.command = {
+      command: 'commitReview.comments.openDiff',
+      title: 'Open in Diff',
+      arguments: [parentComment],
+    };
     this.contextValue = 'threadEntry';
   }
 }
@@ -175,6 +182,12 @@ export class ResolvedNoteTreeItem extends vscode.TreeItem {
     if (comment.addressedAt) md.appendMarkdown(`\n\n*${formatDate(comment.addressedAt)}*`);
     this.tooltip = md;
 
+    // Click → navigate to parent comment in diff
+    this.command = {
+      command: 'commitReview.comments.openDiff',
+      title: 'Open in Diff',
+      arguments: [comment],
+    };
     this.contextValue = 'resolvedNote';
   }
 }
@@ -295,6 +308,7 @@ export class CommentsView implements vscode.TreeDataProvider<vscode.TreeItem>, v
             t.body,
             t.createdAt,
             t.author !== 'reviewer',
+            c,
           ));
         }
       }

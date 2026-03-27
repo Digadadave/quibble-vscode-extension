@@ -199,6 +199,21 @@ export class DiffPanel implements vscode.Disposable {
         this.onCommentMutation?.();
         break;
 
+      case 'openSource': {
+        const file = msg.file as string;
+        const line = msg.line as number;
+        const repoPath = this.git.getRepoPath();
+        const uri = vscode.Uri.joinPath(vscode.Uri.file(repoPath), file);
+        vscode.workspace.openTextDocument(uri).then(doc =>
+          vscode.window.showTextDocument(doc, { preview: false })
+        ).then(editor => {
+          const pos = new vscode.Position(line - 1, 0);
+          editor.selection = new vscode.Selection(pos, pos);
+          editor.revealRange(new vscode.Range(pos, pos), vscode.TextEditorRevealType.InCenter);
+        });
+        break;
+      }
+
       case 'copyAgentPrompt':
         this.copyAgentPrompt();
         break;

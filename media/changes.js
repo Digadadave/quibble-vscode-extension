@@ -53,6 +53,8 @@
 
   // Inline SVG icons
   const SVG_COMMENT = `<svg width="11" height="11" viewBox="0 0 16 16" fill="currentColor"><path d="M1 2.5A1.5 1.5 0 012.5 1h11A1.5 1.5 0 0115 2.5v8A1.5 1.5 0 0113.5 12H9l-3.5 3.5V12H2.5A1.5 1.5 0 011 10.5v-8z"/></svg>`;
+  // Unicode icons (no codicon CSS required in this webview)
+  const ARROW_RIGHT = '\u2192'; // →
 
   // A/M/D/R status letter colors
   const STATUS_COLORS = {
@@ -297,7 +299,7 @@
         + '</div>';
     }
 
-    const jumpHtml = `<span class="ch-jump-source" data-action="jump-source" data-file="${esc(file.path)}" title="Go to first change">&#8599;</span>`;
+    const jumpHtml = `<span class="ch-jump-source" data-action="jump-source" data-file="${esc(file.path)}" title="Go to first change">${ARROW_RIGHT}</span>`;
 
     return `<div class="ch-file-block${isExpanded ? ' ch-expanded' : ''}" data-file="${esc(file.path)}">`
       + `<div class="ch-row" data-file="${esc(file.path)}" title="${esc(file.path)}">`

@@ -11,6 +11,7 @@ const ICONS = {
   VERIFIED_FILLED:    'verified-filled',
   SYNC_IGNORED:       'sync-ignored',
   TRASH:              'trash',
+  ARROW_RIGHT:        'arrow-right',
 };
 
 // ── Status transition options ───────────────────────────────────────────────
@@ -186,6 +187,15 @@ document.addEventListener('click', (/** @type {MouseEvent} */ e) => {
 
       case 'delete-comment':
         vscode.postMessage({ type: 'deleteComment', id: btn.getAttribute('data-id') });
+        break;
+
+      case 'open-source':
+        vscode.postMessage({
+          type: 'openSource',
+          file:       btn.getAttribute('data-file'),
+          line:       Number(btn.getAttribute('data-line')),
+          commitHash: btn.getAttribute('data-commit'),
+        });
         break;
 
       case 'ask-question': {
@@ -828,6 +838,8 @@ function renderThreadRow(comment, colspan) {
   if (comment.status === 'open') {
     actionButtons += `<button class="btn" data-action="ask-question" data-id="${comment.id}">Ask Question</button>`;
   }
+  // Open source file at comment line
+  actionButtons += `<button class="btn" title="Go to source file" data-action="open-source" data-file="${esc(comment.file)}" data-line="${comment.line}" data-commit="${esc(comment.commitHash)}"><i class="codicon codicon-${ICONS.ARROW_RIGHT}"></i></button>`;
   // Delete pushed to the far right
   actionButtons += `<span class="thread-actions-spacer"></span><button class="btn danger" data-action="delete-comment" data-id="${comment.id}"><i class="codicon codicon-${ICONS.TRASH}"></i></button>`;
 
