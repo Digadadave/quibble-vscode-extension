@@ -13,13 +13,7 @@ export class ChangesView implements vscode.WebviewViewProvider, vscode.Disposabl
   private cachedData: { branch: string; files: object[] } | null = null;
   private viewMode: 'files' | 'commits' = 'files';
 
-  /** Called when the user clicks a file row — open the cumulative diff for that file. */
-  onJumpToFile?: (file: string) => void;
-
-  /** Called when the user clicks a commit hash badge — open the commit diff anchored on that file. */
-  onJumpToCommitFile?: (hash: string, file: string) => void;
-
-  /** Native diff variants (single-file VS Code diff editor). */
+  /** Called when the user clicks a file row — open single-file diff in VS Code native diff editor. */
   onJumpToFileNative?: (file: string) => void;
   onJumpToCommitFileNative?: (hash: string, file: string) => void;
 
@@ -94,13 +88,10 @@ export class ChangesView implements vscode.WebviewViewProvider, vscode.Disposabl
     webviewView.webview.html = this.buildHtml(webviewView.webview);
 
     webviewView.webview.onDidReceiveMessage(msg => {
-      const native = msg.diffMode === 'native';
       if (msg.type === 'jumpToFile') {
-        native ? this.onJumpToFileNative?.(msg.file) : this.onJumpToFile?.(msg.file);
+        this.onJumpToFileNative?.(msg.file as string);
       } else if (msg.type === 'jumpToCommitFile') {
-        native
-          ? this.onJumpToCommitFileNative?.(msg.hash, msg.file)
-          : this.onJumpToCommitFile?.(msg.hash, msg.file);
+        this.onJumpToCommitFileNative?.(msg.hash as string, msg.file as string);
       } else if (msg.type === 'jumpToComment') {
         this.onJumpToComment?.(msg.file as string);
       } else if (msg.type === 'jumpToSource') {

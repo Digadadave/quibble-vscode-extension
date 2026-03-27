@@ -5,7 +5,6 @@ import { CommentManager } from './CommentManager';
 import { ReviewPanel } from './ReviewPanel';
 import { CommentsView } from './CommentsView';
 import { ChangesView } from './ChangesView';
-import { DiffPanel } from './DiffPanel';
 import { GitContentProvider } from './GitContentProvider';
 import { ReviewCommentController } from './ReviewCommentController';
 import { ICONS } from './icons';
@@ -112,33 +111,6 @@ export function activate(context: vscode.ExtensionContext): void {
   // ── Changes sidebar WebviewView ───────────────────────────────────────────
   activeChangesView = ChangesView.register(context, new GitService(''), new CommentManager('', context.globalState));
   activeChangesView.registerCommands(context);
-
-  // File click → open accumulated branch diff (all files) in DiffPanel, anchored on file
-  activeChangesView.onJumpToFile = (file) => {
-    if (!activeGit || !activeComments) return;
-    const branch = activeGit.getCurrentBranch();
-    const base   = activeGit.getMergeBase(branch);
-    const head   = activeGit.getHeadHash();
-    if (!base || !head) return;
-    const hashes = activeGit.getBranchCommitHashes(branch);
-    const panel  = DiffPanel.createOrShow(context, activeGit, activeComments);
-    panel.onCommentMutation = refreshAll;
-    panel.onSelectRepo = () => vscode.commands.executeCommand('commitReview.selectRepo');
-    panel.setRepoInfo(path.basename(activeGit.getRepoPath()), discoverAllRepos().length);
-    panel.showBranchDiff(base, head, hashes);
-    panel.focusFile(file);
-  };
-
-  // Hash badge click → open single commit diff (all files) in DiffPanel, anchored on file
-  activeChangesView.onJumpToCommitFile = (hash, file) => {
-    if (!activeGit || !activeComments) return;
-    const panel = DiffPanel.createOrShow(context, activeGit, activeComments);
-    panel.onCommentMutation = refreshAll;
-    panel.onSelectRepo = () => vscode.commands.executeCommand('commitReview.selectRepo');
-    panel.setRepoInfo(path.basename(activeGit.getRepoPath()), discoverAllRepos().length);
-    panel.showSelection([hash]);
-    panel.focusFile(file);
-  };
 
   // Native diff: file click → cumulative single-file diff (branch base → HEAD)
   activeChangesView.onJumpToFileNative = async (file) => {
@@ -287,7 +259,6 @@ export function activate(context: vscode.ExtensionContext): void {
     activeReviewPanel?.showLoading();
     activeChangesView?.showLoading();
     activeCommentsView?.showLoading();
-    DiffPanel.getInstance()?.showLoading();
 
     // Tear down previous watchers
     for (const d of gitFsWatchers) d.dispose();
@@ -336,14 +307,7 @@ export function activate(context: vscode.ExtensionContext): void {
 
     refreshAll();
 
-    const repoName  = path.basename(repoPath);
-    const repoCount = discoverAllRepos().length;
-    const diffPanel = DiffPanel.getInstance();
-    if (diffPanel) {
-      diffPanel.onSelectRepo = () => vscode.commands.executeCommand('commitReview.selectRepo');
-      diffPanel.setRepoInfo(repoName, repoCount);
-    }
-
+    const repoName = path.basename(repoPath);
     vscode.window.showInformationMessage(`Commit Review: switched to ${repoName}`);
   }
 
