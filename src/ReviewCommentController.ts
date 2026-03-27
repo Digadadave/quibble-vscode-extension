@@ -299,15 +299,17 @@ export class ReviewCommentController implements vscode.Disposable {
 
     context.subscriptions.push(
       vscode.commands.registerCommand('commitReview.comment.resolve', makeStatusAction('addressed')),
-      vscode.commands.registerCommand('commitReview.comment.close',   makeStatusAction('closed')),
+      vscode.commands.registerCommand('commitReview.comment.close',   makeStatusAction('dismissed')),
       vscode.commands.registerCommand('commitReview.comment.dismiss', makeStatusAction('dismissed')),
       vscode.commands.registerCommand('commitReview.comment.reopen',  makeStatusAction('open')),
     );
 
-    // Cancel — disposes a new (unsaved) thread without doing anything
+    // Cancel — only disposes new (unsaved) threads; for existing threads VS Code closes the reply box automatically
     context.subscriptions.push(
       vscode.commands.registerCommand('commitReview.comment.cancelThread', (reply: vscode.CommentReply) => {
-        reply.thread.dispose();
+        if (reply.thread.comments.length === 0) {
+          reply.thread.dispose();
+        }
       }),
     );
 
