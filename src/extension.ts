@@ -111,6 +111,7 @@ export function activate(context: vscode.ExtensionContext): void {
 
   // ── Changes sidebar WebviewView ───────────────────────────────────────────
   activeChangesView = ChangesView.register(context, new GitService(''), new CommentManager('', context.globalState));
+  activeChangesView.registerCommands(context);
 
   // File click → open accumulated branch diff (all files) in DiffPanel, anchored on file
   activeChangesView.onJumpToFile = (file) => {
@@ -145,6 +146,7 @@ export function activate(context: vscode.ExtensionContext): void {
     const branch = activeGit.getCurrentBranch();
     const base   = activeGit.getMergeBase(branch);
     const head   = activeGit.getHeadHash();
+    console.log('[CommitReview] onJumpToFileNative', { file, branch, base, head });
     if (!base || !head) return;
     const repoPath = activeGit.getRepoPath();
     const oldUri = GitContentProvider.makeUri(repoPath, file, base, 'old');
