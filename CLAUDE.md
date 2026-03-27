@@ -79,3 +79,6 @@ When adding a new status, update both `STATUS_META` and `FILTER_GROUPS`.
 - TypeScript: strict types, `as const` on literal objects, prefer interfaces over type aliases for shapes
 - No over-engineering: minimal abstractions, no helpers for one-time operations
 - Keep changes focused — don't refactor surrounding code when fixing a bug
+
+## Workflow
+- After completing a set of changes, run `npm run compile` to verify no TypeScript errors, then commit.
