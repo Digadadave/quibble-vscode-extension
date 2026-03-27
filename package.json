@@ -182,6 +182,16 @@
           "group": "navigation"
         },
         {
+          "command": "commitReview.selectRepo",
+          "when": "view == commitReview.commentsView",
+          "group": "navigation"
+        },
+        {
+          "command": "commitReview.selectRepo",
+          "when": "view == commitReview.changesView",
+          "group": "navigation"
+        },
+        {
           "command": "commitReview.remapOrphans",
           "when": "view == commitReview.commentsView && commitReview.hasOrphans",
           "group": "navigation@0"
