@@ -59,7 +59,7 @@ export interface DiffLine {
 
 function exec(cmd: string, cwd: string): string {
   try {
-    return execSync(cmd, { cwd, encoding: 'utf8', maxBuffer: 10 * 1024 * 1024, stdio: ['pipe', 'pipe', 'pipe'] }).trim();
+    return execSync(cmd, { cwd, encoding: 'utf8', maxBuffer: 10 * 1024 * 1024 }).trim();
   } catch {
     return '';
   }
@@ -408,7 +408,13 @@ export class GitService {
 
   getFileContentAtCommit(hash: string, filePath: string): string {
     const normalized = filePath.replace(/\\/g, '/');
-    return exec(`git show ${hash}:${normalized}`, this.repoPath);
+    try {
+      return execSync(`git show ${hash}:${normalized}`, { cwd: this.repoPath, encoding: 'utf8', maxBuffer: 10 * 1024 * 1024 }).trim();
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : String(err);
+      console.error(`[CommitReview] getFileContentAtCommit failed — hash=${hash.slice(0, 8)} file=${normalized}\n  error: ${msg}`);
+      return '';
+    }
   }
 
   /**

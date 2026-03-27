@@ -8,18 +8,9 @@
   --border: var(--vscode-panel-border, #333);
   --accent: var(--vscode-button-background, #0e639c);
   --accent-fg: var(--vscode-button-foreground, #fff);
-  --add-bg: var(--vscode-diffEditor-insertedLineBackground, rgba(35, 134, 54, 0.22));
-  --del-bg: var(--vscode-diffEditor-removedLineBackground, rgba(218, 54, 51, 0.22));
-  --add-num: var(--vscode-diffEditor-insertedLineBackground, rgba(35, 134, 54, 0.35));
-  --del-num: var(--vscode-diffEditor-removedLineBackground, rgba(218, 54, 51, 0.35));
-  --thread-bg: var(--vscode-editorWidget-background, #252526);
-  --agent-accent: #a78bca;
-  /* --status-* and --status-*-bg are injected at runtime by buildStatusCssVars()
-     in icons.ts, keeping webview colors in sync with vscode.ThemeColor tokens. */
   --font-mono: var(--vscode-editor-font-family, 'Consolas', monospace);
   --font-ui: var(--vscode-font-family, system-ui, sans-serif);
   --font-size: var(--vscode-editor-font-size, 13px);
-  --sidebar-width: 280px;
 }
 
 * { box-sizing: border-box; margin: 0; padding: 0; }
@@ -34,30 +25,6 @@ body {
   display: flex;
   flex-direction: column;
 }
-
-/* ── Two-panel layout ────────────────────────────────────────────────────── */
-
-#layout {
-  display: flex;
-  flex: 1;
-  overflow: hidden;
-}
-
-/* ── Left sidebar ────────────────────────────────────────────────────────── */
-
-#sidebar {
-  width: var(--sidebar-width);
-  min-width: 200px;
-  max-width: 400px;
-  background: var(--bg-sidebar);
-  border-right: 1px solid var(--border);
-  display: flex;
-  flex-direction: column;
-  overflow: hidden;
-  flex-shrink: 0;
-  resize: horizontal;
-}
-
 
 /* ── Sidebar section headers ─────────────────────────────────────────────── */
 
@@ -104,700 +71,8 @@ body {
   border-color: var(--accent);
 }
 
-/* ── Git graph ───────────────────────────────────────────────────────────── */
-
-#graph-list {
-  flex: 1;
-  overflow-y: auto;
-  overflow-x: hidden;
-  min-height: 0;
-}
-
-.graph-row {
-  display: flex;
-  align-items: stretch;
-  cursor: pointer;
-  user-select: none;
-  position: relative;
-  min-height: 24px;
-}
-.graph-row:hover { background: var(--bg-hover); }
-.graph-row.selected { background: rgba(14, 99, 156, 0.18); }
-.graph-row.range-start { border-top: 1px solid var(--accent); }
-.graph-row.range-end   { border-bottom: 1px solid var(--accent); }
-
-/* Graph lane (SVG column) */
-.graph-lane {
-  width: 28px;
-  flex-shrink: 0;
-  position: relative;
-  display: flex;
-  align-items: stretch;
-  justify-content: center;
-}
-
-.graph-lane svg {
-  width: 28px;
-  position: absolute;
-  top: 0;
-  left: 0;
-  overflow: visible;
-}
-
-/* Commit info */
-.graph-info {
-  flex: 1;
-  min-width: 0;
-  padding: 3px 8px 3px 0;
-  display: flex;
-  flex-direction: column;
-  justify-content: center;
-}
-
-.graph-msg {
-  font-size: 12px;
-  font-weight: 500;
-  color: var(--fg);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  line-height: 1.3;
-}
-
-/* Branch / tag badges */
-.graph-refs {
-  display: flex;
-  gap: 3px;
-  flex-wrap: wrap;
-  margin-top: 2px;
-}
-
-.graph-ref {
-  font-size: 9px;
-  font-weight: 700;
-  padding: 1px 5px;
-  border-radius: 3px;
-  white-space: nowrap;
-  max-width: 100px;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-.graph-ref.local  { background: rgba(14,99,156,0.35);   color: #5ab4f5; border: 1px solid rgba(14,99,156,0.6); }
-.graph-ref.remote { background: rgba(200,100,0,0.35);   color: #f5a85a; border: 1px solid rgba(200,100,0,0.6); }
-.graph-ref.tag    { background: rgba(46,160,67,0.25);   color: #5eba77; border: 1px solid rgba(46,160,67,0.5); }
-.graph-ref.head   { background: rgba(14,99,156,0.55);   color: #fff;    border: 1px solid rgba(14,99,156,0.9); font-style: italic; }
-
-/* comment badge on row */
-.graph-comment-dot {
-  display: inline-block;
-  width: 7px;
-  height: 7px;
-  border-radius: 50%;
-  background: var(--status-open);
-  margin-left: 5px;
-  vertical-align: middle;
-  flex-shrink: 0;
-  align-self: center;
-  margin-right: 6px;
-}
-
-/* ── Commit message hover tooltip ────────────────────────────────────────── */
-
-#commit-tooltip {
-  display: none;
-  position: fixed;
-  z-index: 200;
-  background: var(--vscode-editorHoverWidget-background, #252526);
-  border: 1px solid var(--vscode-editorHoverWidget-border, #454545);
-  border-radius: 4px;
-  padding: 8px 12px;
-  max-width: 360px;
-  font-size: 12px;
-  line-height: 1.5;
-  color: var(--fg);
-  pointer-events: none;
-  white-space: pre-wrap;
-  word-break: break-word;
-  box-shadow: 0 4px 12px rgba(0,0,0,0.4);
-}
-
-#commit-tooltip .tooltip-hash {
-  font-family: var(--font-mono);
-  font-size: 10px;
-  color: var(--accent);
-  margin-bottom: 4px;
-}
-
-#commit-tooltip .tooltip-msg {
-  font-weight: 600;
-  margin-bottom: 4px;
-}
-
-#commit-tooltip .tooltip-meta {
-  font-size: 11px;
-  color: var(--fg-muted);
-}
-
-/* ── Comment list (sidebar) ──────────────────────────────────────────────── */
-
-#comment-list {
-  flex: 1;
-  overflow-y: auto;
-}
-
-.sidebar-comment {
-  padding: 7px 10px;
-  border-bottom: 1px solid var(--border);
-  cursor: pointer;
-}
-.sidebar-comment:hover { background: var(--bg-hover); }
-
-.sidebar-comment-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 6px;
-  margin-bottom: 2px;
-}
-
-.sidebar-comment-loc {
-  font-family: var(--font-mono);
-  font-size: 10px;
-  color: var(--fg-muted);
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  flex: 1;
-  min-width: 0;
-}
-
-.sidebar-comment-body {
-  font-size: 11px;
-  color: var(--fg);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-/* ── Right panel ─────────────────────────────────────────────────────────── */
-
-#right-panel {
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  overflow: hidden;
-  min-width: 0;
-}
-
-/* ── Top bar ────────────────────────────────────────────────────────────── */
-
-#top-bar {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  padding: 8px 16px;
-  border-bottom: 1px solid var(--border);
-  background: var(--bg-sidebar);
-  flex-shrink: 0;
-  flex-wrap: wrap;
-}
-
-.summary-badges {
-  display: flex;
-  gap: 8px;
-  align-items: center;
-  flex: 1;
-  flex-wrap: wrap;
-}
-
-.badge {
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-  padding: 2px 8px;
-  border-radius: 12px;
-  font-size: 11px;
-  font-weight: 600;
-  border: 1px solid transparent;
-}
-.badge.open     { background: var(--status-open-bg);      border-color: var(--status-open);      color: var(--status-open); }
-.badge.question { background: var(--status-question-bg);  border-color: var(--status-question);  color: var(--status-question); }
-.badge.replied  { background: var(--status-replied-bg);   border-color: var(--status-replied);   color: var(--status-replied); }
-.badge.addressed{ background: var(--status-addressed-bg); border-color: var(--status-addressed); color: var(--status-addressed); }
-
-.selected-label {
-  font-size: 11px;
-  color: var(--fg-muted);
-  padding: 2px 8px;
-}
-
-.repo-select-btn {
-  background: var(--bg-hover);
-  color: var(--fg);
-  border: 1px solid var(--border);
-  border-radius: 4px;
-  padding: 4px 10px;
-  cursor: pointer;
-  font-size: 11px;
-  font-weight: 500;
-  white-space: nowrap;
-  max-width: 140px;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-.repo-select-btn:hover { border-color: var(--accent); color: var(--accent); }
-
-#mark-reviewed-btn {
-  background: var(--accent);
-  color: var(--accent-fg);
-  border: none;
-  border-radius: 4px;
-  padding: 5px 12px;
-  cursor: pointer;
-  font-size: 12px;
-  font-weight: 600;
-  white-space: nowrap;
-}
-#mark-reviewed-btn:hover { opacity: 0.85; }
-#mark-reviewed-btn.reviewed {
-  background: var(--bg-hover);
-  color: var(--fg-muted);
-  border: 1px solid var(--border);
-}
-
-/* ── Scrollable main area ────────────────────────────────────────────────── */
-
-#main {
-  flex: 1;
-  overflow-y: auto;
-  padding: 0;
-}
-
-/* ── Commit section header inside diff area ──────────────────────────────── */
-
-.commit-section {
-  margin-bottom: 32px;
-}
-
-.commit-section-header {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  padding: 10px 14px;
-  background: var(--bg-sidebar);
-  border: 1px solid var(--border);
-  border-radius: 6px 6px 0 0;
-  margin-bottom: 0;
-}
-
-.commit-section-hash {
-  font-family: var(--font-mono);
-  font-size: 12px;
-  color: var(--accent);
-  font-weight: 600;
-}
-
-.commit-section-msg {
-  font-size: 13px;
-  font-weight: 600;
-  flex: 1;
-  min-width: 0;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-.commit-section-meta {
-  font-size: 11px;
-  color: var(--fg-muted);
-  white-space: nowrap;
-}
-
-/* ── Range header ────────────────────────────────────────────────────────── */
-
-.range-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 5px 10px;
-  margin-bottom: 0;
-  background: transparent;
-  border: none;
-  border-bottom: 1px solid var(--border);
-  font-size: 11px;
-}
-
-.range-label {
-  font-family: var(--font-mono);
-  font-weight: 500;
-  color: var(--fg-muted);
-}
-
-.range-file-count {
-  color: var(--fg-muted);
-}
-
-/* ── File block ──────────────────────────────────────────────────────────── */
-
-.file-block {
-  margin-bottom: 0;
-  border: none;
-  border-top: 1px solid var(--border);
-  border-radius: 0;
-  overflow: hidden;
-}
-
-.file-header {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  padding: 4px 10px;
-  background: var(--vscode-editorGroupHeader-tabsBackground, #2d2d2d);
-  cursor: pointer;
-  user-select: none;
-  border-bottom: 1px solid var(--border);
-}
-.file-header:hover { background: var(--bg-hover); }
-
-.file-header .chevron { transition: transform 0.15s; font-style: normal; font-size: 10px; color: var(--fg-muted); }
-.file-header.collapsed .chevron { transform: rotate(-90deg); }
-
-.file-header .file-name { font-family: var(--font-mono); font-size: 12px; font-weight: 400; flex: 1; }
-
-.file-status {
-  font-size: 11px;
-  font-weight: 700;
-  font-family: var(--font-mono);
-}
-.file-status.M { color: #d4a040; }
-.file-status.A { color: #40b060; }
-.file-status.D { color: #e04040; }
-
-.file-body { overflow-x: auto; }
-.file-body.collapsed { display: none; }
-
-/* ── Diff table ──────────────────────────────────────────────────────────── */
-
-.diff-table {
-  border-collapse: collapse;
-  font-family: var(--font-mono);
-  font-size: 12px;
-  tab-size: 4;
-  /* Split tables override width/layout below; inline would use max-content but is removed */
-  min-width: 100%;
-}
-
-/* Highlight selected diff text to invite commenting */
-.diff-table td.line-content::selection,
-.diff-table td.line-content *::selection { background: rgba(56,139,253,0.3); }
-
-.line-num {
-  width: 40px;
-  min-width: 40px;
-  text-align: right;
-  padding: 0 10px;
-  color: var(--vscode-editorLineNumber-foreground, #858585);
-  user-select: none;
-  vertical-align: top;
-  white-space: nowrap;
-  font-size: 11px;
-  line-height: 19px;
-}
-.line-num.old { background: transparent; }
-
-.line-content {
-  padding: 0 8px 0 2px;
-  white-space: pre;        /* never soft-wrap code — scroll horizontally */
-  vertical-align: top;
-  overflow: hidden;        /* clip rather than wrap; table scrolls as a whole */
-  line-height: 19px;
-}
-
-tr.add-line .line-num, tr.add-line .line-content { background: var(--add-bg); }
-tr.del-line .line-num, tr.del-line .line-content { background: var(--del-bg); }
-tr.add-line .line-num.new { background: var(--add-num); }
-tr.del-line .line-num.old { background: var(--del-num); }
-
-.hunk-header td {
-  background: var(--vscode-diffEditor-unchangedRegionBackground, rgba(30, 60, 100, 0.1));
-  color: var(--vscode-descriptionForeground, #6a9fd8);
-  padding: 0 8px;
-  font-size: 11px;
-  line-height: 19px;
-  border-top: 1px solid var(--vscode-diffEditor-unchangedRegionShadow, rgba(30,60,100,0.18));
-  border-bottom: 1px solid var(--vscode-diffEditor-unchangedRegionShadow, rgba(30,60,100,0.18));
-}
-
-/* ── Comment thread ──────────────────────────────────────────────────────── */
-
-.thread-row td {
-  padding: 0;
-  background: var(--thread-bg);
-}
-
-@keyframes comment-flash {
-  0%   { background: rgba(56,139,253,0.25); }
-  70%  { background: rgba(56,139,253,0.12); }
-  100% { background: var(--thread-bg); }
-}
-.thread-row.comment-highlight td {
-  animation: comment-flash 1.8s ease-out forwards;
-}
-
-.thread-container {
-  border-left: 2px solid var(--border);
-  margin: 4px 8px 4px 52px;
-  border-radius: 0 6px 6px 0;
-  overflow: hidden;
-}
-.thread-container.status-open          { border-left-color: var(--status-open); }
-.thread-container.status-question      { border-left-color: var(--status-question); }
-.thread-container.status-agent-replied { border-left-color: var(--status-replied); }
-.thread-container.status-addressed     { border-left-color: var(--status-addressed); }
-.thread-container.status-closed,
-.thread-container.status-resolved      { border-left-color: var(--status-closed); }
-.thread-container.status-dismissed,
-.thread-container.status-outdated      { border-left-color: var(--status-dismissed); }
-
-.thread-comment {
-  padding: 10px 14px;
-  border-bottom: 1px solid var(--border);
-}
-.thread-comment:last-child { border-bottom: none; }
-
-.thread-comment.agent-comment {
-  border-left: 3px solid var(--agent-accent);
-}
-
-.thread-header {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  margin-bottom: 6px;
-}
-
-.thread-author {
-  font-weight: 600;
-  font-size: 12px;
-}
-.thread-author.agent { color: var(--agent-accent); }
-
-.thread-date { font-size: 11px; color: var(--fg-muted); }
-
-.thread-status {
-  margin-left: auto;
-  font-size: 10px;
-  font-weight: 700;
-  padding: 2px 6px;
-  border-radius: 3px;
-}
-.thread-status.open          { background: var(--status-open-bg);       color: var(--status-open); }
-.thread-status.question      { background: var(--status-question-bg);   color: var(--status-question); }
-.thread-status.agent-replied { background: var(--status-replied-bg);    color: var(--status-replied); }
-.thread-status.addressed     { background: var(--status-addressed-bg);  color: var(--status-addressed); }
-.thread-status.resolved      { background: var(--status-closed-bg);     color: var(--status-closed); }
-.thread-status.closed        { background: var(--status-closed-bg);     color: var(--status-closed); }
-.thread-status.dismissed     { background: var(--status-dismissed-bg);  color: var(--status-dismissed); }
-
-.thread-body {
-  font-size: 13px;
-  line-height: 1.5;
-  white-space: pre-wrap;
-}
-
-.code-snippet {
-  margin-top: 6px;
-  padding: 6px 10px;
-  background: var(--bg);
-  border-radius: 4px;
-  font-family: var(--font-mono);
-  font-size: 11px;
-  color: var(--fg-muted);
-  white-space: pre;
-  overflow-x: auto;
-}
-
-.thread-actions {
-  display: flex;
-  gap: 8px;
-  margin-top: 10px;
-  padding-top: 8px;
-  border-top: 1px solid var(--border);
-  align-items: center;
-}
-/* Spacer pushes destructive actions (delete) to the far right */
-.thread-actions-spacer { flex: 1; }
-.btn.danger { border-color: #f85149; color: #f85149; }
-.btn.danger:hover { background: rgba(248,81,73,0.15); }
-/* Icon-only status transition buttons */
-.status-action-btn { padding: 2px 5px; border-color: transparent; }
-.status-action-btn:hover { border-color: currentColor; background: rgba(128,128,128,0.1); }
-
-/* ── Custom context menu (CommentsView) ──────────────────────────────────── */
-.ctx-menu {
-  position: fixed;
-  z-index: 9999;
-  background: var(--vscode-menu-background, #1f1f1f);
-  border: 1px solid var(--vscode-menu-border, #454545);
-  border-radius: 4px;
-  box-shadow: 0 4px 16px rgba(0,0,0,0.4);
-  padding: 4px 0;
-  min-width: 140px;
-  font-size: 12px;
-}
-.ctx-item {
-  padding: 5px 14px;
-  cursor: pointer;
-  color: var(--vscode-menu-foreground, var(--fg));
-  user-select: none;
-}
-.ctx-item:hover { background: var(--vscode-menu-selectionBackground, rgba(255,255,255,0.08)); }
-.ctx-item.ctx-danger { color: #f85149; }
-.ctx-item.ctx-danger:hover { background: rgba(248,81,73,0.15); }
-
-.thread-reply-form {
-  padding: 10px 14px;
-  background: var(--bg);
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-}
-
-.thread-reply-form textarea {
-  background: var(--bg-sidebar);
-  color: var(--fg);
-  border: 1px solid var(--border);
-  border-radius: 4px;
-  padding: 8px;
-  font-family: var(--font-ui);
-  font-size: 13px;
-  resize: vertical;
-  min-height: 60px;
-  width: 100%;
-}
-.thread-reply-form textarea:focus { outline: 1px solid var(--accent); border-color: var(--accent); }
-
-.thread-reply-actions { display: flex; gap: 8px; justify-content: flex-end; }
-
-/* ── Buttons ─────────────────────────────────────────────────────────────── */
-
-.btn {
-  padding: 4px 10px;
-  border-radius: 4px;
-  cursor: pointer;
-  font-size: 12px;
-  font-weight: 500;
-  border: 1px solid var(--border);
-  background: var(--bg-hover);
-  color: var(--fg);
-}
-.btn:hover { border-color: var(--accent); color: var(--accent); }
-.btn.primary { background: var(--accent); color: var(--accent-fg); border-color: var(--accent); }
-.btn.primary:hover { opacity: 0.85; }
-.btn.danger  { border-color: var(--status-open);      color: var(--status-open); }
-.btn.danger:hover  { background: var(--status-open-bg); }
-.btn.success { border-color: var(--status-addressed); color: var(--status-addressed); }
-.btn.success:hover { background: var(--status-addressed-bg); }
-
-/* ── Inline comment composer ─────────────────────────────────────────────── */
-
-tr.inline-composer-row td {
-  padding: 0;
-  background: var(--bg-sidebar);
-  border-top: 1px solid var(--accent);
-  border-bottom: 1px solid var(--accent);
-}
-
-.inline-composer {
-  padding: 10px 14px 12px;
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-}
-
-.inline-composer-header {
-  font-size: 11px;
-  color: var(--fg-muted);
-  font-family: var(--font-mono);
-}
-
-.inline-composer-ta {
-  width: 100%;
-  box-sizing: border-box;
-  background: rgba(14, 99, 156, 0.08);
-  color: var(--fg);
-  border: 1px solid rgba(14, 99, 156, 0.35);
-  border-radius: 4px;
-  padding: 8px 10px;
-  font-family: var(--font-ui);
-  font-size: 13px;
-  resize: vertical;
-  min-height: 90px;
-}
-.inline-composer-ta:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 2px rgba(14,99,156,0.25); background: rgba(14,99,156,0.12); }
-
-.inline-composer-snippet {
-  margin: 0;
-  padding: 6px 10px;
-  background: var(--bg);
-  border-left: 3px solid var(--accent);
-  border-radius: 0 4px 4px 0;
-  font-family: var(--font-mono);
-  font-size: 11px;
-  color: var(--fg-muted);
-  white-space: pre-wrap;
-  overflow-x: auto;
-  max-height: 120px;
-  overflow-y: auto;
-}
-
-.inline-composer-actions {
-  display: flex;
-  gap: 8px;
-  justify-content: flex-end;
-}
-
-/* ── Bottom footer ───────────────────────────────────────────────────────── */
-
-#footer {
-  display: flex;
-  gap: 12px;
-  align-items: center;
-  padding: 8px 16px;
-  border-top: 1px solid var(--border);
-  background: var(--bg-sidebar);
-  flex-shrink: 0;
-}
-
-#footer .footer-path {
-  font-family: var(--font-mono);
-  font-size: 11px;
-  color: var(--fg-muted);
-  flex: 1;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-/* ── Empty state ─────────────────────────────────────────────────────────── */
-
-.empty-state {
-  text-align: center;
-  padding: 60px 20px;
-  color: var(--fg-muted);
-}
-.empty-state h2 { font-size: 18px; margin-bottom: 8px; }
-.empty-state p  { font-size: 13px; }
-
-/* ── Scrollbar ───────────────────────────────────────────────────────────── */
-
-::-webkit-scrollbar { width: 8px; height: 8px; }
-::-webkit-scrollbar-track { background: transparent; }
-::-webkit-scrollbar-thumb { background: var(--border); border-radius: 4px; }
-::-webkit-scrollbar-thumb:hover { background: var(--fg-muted); }
-
-
 /* ── Commit list — git graph layout ──────────────────────────────────────── */
+
 #commits-list { overflow-y: auto; flex: 1; }
 
 .commit-item {
@@ -820,7 +95,6 @@ tr.inline-composer-row td {
   align-items: flex-start;
   padding-top: 10px;
 }
-/* Vertical connecting line — full height by default */
 .commit-graph-col::before {
   content: '';
   position: absolute;
@@ -832,12 +106,9 @@ tr.inline-composer-row td {
   background: #388bfd;
   opacity: 0.45;
 }
-/* First commit: line starts at the dot, not above it */
 .commit-item:first-child .commit-graph-col::before { top: 14px; }
-/* Last commit: line ends at the dot */
 .commit-graph-col.last::before { height: 14px; bottom: auto; }
 
-/* The circle */
 .commit-dot {
   width: 10px;
   height: 10px;
@@ -848,7 +119,6 @@ tr.inline-composer-row td {
   flex-shrink: 0;
   box-shadow: 0 0 0 2px var(--bg-sidebar);
 }
-/* HEAD commit: larger solid circle with outer ring */
 .commit-dot.head {
   background: #388bfd;
   box-shadow: 0 0 0 2px var(--bg-sidebar), 0 0 0 4px #388bfd;
@@ -873,7 +143,6 @@ tr.inline-composer-row td {
 .commit-date    { font-size: 10px; color: var(--fg-muted); flex-shrink: 0; }
 .commit-msg     { font-size: 11px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; flex: 1; min-width: 0; }
 
-/* Ref tags (branch / HEAD labels) */
 .commit-refs-row { display: flex; flex-wrap: wrap; gap: 3px; margin-top: 3px; }
 .commit-ref-tag  {
   font-size: 9px; font-family: var(--font-mono); padding: 1px 5px;
@@ -909,7 +178,6 @@ tr.inline-composer-row td {
 .file-stats         { flex-shrink: 0; display: flex; gap: 3px; font-family: var(--font-mono); font-size: 10px; }
 .stat-ins           { color: #3fb950; }
 .stat-del           { color: #f85149; }
-/* Jump-to-file icon — hidden until the row is hovered */
 .file-jump-btn {
   flex-shrink: 0;
   margin-left: 4px;
@@ -917,7 +185,7 @@ tr.inline-composer-row td {
   font-size: 11px;
   color: var(--fg-muted);
   line-height: 1;
-  pointer-events: none; /* row click handles navigation */
+  pointer-events: none;
 }
 .commit-file-row:hover .file-jump-btn { opacity: 1; }
 
@@ -939,121 +207,6 @@ tr.inline-composer-row td {
 .branch-name { flex: 1; overflow: hidden; text-overflow: ellipsis; }
 .branch-remote-name { color: var(--fg-muted); font-size: 11px; }
 
-/* ── Side-by-side diff ────────────────────────────────────────────────────── */
-/* table-layout:fixed + width:100% makes both panels fill the container exactly.
-   <colgroup> establishes per-column widths so hunk-header colspan rows don't confuse the layout.
-   The drag handler sets --split-old-w to a px value; default 45% of the container. */
-.diff-table.split {
-  table-layout: fixed;
-  width: 100%;
-  min-width: 0;
-}
-/* colgroup col widths — authoritative source for table-layout:fixed */
-.split-col-num    { width: 40px; }
-.split-col-old    { width: var(--split-old-w, 45%); }
-.split-col-gutter { width: 5px; }
-/* last col (new content) gets remaining space — no width needed */
-
-/* Cells inherit widths from colgroup; allow horizontal scroll within each panel */
-.diff-table.split .line-content { overflow-x: auto; }
-
-/* Draggable gutter between old and new */
-.split-gutter {
-  width: 5px;
-  min-width: 5px;
-  padding: 0;
-  cursor: col-resize;
-  background: var(--border);
-  user-select: none;
-  position: relative;
-}
-.split-gutter::after {
-  content: '';
-  position: absolute;
-  inset: 0;
-  transition: background 0.1s;
-}
-.split-gutter:hover::after,
-body.split-resizing .split-gutter::after { background: var(--accent); opacity: 0.7; }
-body.split-resizing { cursor: col-resize !important; user-select: none; }
-
-tr.split-del .line-num.old,
-tr.split-del .line-content.old { background: var(--del-bg); }
-tr.split-add .line-num.new,
-tr.split-add .line-content.new { background: var(--add-bg); }
-tr.split-del .line-num.new,
-tr.split-del .line-content.new { background: transparent; }
-tr.split-add .line-num.old,
-tr.split-add .line-content.old { background: transparent; }
-
-/* ── Question form (in thread) ────────────────────────────────────────────── */
-.thread-question-form {
-  padding: 10px 14px; background: var(--bg); display: flex;
-  flex-direction: column; gap: 8px;
-}
-.thread-question-form textarea {
-  background: var(--bg-sidebar); color: var(--fg);
-  border: 1px solid var(--accent); border-radius: 4px;
-  padding: 8px; font-family: var(--font-ui); font-size: 13px;
-  resize: vertical; min-height: 60px; width: 100%;
-}
-.thread-question-form textarea:focus { outline: 1px solid var(--accent); }
-.thread-question-actions { display: flex; gap: 8px; justify-content: flex-end; }
-
-/* ── Status indicator overrides ───────────────────────────────────────────── */
-.thread-status.question { background: var(--status-question-bg); color: var(--status-question); }
-.badge.question { background: var(--status-question-bg); border-color: var(--status-question); color: var(--status-question); }
-.sidebar-comment-status.open     { background: var(--status-open-bg);       color: var(--status-open); }
-.sidebar-comment-status.question { background: var(--status-question-bg);   color: var(--status-question); }
-.sidebar-comment-status.agent-replied { background: var(--status-replied-bg); color: var(--status-replied); }
-.sidebar-comment-status.addressed { background: var(--status-addressed-bg); color: var(--status-addressed); }
-.sidebar-comment-status.closed,
-.sidebar-comment-status.resolved { background: var(--status-closed-bg);     color: var(--status-closed); }
-.sidebar-comment-status.dismissed { background: var(--status-dismissed-bg); color: var(--status-dismissed); }
-
-/* ── Hunk expander row ────────────────────────────────────────────────────── */
-
-.expander-td {
-  padding: 0;
-  background: var(--vscode-diffEditor-unchangedRegionBackground, rgba(30, 60, 100, 0.08));
-  border-top: 1px solid var(--vscode-diffEditor-unchangedRegionShadow, rgba(30,60,100,0.18));
-  border-bottom: 1px solid var(--vscode-diffEditor-unchangedRegionShadow, rgba(30,60,100,0.18));
-  cursor: ns-resize;
-  user-select: none;
-}
-.expander-inner {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 10px;
-  padding: 3px 8px;
-  pointer-events: none; /* let the td handle drag; buttons/label override */
-}
-.expand-btn {
-  pointer-events: all;
-  background: none;
-  border: 1px solid transparent;
-  border-radius: 3px;
-  color: var(--vscode-descriptionForeground, #6a9fd8);
-  font-size: 9px;
-  padding: 1px 6px;
-  cursor: pointer;
-  line-height: 1.4;
-  opacity: 0.7;
-}
-.expand-btn:hover { opacity: 1; border-color: currentColor; background: var(--bg-hover); }
-.expander-label {
-  pointer-events: all;
-  font-size: 11px;
-  color: var(--vscode-descriptionForeground, #6a9fd8);
-  cursor: pointer;
-  padding: 1px 8px;
-  border-radius: 3px;
-  font-family: var(--font-mono);
-}
-.expander-label:hover { background: var(--bg-hover); text-decoration: underline; }
-body.expander-resizing { cursor: ns-resize !important; user-select: none; }
-
 /* ── Changes panel (.ch-*) ──────────────────────────────────────────────── */
 
 .ch-branch-label {
@@ -1066,48 +219,6 @@ body.expander-resizing { cursor: ns-resize !important; user-select: none; }
   white-space: nowrap;
   flex: 1;
   min-width: 0;
-}
-
-/* ── Toggle switch ─────────────────────────────────────── */
-.ch-toggle {
-  display: flex;
-  align-items: center;
-  gap: 4px;
-  margin-left: auto;
-  cursor: pointer;
-  flex-shrink: 0;
-}
-.ch-toggle input { display: none; }
-.ch-toggle-label {
-  font-size: 9px;
-  color: var(--vscode-descriptionForeground, #888);
-  text-transform: uppercase;
-  letter-spacing: 0.3px;
-}
-.ch-toggle-track {
-  position: relative;
-  width: 26px;
-  height: 14px;
-  border-radius: 7px;
-  background: var(--vscode-button-secondaryBackground, rgba(128,128,128,0.3));
-  transition: background 0.2s;
-}
-.ch-toggle-track::after {
-  content: '';
-  position: absolute;
-  top: 2px;
-  left: 2px;
-  width: 10px;
-  height: 10px;
-  border-radius: 50%;
-  background: var(--vscode-foreground, #ccc);
-  transition: transform 0.2s;
-}
-.ch-toggle input:checked ~ .ch-toggle-track {
-  background: var(--vscode-button-background, #0e639c);
-}
-.ch-toggle input:checked ~ .ch-toggle-track::after {
-  transform: translateX(12px);
 }
 
 /* ── File block (row + optional expanded commits) ──────── */
@@ -1125,7 +236,6 @@ body.expander-resizing { cursor: ns-resize !important; user-select: none; }
 }
 .ch-row:hover { background: var(--vscode-list-hoverBackground, #2a2d2e); }
 
-/* File type icon (TS, JS, JSON, etc.) */
 .ch-file-icon {
   font-size: 9px;
   font-weight: 700;
@@ -1136,7 +246,6 @@ body.expander-resizing { cursor: ns-resize !important; user-select: none; }
   opacity: 0.85;
 }
 
-/* Filename: shrinks last — only truncates after everything else is gone */
 .ch-filename {
   font-size: 12px;
   font-weight: 500;
@@ -1147,7 +256,6 @@ body.expander-resizing { cursor: ns-resize !important; user-select: none; }
   min-width: 40px;
 }
 
-/* Comment badge: disappears before stats (priority 3) */
 .ch-comment-badge {
   display: inline-flex;
   align-items: center;
@@ -1162,7 +270,6 @@ body.expander-resizing { cursor: ns-resize !important; user-select: none; }
 .ch-comment-badge:hover { color: var(--vscode-foreground, #ccc); }
 .ch-comment-badge svg { opacity: 0.7; flex-shrink: 0; }
 
-/* Folder path: disappears first (priority 4) */
 .ch-folder {
   font-size: 11px;
   color: var(--vscode-descriptionForeground, #888);
@@ -1173,10 +280,8 @@ body.expander-resizing { cursor: ns-resize !important; user-select: none; }
   min-width: 0;
 }
 
-/* Spacer: compresses first before any content element shrinks */
 .ch-spacer { flex: 1 10 0; min-width: 0; }
 
-/* Badge (shared by row and expanded commit items) */
 .ch-badge {
   font-size: 10px;
   padding: 1px 5px;
@@ -1186,13 +291,8 @@ body.expander-resizing { cursor: ns-resize !important; user-select: none; }
   font-family: var(--vscode-editor-font-family, monospace);
   flex-shrink: 0;
 }
-
-.ch-badge-hash {
-  cursor: pointer;
-  transition: filter 0.15s;
-}
+.ch-badge-hash { cursor: pointer; transition: filter 0.15s; }
 .ch-badge-hash:hover { filter: brightness(1.2); }
-
 .ch-badge-more {
   background: var(--vscode-badge-background, #4d4d4d) !important;
   color: var(--vscode-badge-foreground, #fff);
@@ -1200,17 +300,8 @@ body.expander-resizing { cursor: ns-resize !important; user-select: none; }
   transition: filter 0.15s;
 }
 .ch-badge-more:hover { filter: brightness(1.15); }
+.ch-badge-count { min-width: 0; padding: 1px 4px; text-align: center; overflow: hidden; flex-shrink: 1; }
 
-/* Fixed-width count badge: disappears after stats (priority 1) */
-.ch-badge-count {
-  min-width: 0;
-  padding: 1px 4px;
-  text-align: center;
-  overflow: hidden;
-  flex-shrink: 1;
-}
-
-/* +/- stats: disappears after comment badge (priority 2) */
 .ch-stats {
   font-size: 11px;
   font-family: var(--vscode-editor-font-family, monospace);
@@ -1222,7 +313,6 @@ body.expander-resizing { cursor: ns-resize !important; user-select: none; }
 .ch-ins { color: var(--vscode-gitDecoration-addedResourceForeground, #2ea043); }
 .ch-del { color: var(--vscode-gitDecoration-deletedResourceForeground, #f85149); }
 
-/* A/M/D status indicator (far right) */
 .ch-status {
   font-size: 11px;
   font-weight: 600;
@@ -1237,7 +327,6 @@ body.expander-resizing { cursor: ns-resize !important; user-select: none; }
   padding: 2px 0 4px 0;
   background: var(--vscode-sideBar-background, #252526);
 }
-
 .ch-commit-item {
   display: flex;
   align-items: center;
@@ -1246,11 +335,8 @@ body.expander-resizing { cursor: ns-resize !important; user-select: none; }
   cursor: pointer;
   font-size: 11px;
 }
-.ch-commit-item:hover {
-  background: var(--vscode-list-hoverBackground, rgba(255,255,255,0.04));
-}
+.ch-commit-item:hover { background: var(--vscode-list-hoverBackground, rgba(255,255,255,0.04)); }
 
-/* Message grows to fill space between hash and stats */
 .ch-commit-msg {
   font-size: 11px;
   color: var(--vscode-foreground, #ccc);
@@ -1261,7 +347,6 @@ body.expander-resizing { cursor: ns-resize !important; user-select: none; }
   min-width: 0;
 }
 
-/* Stats are right-aligned at a fixed width so all rows line up */
 .ch-commit-stats {
   font-size: 10px;
   font-family: var(--vscode-editor-font-family, monospace);
@@ -1271,7 +356,6 @@ body.expander-resizing { cursor: ns-resize !important; user-select: none; }
   text-align: right;
 }
 
-/* Empty state */
 .ch-empty {
   padding: 24px 16px;
   text-align: center;
@@ -1288,7 +372,6 @@ body.expander-resizing { cursor: ns-resize !important; user-select: none; }
 }
 .ch-load-more:hover { text-decoration: underline; }
 
-/* Jump-to-source icon — hidden until file row is hovered */
 .ch-jump-source {
   flex-shrink: 0;
   font-size: 14px;
@@ -1318,7 +401,6 @@ body.expander-resizing { cursor: ns-resize !important; user-select: none; }
 }
 .ch-commit-row:hover { background: var(--vscode-list-hoverBackground, #2a2d2e); }
 
-/* Expand arrow: fixed width, muted */
 .ch-expand-arrow {
   flex-shrink: 0;
   font-size: 10px;
@@ -1326,7 +408,6 @@ body.expander-resizing { cursor: ns-resize !important; user-select: none; }
   line-height: 1;
 }
 
-/* Expanded file list under a commit row */
 .ch-file-list {
   padding: 2px 0 4px 0;
   background: var(--vscode-sideBar-background, #252526);
@@ -1344,7 +425,6 @@ body.expander-resizing { cursor: ns-resize !important; user-select: none; }
 }
 .ch-file-item:hover { background: var(--vscode-list-hoverBackground, rgba(255,255,255,0.04)); }
 
-/* Open-file icon on file items — hidden until the item is hovered */
 .ch-jump-file {
   flex-shrink: 0;
   font-size: 14px;
@@ -1357,4 +437,3 @@ body.expander-resizing { cursor: ns-resize !important; user-select: none; }
 }
 .ch-file-item:hover .ch-jump-file { opacity: 1; }
 .ch-jump-file:hover { color: var(--vscode-textLink-foreground, #4ea6ea); }
-
