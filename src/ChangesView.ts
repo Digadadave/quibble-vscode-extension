@@ -1,9 +1,16 @@
 import * as vscode from 'vscode';
+import * as fs from 'fs';
 import * as path from 'path';
 import { GitService } from './GitService';
 import { CommentManager } from './CommentManager';
 import { buildStatusCssVars } from './icons';
 
+/**
+ * Implements WebviewViewProvider — VS Code calls resolveWebviewView() the first
+ * time the sidebar panel becomes visible. The `_view` property is undefined until then.
+ * View mode ('files' | 'commits') is toggled via title-bar commands and communicated
+ * to the webview via postMessage.
+ */
 export class ChangesView implements vscode.WebviewViewProvider, vscode.Disposable {
   static readonly viewType = 'commitReview.changesView';
   private static instance: ChangesView | undefined;
@@ -79,6 +86,7 @@ export class ChangesView implements vscode.WebviewViewProvider, vscode.Disposabl
 
   // ── WebviewViewProvider ───────────────────────────────────────────────────
 
+  /** Called lazily by VS Code the first time this sidebar panel becomes visible. */
   resolveWebviewView(
     webviewView: vscode.WebviewView,
     _ctx: vscode.WebviewViewResolveContext,
@@ -86,6 +94,8 @@ export class ChangesView implements vscode.WebviewViewProvider, vscode.Disposabl
   ): void {
     this._view = webviewView;
 
+    // localResourceRoots whitelists which directories the iframe can load files from.
+    // Raw file:// URIs are blocked; use webview.asWebviewUri() to convert paths.
     webviewView.webview.options = {
       enableScripts: true,
       localResourceRoots: [
@@ -96,6 +106,7 @@ export class ChangesView implements vscode.WebviewViewProvider, vscode.Disposabl
 
     webviewView.webview.html = this.buildHtml(webviewView.webview);
 
+    // Messages sent from the webview via vscode.postMessage() arrive here.
     webviewView.webview.onDidReceiveMessage(msg => {
       if (msg.type === 'jumpToFile') {
         this.onJumpToFileNative?.(msg.file as string);
@@ -117,11 +128,26 @@ export class ChangesView implements vscode.WebviewViewProvider, vscode.Disposabl
 
   // ── Data ──────────────────────────────────────────────────────────────────
 
+  /** Full refresh: re-fetch file list from git + comment counts. */
   refresh(): void {
     const data = this.buildData();
     this.cachedData = data;
     if (!this._view) return;
     this._view.webview.postMessage({ type: 'load', branch: data.branch, files: data.files });
+  }
+
+  /** Light refresh: re-compute comment counts only, skip git. Used on comment-only mutations. */
+  refreshCommentCounts(): void {
+    if (!this._view) return;
+    const allComments = this.comments.load();
+    const commentsByFile = new Map<string, number>();
+    for (const c of allComments) {
+      commentsByFile.set(c.file, (commentsByFile.get(c.file) ?? 0) + 1);
+    }
+    this._view.webview.postMessage({
+      type: 'updateCommentCounts',
+      counts: Object.fromEntries(commentsByFile),
+    });
   }
 
   private buildData(): { branch: string; files: object[] } {
@@ -149,49 +175,31 @@ export class ChangesView implements vscode.WebviewViewProvider, vscode.Disposabl
   // ── HTML ──────────────────────────────────────────────────────────────────
 
   private buildHtml(webview: vscode.Webview): string {
-    const cssUri = webview.asWebviewUri(
-      vscode.Uri.file(path.join(this.context.extensionPath, 'media', 'review.css')),
-    );
+    // asWebviewUri() converts a local extension file path into a vscode-resource://
+    // URI the sandboxed iframe is allowed to load. Raw file:// URIs are blocked.
+    const mediaPath = (file: string) =>
+      webview.asWebviewUri(vscode.Uri.file(path.join(this.context.extensionPath, 'media', file)));
     const codiconsUri = webview.asWebviewUri(
       vscode.Uri.file(path.join(this.context.extensionPath, 'node_modules', '@vscode', 'codicons', 'dist', 'codicon.css')),
     );
-    const jsUri = webview.asWebviewUri(
-      vscode.Uri.file(path.join(this.context.extensionPath, 'media', 'changes.js')),
-    );
+    // The nonce is a random token stamped on every <script> tag and in the CSP header.
+    // It proves the script was injected by the extension, not by untrusted content.
     const nonce = generateNonce();
 
-    return `<!DOCTYPE html>
-<html lang="en">
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <meta http-equiv="Content-Security-Policy"
-    content="default-src 'none';
-             style-src ${webview.cspSource} 'unsafe-inline';
-             font-src ${webview.cspSource};
-             script-src 'nonce-${nonce}';">
-  <link href="${cssUri}" rel="stylesheet">
-  <link href="${codiconsUri}" rel="stylesheet">
-  ${buildStatusCssVars()}
-  <style>
-    body { overflow: hidden; display: flex; flex-direction: column; height: 100vh; margin: 0;
-           background: var(--vscode-sideBar-background, #252526);
-           color: var(--vscode-sideBar-foreground, var(--vscode-foreground, #ccc)); }
-    #changes-list { flex: 1; overflow-y: auto; min-height: 0; }
-  </style>
-  <title>Changes</title>
-</head>
-<body>
+    const template = fs.readFileSync(
+      path.join(this.context.extensionPath, 'media', 'changes.html'),
+      'utf8',
+    );
 
-<div class="sidebar-section-header">
-  <span class="section-title">CHANGES</span>
-  <span id="branch-label" class="ch-branch-label"></span>
-</div>
-<div id="changes-list"></div>
-
-<script nonce="${nonce}" src="${jsUri}"></script>
-</body>
-</html>`;
+    return template
+      .replace(/\{\{nonce\}\}/g, nonce)
+      .replace(/\{\{cspSource\}\}/g, webview.cspSource)
+      .replace('{{sharedCssUri}}', mediaPath('shared.css').toString())
+      .replace('{{changesCssUri}}', mediaPath('changes.css').toString())
+      .replace('{{codiconsUri}}', codiconsUri.toString())
+      .replace('{{statusCssVars}}', buildStatusCssVars())
+      .replace('{{commonJsUri}}', mediaPath('common.js').toString())
+      .replace('{{jsUri}}', mediaPath('changes.js').toString());
   }
 
   dispose(): void {

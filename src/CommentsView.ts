@@ -56,14 +56,16 @@ export class CommentTreeItem extends vscode.TreeItem {
     // Tooltip: rich markdown with full details
     this.tooltip = this.buildTooltip(comment, dir);
 
-    // Click → open in diff
+    // TreeItem.command runs when the user clicks the row.
+    // The command must be registered separately (see createTreeView()).
     this.command = {
       command: 'commitReview.comments.openDiff',
       title: 'Open in Diff',
       arguments: [comment],
     };
 
-    // Context value for menu filtering
+    // TreeItem.contextValue is matched against `when` clauses in package.json menus
+    // (view/item/context), controlling which right-click menu items appear on each row.
     const isClosed = CLOSED_STATUSES.has(comment.status);
     this.contextValue = isClosed ? 'comment-approved'
       : comment.status === 'addressed' ? 'comment-addressed'
@@ -119,7 +121,7 @@ export class ThreadTreeItem extends vscode.TreeItem {
 
     this.description = body.length > 80 ? body.slice(0, 77) + '…' : body;
     this.iconPath = new vscode.ThemeIcon(
-      isAgent ? 'hubot' : 'person',
+      isAgent ? ICONS.HUBOT : ICONS.PERSON,
       isAgent
         ? new vscode.ThemeColor('terminal.ansiMagenta')
         : new vscode.ThemeColor('foreground'),
@@ -157,11 +159,11 @@ export class ResolvedNoteTreeItem extends vscode.TreeItem {
       ? comment.resolvedNote!.slice(0, 77) + '…'
       : comment.resolvedNote ?? '';
 
-    this.iconPath = new vscode.ThemeIcon('hubot', new vscode.ThemeColor('terminal.ansiMagenta'));
+    this.iconPath = new vscode.ThemeIcon(ICONS.HUBOT, new vscode.ThemeColor('terminal.ansiMagenta'));
 
     const md = new vscode.MarkdownString('', true);
     md.supportThemeIcons = true;
-    md.appendMarkdown(`$(hubot) **${noteLabel}**\n\n${comment.resolvedNote}`);
+    md.appendMarkdown(`$(${ICONS.HUBOT}) **${noteLabel}**\n\n${comment.resolvedNote}`);
     if (comment.addressedAt) md.appendMarkdown(`\n\n*${formatDate(comment.addressedAt)}*`);
     this.tooltip = md;
 
@@ -176,17 +178,25 @@ export class ResolvedNoteTreeItem extends vscode.TreeItem {
 }
 
 // ── TreeDataProvider ──────────────────────────────────────────────────────────
+// Implementing TreeDataProvider<T> makes this class a data source for a VS Code
+// TreeView. VS Code calls getChildren(element) to build the tree bottom-up:
+//   getChildren(undefined) → root items
+//   getChildren(item)      → children of that item
+// getTreeItem(element) converts a data element into a display-ready TreeItem.
 
 export class CommentsView implements vscode.TreeDataProvider<vscode.TreeItem>, vscode.Disposable {
   static readonly viewType = 'commitReview.commentsView';
   private static instance: CommentsView | undefined;
 
+  // Firing this event tells VS Code to call getChildren() again and re-render the tree.
   private _onDidChangeTreeData = new vscode.EventEmitter<vscode.TreeItem | undefined | void>();
   readonly onDidChangeTreeData = this._onDidChangeTreeData.event;
 
   private treeView: vscode.TreeView<vscode.TreeItem> | undefined;
   private disposables: vscode.Disposable[] = [];
   private showClosed = false;
+  /** Snapshot of comments for the current refresh cycle. Null outside refresh(). */
+  private _cachedComments: ReviewComment[] | null = null;
 
   /** Called when the user clicks a comment — open the diff at that commit and scroll to the comment. */
   onFocusComment?: (file: string, line: number, commitHash: string, commentId: string) => void;
@@ -313,19 +323,22 @@ export class CommentsView implements vscode.TreeDataProvider<vscode.TreeItem>, v
 
   refresh(): void {
     if (this.treeView) { this.treeView.message = undefined; }
+    // Snapshot once for the entire refresh cycle (getChildren + description + badge)
+    this._cachedComments = this.comments.load();
     this._onDidChangeTreeData.fire();
     this.updateViewDescription();
     this.updateViewBadge();
+    this._cachedComments = null;
   }
 
   private getFilteredComments(): ReviewComment[] {
-    const all = this.comments.load();
+    const all = this._cachedComments ?? this.comments.load();
     return this.showClosed ? all : all.filter(c => !CLOSED_STATUSES.has(c.status));
   }
 
   private updateViewDescription(): void {
     if (!this.treeView) return;
-    const all = this.comments.load();
+    const all = this._cachedComments ?? this.comments.load();
     const openCount   = all.filter(c => !CLOSED_STATUSES.has(c.status)).length;
     const closedCount = all.filter(c =>  CLOSED_STATUSES.has(c.status)).length;
     this.treeView.description = `${openCount} open, ${closedCount} closed`;
@@ -333,8 +346,9 @@ export class CommentsView implements vscode.TreeDataProvider<vscode.TreeItem>, v
 
   private updateViewBadge(): void {
     if (!this.treeView) return;
-    const all = this.comments.load();
+    const all = this._cachedComments ?? this.comments.load();
     const openCount = all.filter(c => !CLOSED_STATUSES.has(c.status)).length;
+    // treeView.badge is the notification count shown on the sidebar panel icon.
     this.treeView.badge = openCount > 0
       ? { value: openCount, tooltip: `${openCount} open comment${openCount !== 1 ? 's' : ''}` }
       : undefined;

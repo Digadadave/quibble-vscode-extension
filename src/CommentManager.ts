@@ -123,6 +123,19 @@ const SCHEMA_DESCRIPTION = {
 };
 
 // ── CommentManager ──────────────────────────────────────────────────────────
+//
+// Two storage tiers:
+//   1. globalState (primary DB) — VS Code's built-in Memento key-value store,
+//      persisted per-user across sessions. Key: "repo:<absoluteRepoPath>".
+//      Comments are never deleted here; orphaned records survive squash/rebase.
+//   2. Working JSON file (.vscode/commit-reviews.json) — human- and agent-readable
+//      snapshot of the current branch. The extension writes it; an AI agent may
+//      edit it. A FileSystemWatcher detects external writes and syncs them back.
+//
+// uuid vs id:
+//   `id`   — unique per physical DB record; changes when a comment is remapped.
+//   `uuid` — stable identity: all records with the same uuid are the same logical
+//            comment. Status/thread updates propagate to every copy via uuid index.
 
 export class CommentManager implements vscode.Disposable {
   private workingJsonPath: string;
@@ -142,8 +155,15 @@ export class CommentManager implements vscode.Disposable {
   /** Orphaned comments: comments from the orphaned hashes. */
   private _orphanedComments: ReviewComment[] = [];
 
+  // Firing onDidChange notifies the extension that the working JSON changed externally.
+  // This triggers a full UI refresh. Not fired on our own saves (see suppressNextWatchEvent).
   private _onDidChange = new vscode.EventEmitter<void>();
   readonly onDidChange = this._onDidChange.event;
+
+  /** In-memory cache of the working JSON. Null means stale (must re-read). */
+  private _cache: ReviewComment[] | null = null;
+  /** uuid → hash[] index for fast DB lookups. Null means stale. */
+  private _uuidIndex: Map<string, string[]> | null = null;
 
   /**
    * @param repoPath    Absolute path to the repository root. Empty string for placeholder instances.
@@ -170,8 +190,23 @@ export class CommentManager implements vscode.Disposable {
 
   private dbSave(db: RepoDb): void {
     if (!this.dbKey) return;
+    this._uuidIndex = null; // invalidate index on every DB write
     // Memento.update() updates in-memory cache synchronously, persists async.
     this.globalState.update(this.dbKey, db);
+  }
+
+  private getUuidIndex(db: RepoDb): Map<string, string[]> {
+    if (this._uuidIndex) return this._uuidIndex;
+    const index = new Map<string, string[]>();
+    for (const hash of Object.keys(db.comments)) {
+      for (const c of db.comments[hash]) {
+        const arr = index.get(c.uuid) ?? [];
+        arr.push(hash);
+        index.set(c.uuid, arr);
+      }
+    }
+    this._uuidIndex = index;
+    return index;
   }
 
   // ── Branch switching ──────────────────────────────────────────────────────
@@ -181,6 +216,7 @@ export class CommentManager implements vscode.Disposable {
    * orphans, and populate the working JSON with matched comments.
    */
   switchBranch(branchName: string, gitHashes: string[]): void {
+    this.invalidateCache();
     this.currentBranch = branchName;
     this.currentHashes = new Set(gitHashes);
 
@@ -322,7 +358,8 @@ export class CommentManager implements vscode.Disposable {
     this.watcher = vscode.workspace.createFileSystemWatcher(pattern);
     const maybefire = () => {
       if (this.suppressNextWatchEvent) { this.suppressNextWatchEvent = false; return; }
-      // External change to working JSON — sync back to DB
+      // External change to working JSON — invalidate cache, sync back to DB
+      this.invalidateCache();
       this.syncWorkingJsonToDb();
       this._onDidChange.fire();
     };
@@ -332,18 +369,25 @@ export class CommentManager implements vscode.Disposable {
 
   /** Load comments from the working JSON (current branch view). */
   load(): ReviewComment[] {
+    if (this._cache) return this._cache;
     if (!this.workingJsonPath || !fs.existsSync(this.workingJsonPath)) return [];
     try {
       const store: ReviewStore = JSON.parse(fs.readFileSync(this.workingJsonPath, 'utf8'));
       if (store._schema !== undefined) this.cachedSchema = store._schema;
-      return store.reviews ?? [];
+      this._cache = store.reviews ?? [];
+      return this._cache;
     } catch {
       return [];
     }
   }
 
+  private invalidateCache(): void {
+    this._cache = null;
+  }
+
   private saveWorkingJson(comments: ReviewComment[]): void {
     if (!this.workingJsonPath) return;
+    this._cache = comments; // write-through: update cache immediately
     const dir = path.dirname(this.workingJsonPath);
     if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
     this.suppressNextWatchEvent = true;
@@ -381,10 +425,11 @@ export class CommentManager implements vscode.Disposable {
       // Find existing record by id
       const existing = bucket.find(c => c.id === wc.id);
       if (existing) {
-        // Propagate update to ALL copies with same uuid across all hashes
+        // Propagate update to ALL copies with same uuid (indexed lookup)
         const uuid = existing.uuid;
-        for (const hash of Object.keys(db.comments)) {
-          for (let i = 0; i < db.comments[hash].length; i++) {
+        const hashes = this.getUuidIndex(db).get(uuid) ?? [];
+        for (const hash of hashes) {
+          for (let i = 0; i < (db.comments[hash]?.length ?? 0); i++) {
             if (db.comments[hash][i].uuid === uuid) {
               // Keep each copy's own id, commitHash, branchName
               db.comments[hash][i] = {
@@ -469,11 +514,12 @@ export class CommentManager implements vscode.Disposable {
     if (status === 'addressed') wc.addressedAt = new Date().toISOString();
     this.saveWorkingJson(working);
 
-    // DB — update ALL copies with same uuid across all hash buckets
+    // DB — update ALL copies with same uuid (indexed lookup)
     const db = this.dbLoad();
     const uuid = wc.uuid;
-    for (const hash of Object.keys(db.comments)) {
-      for (const c of db.comments[hash]) {
+    const hashes = this.getUuidIndex(db).get(uuid) ?? [];
+    for (const hash of hashes) {
+      for (const c of db.comments[hash] ?? []) {
         if (c.uuid === uuid) {
           c.status = status;
           if (status === 'addressed') c.addressedAt = new Date().toISOString();
@@ -493,15 +539,14 @@ export class CommentManager implements vscode.Disposable {
     const uuid = wc.uuid;
 
     // Remove from working JSON
-    const idx = working.findIndex(c => c.id === id);
-    working.splice(idx, 1);
+    working.splice(working.indexOf(wc), 1);
     this.saveWorkingJson(working);
 
-    // DB — remove ALL copies with same uuid across all hash buckets
+    // DB — remove ALL copies with same uuid (indexed lookup)
     const db = this.dbLoad();
-    for (const hash of Object.keys(db.comments)) {
-      db.comments[hash] = db.comments[hash].filter(c => c.uuid !== uuid);
-      // Clean up empty buckets
+    const hashes = this.getUuidIndex(db).get(uuid) ?? [];
+    for (const hash of hashes) {
+      db.comments[hash] = (db.comments[hash] ?? []).filter(c => c.uuid !== uuid);
       if (db.comments[hash].length === 0) delete db.comments[hash];
     }
     this.dbSave(db);
@@ -519,11 +564,12 @@ export class CommentManager implements vscode.Disposable {
     wc.thread.push(entry);
     this.saveWorkingJson(working);
 
-    // DB — update ALL copies with same uuid across all hash buckets
+    // DB — update ALL copies with same uuid (indexed lookup)
     const db = this.dbLoad();
     const uuid = wc.uuid;
-    for (const hash of Object.keys(db.comments)) {
-      for (const c of db.comments[hash]) {
+    const hashes = this.getUuidIndex(db).get(uuid) ?? [];
+    for (const hash of hashes) {
+      for (const c of db.comments[hash] ?? []) {
         if (c.uuid === uuid) {
           c.thread.push({ ...entry });
         }

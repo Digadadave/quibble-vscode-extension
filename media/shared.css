@@ -1,0 +1,88 @@
+:root {
+  --bg: var(--vscode-editor-background, #1e1e1e);
+  --bg-sidebar: var(--vscode-sideBar-background, #252526);
+  --bg-hover: var(--vscode-list-hoverBackground, #2a2d2e);
+  --bg-selected: var(--vscode-list-activeSelectionBackground, #094771);
+  --fg: var(--vscode-editor-foreground, #ccc);
+  --fg-muted: var(--vscode-descriptionForeground, #888);
+  --border: var(--vscode-panel-border, #333);
+  --accent: var(--vscode-button-background, #0e639c);
+  --accent-fg: var(--vscode-button-foreground, #fff);
+  --add-bg: var(--vscode-diffEditor-insertedLineBackground, rgba(35, 134, 54, 0.22));
+  --del-bg: var(--vscode-diffEditor-removedLineBackground, rgba(218, 54, 51, 0.22));
+  --add-num: var(--vscode-diffEditor-insertedLineBackground, rgba(35, 134, 54, 0.35));
+  --del-num: var(--vscode-diffEditor-removedLineBackground, rgba(218, 54, 51, 0.35));
+  --thread-bg: var(--vscode-editorWidget-background, #252526);
+  --agent-accent: #a78bca;
+  /* --status-* and --status-*-bg are injected at runtime by buildStatusCssVars()
+     in icons.ts, keeping webview colors in sync with vscode.ThemeColor tokens. */
+  --font-mono: var(--vscode-editor-font-family, 'Consolas', monospace);
+  --font-ui: var(--vscode-font-family, system-ui, sans-serif);
+  --font-size: var(--vscode-editor-font-size, 13px);
+  --sidebar-width: 280px;
+}
+
+* { box-sizing: border-box; margin: 0; padding: 0; }
+
+body {
+  font-family: var(--font-ui);
+  font-size: var(--font-size);
+  background: var(--bg);
+  color: var(--fg);
+  height: 100vh;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+/* ── Sidebar section headers ─────────────────────────────────────────────── */
+
+.sidebar-section-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 6px 10px;
+  border-bottom: 1px solid var(--border);
+  flex-shrink: 0;
+  background: var(--bg-sidebar);
+}
+
+.sidebar-section-border {
+  border-top: 1px solid var(--border);
+}
+
+.section-title {
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--fg-muted);
+}
+
+.sidebar-actions {
+  display: flex;
+  gap: 4px;
+}
+
+.sidebar-btn {
+  background: none;
+  border: 1px solid var(--border);
+  border-radius: 3px;
+  color: var(--fg-muted);
+  padding: 2px 7px;
+  font-size: 11px;
+  cursor: pointer;
+}
+.sidebar-btn:hover { color: var(--fg); border-color: var(--fg-muted); }
+.sidebar-btn.active {
+  background: var(--accent);
+  color: var(--accent-fg);
+  border-color: var(--accent);
+}
+
+/* ── Scrollbar ───────────────────────────────────────────────────────────── */
+
+::-webkit-scrollbar { width: 8px; height: 8px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: var(--border); border-radius: 4px; }
+::-webkit-scrollbar-thumb:hover { background: var(--fg-muted); }

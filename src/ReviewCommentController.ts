@@ -31,6 +31,12 @@ interface CRComment extends vscode.Comment {
 
 // ── Controller ───────────────────────────────────────────────────────────────
 
+/**
+ * Wraps the VS Code comment API to render our stored comments as native gutter
+ * threads in diff editors. A `CommentController` is the top-level owner; each
+ * `CommentThread` is one collapsible annotation pinned to a range in a document.
+ * Threads appear both inline in the editor and in the COMMENTS sidebar panel.
+ */
 export class ReviewCommentController implements vscode.Disposable {
   static readonly id = 'commit-review';
 
@@ -41,7 +47,7 @@ export class ReviewCommentController implements vscode.Disposable {
   private repoPath = '';
 
   /** Called after any mutation so the sidebar counts / status bar stay fresh. */
-  onCommentMutation?: () => void;
+  onCommentMutation?: (id?: string) => void;
 
   private git: GitService | undefined;
   private gitUserName = 'reviewer';
@@ -61,7 +67,10 @@ export class ReviewCommentController implements vscode.Disposable {
       placeHolder: 'Write a comment…',
     };
 
-    // Show the gutter icon only on the new (right) side of our custom diffs.
+    // commentingRangeProvider controls where the "+" gutter icon appears.
+    // Returning [] hides it; returning a Range makes every line in that range
+    // commentable. We only show it on the new (right) side of our diffs so users
+    // can't accidentally comment on the old file content.
     this.controller.commentingRangeProvider = {
       provideCommentingRanges: (document) => {
         if (document.uri.scheme !== GitContentProvider.scheme) return [];
@@ -84,6 +93,33 @@ export class ReviewCommentController implements vscode.Disposable {
     this.git          = git;
     this.gitUserName  = git.getUserName();
     this.refresh();
+  }
+
+  /**
+   * Update a single thread by comment id. Faster than full refresh() for
+   * targeted mutations (status change, reply) where only one comment changed.
+   */
+  refreshComment(id: string): void {
+    if (!this.repoPath) return;
+    const all = this.comments.load();
+    const rc = all.find(c => c.id === id);
+    if (!rc) {
+      // Deleted — remove thread
+      this.threads.get(id)?.dispose();
+      this.threads.delete(id);
+      return;
+    }
+    const existing = this.threads.get(rc.id);
+    if (existing) {
+      existing.label          = STATUS_LABELS[rc.status] ?? rc.status;
+      existing.contextValue   = `status:${rc.status}`;
+      existing.comments       = this.buildComments(rc);
+      existing.collapsibleState = this.isClosed(rc.status)
+        ? vscode.CommentThreadCollapsibleState.Collapsed
+        : vscode.CommentThreadCollapsibleState.Expanded;
+    } else {
+      this.createThread(rc);
+    }
   }
 
   /**
@@ -121,6 +157,9 @@ export class ReviewCommentController implements vscode.Disposable {
     const uri  = GitContentProvider.makeUri(this.repoPath, rc.file, rc.commitHash, 'new');
     const line = Math.max(0, rc.line - 1);
 
+    // A CommentThread is pinned to a URI + Range. Setting .comments populates the messages.
+    // thread.contextValue (e.g. "status:open") is matched by `when` clauses in package.json
+    // menus to show/hide the resolve, dismiss, and reopen buttons on each thread.
     const thread = this.controller.createCommentThread(
       uri,
       new vscode.Range(line, 0, line, 0),
@@ -255,18 +294,19 @@ export class ReviewCommentController implements vscode.Disposable {
             const snapshot    = this.captureSnapshot(commitHash, file, line);
             const codeSnippet = snapshot?.target.map(l => l.content).join('\n') ?? '';
 
-            this.comments.addComment({ commitHash, file, line, body: text.trim(), codeSnippet, snapshot });
+            const added = this.comments.addComment({ commitHash, file, line, body: text.trim(), codeSnippet, snapshot });
             thread.dispose();  // Replace the temporary "pending" thread with a real one
+            this.refresh();
+            this.onCommentMutation?.(added.id);
           } else {
             // Reply to existing comment thread
             const first = thread.comments[0] as CRComment | undefined;
             if (first?.reviewId) {
               this.comments.addThreadReply(first.reviewId, 'reviewer', text.trim());
+              this.refreshComment(first.reviewId);
+              this.onCommentMutation?.(first.reviewId);
             }
           }
-
-          this.refresh();
-          this.onCommentMutation?.();
         },
       ),
     );
@@ -293,8 +333,8 @@ export class ReviewCommentController implements vscode.Disposable {
         }
 
         this.comments.updateStatus(first.reviewId, status);
-        this.refresh();
-        this.onCommentMutation?.();
+        this.refreshComment(first.reviewId);
+        this.onCommentMutation?.(first.reviewId);
       };
 
     context.subscriptions.push(
@@ -332,10 +372,11 @@ export class ReviewCommentController implements vscode.Disposable {
       vscode.commands.registerCommand('commitReview.comment.delete', (thread: vscode.CommentThread) => {
         const first = thread?.comments?.[0] as CRComment | undefined;
         if (!first?.reviewId) return;
-        this.comments.deleteComment(first.reviewId);
-        this.threads.get(first.reviewId)?.dispose();
-        this.threads.delete(first.reviewId);
-        this.onCommentMutation?.();
+        const deletedId = first.reviewId;
+        this.comments.deleteComment(deletedId);
+        this.threads.get(deletedId)?.dispose();
+        this.threads.delete(deletedId);
+        this.onCommentMutation?.(deletedId);
       }),
     );
   }
