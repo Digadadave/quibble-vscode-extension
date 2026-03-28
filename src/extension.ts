@@ -173,20 +173,20 @@ export function activate(context: vscode.ExtensionContext): void {
   };
 
   // "Open all changes" button on a commit row → multi-diff for that commit
-  activeChangesView.onOpenCommitChanges = (hash) => {
+  activeChangesView.onOpenCommitChanges = async (hash) => {
     if (!activeGit) return;
     const repoPath   = activeGit.getRepoPath();
     const parentHash = activeGit.getParentHash(hash) || '__empty__';
     const files      = activeGit.getChangedFilesWithStats(hash);
-    const resources  = files.map(f => {
+    const resources = files.map(f => {
       const oldRef = f.status === 'A' ? '__empty__' : parentHash;
       const newRef = f.status === 'D' ? '__empty__' : hash;
-      return [
-        GitContentProvider.makeUri(repoPath, f.path, oldRef, 'old'),
-        GitContentProvider.makeUri(repoPath, f.path, newRef, 'new'),
-      ];
+      const label    = vscode.Uri.file(path.join(repoPath, f.path));
+      const original = f.status === 'A' ? undefined : GitContentProvider.makeUri(repoPath, f.path, oldRef, 'old');
+      const modified = f.status === 'D' ? undefined : GitContentProvider.makeUri(repoPath, f.path, newRef, 'new');
+      return [label, original, modified] as [vscode.Uri, vscode.Uri | undefined, vscode.Uri | undefined];
     });
-    vscode.commands.executeCommand('vscode.changes', `Commit ${hash.slice(0, 7)}`, resources);
+    await vscode.commands.executeCommand('vscode.changes', `Commit ${hash.slice(0, 7)}`, resources);
   };
 
   // Comment badge click → open the diff at the first comment on that file
@@ -219,9 +219,10 @@ export function activate(context: vscode.ExtensionContext): void {
       const uri = editor.document.uri;
       if (uri.scheme !== GitContentProvider.scheme) return;
 
-      // Skip if already inside a diff editor (the active tab is a TextDiff).
+      // Skip if already inside a diff or multi-diff editor.
       const activeTab = vscode.window.tabGroups?.activeTabGroup?.activeTab;
       if (activeTab?.input instanceof vscode.TabInputTextDiff) return;
+      if (!(activeTab?.input instanceof vscode.TabInputText)) return;
 
       const params = new URLSearchParams(uri.query);
       const commitHash = params.get('ref') ?? '';

@@ -53,9 +53,8 @@
 
   // Inline SVG icons
   const SVG_COMMENT = `<svg width="11" height="11" viewBox="0 0 16 16" fill="currentColor"><path d="M1 2.5A1.5 1.5 0 012.5 1h11A1.5 1.5 0 0115 2.5v8A1.5 1.5 0 0113.5 12H9l-3.5 3.5V12H2.5A1.5 1.5 0 011 10.5v-8z"/></svg>`;
-  const SVG_OPEN_CHANGES = `<svg width="12" height="12" viewBox="0 0 16 16" fill="currentColor" style="vertical-align:-2px"><rect x="1" y="1" width="14" height="3" rx="1"/><rect x="1" y="6.5" width="14" height="3" rx="1"/><rect x="1" y="12" width="14" height="3" rx="1"/></svg>`;
-  // const ICON_OPEN_FILE = `<i class="codicon codicon-go-to-file"></i>`;
-  const ICON_OPEN_FILE = "\u2192";
+  const ICON_OPEN_CHANGES = `<i class="codicon codicon-diff-multiple"></i>`;
+  const ICON_OPEN_FILE = `<i class="codicon codicon-go-to-file"></i>`;
 
   // A/M/D/R status letter colors
   const STATUS_COLORS = {
@@ -356,15 +355,12 @@
     const statsHtml =
       ins || del ? `<span class="ch-stats">${del}${ins}</span>` : "";
 
-    const arrow = isExpanded ? "\u25be" : "\u25b8"; // ▾ / ▸
-
     const rowHtml =
       `<div class="ch-commit-row${isExpanded ? " ch-expanded" : ""}" data-hash="${esc(commit.hash)}">` +
       `<span class="ch-badge ch-badge-hash" style="background:${color};color:${tColor}">${esc(commit.shortHash)}</span>` +
       `<span class="ch-commit-msg">${esc(commit.message)}</span>` +
+      `<span class="ch-open-changes" data-hash="${esc(commit.hash)}" title="Open All Changes">${ICON_OPEN_CHANGES}</span>` +
       statsHtml +
-      `<span class="ch-open-changes" data-hash="${esc(commit.hash)}" title="Open All Changes">${SVG_OPEN_CHANGES}</span>` +
-      `<span class="ch-expand-arrow">${arrow}</span>` +
       `</div>`;
 
     let fileListHtml = "";

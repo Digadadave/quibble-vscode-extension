@@ -85,7 +85,10 @@ export class ChangesView implements vscode.WebviewViewProvider, vscode.Disposabl
 
     webviewView.webview.options = {
       enableScripts: true,
-      localResourceRoots: [vscode.Uri.file(path.join(this.context.extensionPath, 'media'))],
+      localResourceRoots: [
+        vscode.Uri.file(path.join(this.context.extensionPath, 'media')),
+        vscode.Uri.file(path.join(this.context.extensionPath, 'node_modules', '@vscode', 'codicons', 'dist')),
+      ],
     };
 
     webviewView.webview.html = this.buildHtml(webviewView.webview);
@@ -146,6 +149,9 @@ export class ChangesView implements vscode.WebviewViewProvider, vscode.Disposabl
     const cssUri = webview.asWebviewUri(
       vscode.Uri.file(path.join(this.context.extensionPath, 'media', 'review.css')),
     );
+    const codiconsUri = webview.asWebviewUri(
+      vscode.Uri.file(path.join(this.context.extensionPath, 'node_modules', '@vscode', 'codicons', 'dist', 'codicon.css')),
+    );
     const jsUri = webview.asWebviewUri(
       vscode.Uri.file(path.join(this.context.extensionPath, 'media', 'changes.js')),
     );
@@ -159,8 +165,10 @@ export class ChangesView implements vscode.WebviewViewProvider, vscode.Disposabl
   <meta http-equiv="Content-Security-Policy"
     content="default-src 'none';
              style-src ${webview.cspSource} 'unsafe-inline';
+             font-src ${webview.cspSource};
              script-src 'nonce-${nonce}';">
   <link href="${cssUri}" rel="stylesheet">
+  <link href="${codiconsUri}" rel="stylesheet">
   ${buildStatusCssVars()}
   <style>
     body { overflow: hidden; display: flex; flex-direction: column; height: 100vh; margin: 0;
