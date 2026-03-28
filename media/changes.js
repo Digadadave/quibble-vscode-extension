@@ -51,10 +51,9 @@
   };
   const DEFAULT_ICON = { label: "F", color: "#888" };
 
-  // Inline SVG icons
-  const SVG_COMMENT = `<svg width="11" height="11" viewBox="0 0 16 16" fill="currentColor"><path d="M1 2.5A1.5 1.5 0 012.5 1h11A1.5 1.5 0 0115 2.5v8A1.5 1.5 0 0113.5 12H9l-3.5 3.5V12H2.5A1.5 1.5 0 011 10.5v-8z"/></svg>`;
+  const ICON_COMMENT     = `<i class="codicon codicon-comment"></i>`;
   const ICON_OPEN_CHANGES = `<i class="codicon codicon-diff-multiple"></i>`;
-  const ICON_OPEN_FILE = `<i class="codicon codicon-go-to-file"></i>`;
+  const ICON_OPEN_FILE   = `<i class="codicon codicon-go-to-file"></i>`;
 
   // A/M/D/R status letter colors
   const STATUS_COLORS = {
@@ -449,7 +448,7 @@
     const commentHtml =
       file.commentCount > 0
         ? `<span class="ch-comment-badge" title="${file.commentCount} comment${file.commentCount !== 1 ? "s" : ""}">` +
-          SVG_COMMENT +
+          ICON_COMMENT +
           `\u00a0${file.commentCount}</span>`
         : "";
 
