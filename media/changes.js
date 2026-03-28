@@ -118,14 +118,6 @@
     return extra > 9 ? "+9" : String(extra);
   }
 
-  function esc(s) {
-    return String(s)
-      .replace(/&/g, "&amp;")
-      .replace(/</g, "&lt;")
-      .replace(/>/g, "&gt;")
-      .replace(/"/g, "&quot;");
-  }
-
   // ── Message handler ────────────────────────────────────────────────────────
 
   window.addEventListener("message", (e) => {

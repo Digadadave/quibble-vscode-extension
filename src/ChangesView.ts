@@ -169,6 +169,7 @@ export class ChangesView implements vscode.WebviewViewProvider, vscode.Disposabl
       .replace('{{changesCssUri}}', mediaPath('changes.css').toString())
       .replace('{{codiconsUri}}', codiconsUri.toString())
       .replace('{{statusCssVars}}', buildStatusCssVars())
+      .replace('{{commonJsUri}}', mediaPath('common.js').toString())
       .replace('{{jsUri}}', mediaPath('changes.js').toString());
   }
 
