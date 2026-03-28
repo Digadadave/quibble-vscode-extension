@@ -179,7 +179,7 @@ export class ChangesView implements vscode.WebviewViewProvider, vscode.Disposabl
 
     return template
       .replace(/\{\{nonce\}\}/g, nonce)
-      .replace('{{cspSource}}', webview.cspSource)
+      .replace(/\{\{cspSource\}\}/g, webview.cspSource)
       .replace('{{sharedCssUri}}', mediaPath('shared.css').toString())
       .replace('{{changesCssUri}}', mediaPath('changes.css').toString())
       .replace('{{codiconsUri}}', codiconsUri.toString())
