@@ -1364,7 +1364,7 @@ body.expander-resizing { cursor: ns-resize !important; user-select: none; }
 }
 .ch-file-item:hover { background: var(--vscode-list-hoverBackground, rgba(255,255,255,0.04)); }
 
-/* Open-file icon on file items — hidden until the item is hovered */
+/* Open-file icon on file items — overlays stats area, appears on hover */
 .ch-jump-file {
   flex-shrink: 0;
   font-size: 14px;
@@ -1374,7 +1374,12 @@ body.expander-resizing { cursor: ns-resize !important; user-select: none; }
   line-height: 1;
   padding: 0 2px;
   transition: opacity 0.1s;
+  margin-right: -18px;
+  background: var(--vscode-sideBar-background, #252526);
 }
-.ch-file-item:hover .ch-jump-file { opacity: 1; }
+.ch-file-item:hover .ch-jump-file {
+  opacity: 1;
+  background: var(--vscode-list-hoverBackground, rgba(255,255,255,0.04));
+}
 .ch-jump-file:hover { color: var(--vscode-textLink-foreground, #4ea6ea); }
 

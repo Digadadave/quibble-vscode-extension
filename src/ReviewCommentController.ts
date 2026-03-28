@@ -1,4 +1,5 @@
 import * as vscode from 'vscode';
+import * as path from 'path';
 import { CommentManager, ReviewComment, CommentSnapshot, SnapshotLine } from './CommentManager';
 import { GitContentProvider } from './GitContentProvider';
 import { GitService } from './GitService';
@@ -301,9 +302,14 @@ export class ReviewCommentController implements vscode.Disposable {
       vscode.commands.registerCommand('commitReview.comment.dismiss', makeStatusAction('dismissed')),
       vscode.commands.registerCommand('commitReview.comment.reopen',  makeStatusAction('open')),
       vscode.commands.registerCommand('commitReview.comment.gotoFile', (thread: vscode.CommentThread) => {
-        const line = thread.range?.start.line ?? 0;
-        vscode.workspace.openTextDocument(thread.uri).then(doc => {
-          vscode.window.showTextDocument(doc, { preview: true }).then(editor => {
+        const params   = new URLSearchParams(thread.uri.query);
+        const repoPath = params.get('repo') ?? '';
+        const filePath = thread.uri.path.startsWith('/') ? thread.uri.path.slice(1) : thread.uri.path;
+        const line     = thread.range?.start.line ?? 0;
+
+        const absUri = vscode.Uri.file(path.join(repoPath, filePath));
+        vscode.workspace.openTextDocument(absUri).then(doc => {
+          vscode.window.showTextDocument(doc, { preview: false }).then(editor => {
             const pos = new vscode.Position(line, 0);
             editor.selection = new vscode.Selection(pos, pos);
             editor.revealRange(new vscode.Range(pos, pos), vscode.TextEditorRevealType.InCenter);

@@ -123,6 +123,12 @@
         "category": "Commit Review"
       },
       {
+        "command": "commitReview.changes.collapseAll",
+        "title": "Collapse All",
+        "icon": "$(collapse-all)",
+        "category": "Commit Review"
+      },
+      {
         "command": "commitReview.comments.showAll",
         "title": "Show All Comments",
         "icon": "$(eye-closed)",
@@ -210,6 +216,11 @@
           "command": "commitReview.changes.toFilesView",
           "when": "view == commitReview.changesView && commitReview.changesViewMode == 'commits'",
           "group": "navigation@1"
+        },
+        {
+          "command": "commitReview.changes.collapseAll",
+          "when": "view == commitReview.changesView",
+          "group": "navigation@0"
         },
         {
           "command": "commitReview.selectRepo",

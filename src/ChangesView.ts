@@ -65,6 +65,9 @@ export class ChangesView implements vscode.WebviewViewProvider, vscode.Disposabl
     context.subscriptions.push(
       vscode.commands.registerCommand('commitReview.changes.toCommitsView', () => setMode('commits')),
       vscode.commands.registerCommand('commitReview.changes.toFilesView',   () => setMode('files')),
+      vscode.commands.registerCommand('commitReview.changes.collapseAll',   () => {
+        this._view?.webview.postMessage({ type: 'collapseAll' });
+      }),
     );
     vscode.commands.executeCommand('setContext', 'commitReview.changesViewMode', this.viewMode);
   }

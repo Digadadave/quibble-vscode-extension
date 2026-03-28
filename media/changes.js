@@ -140,6 +140,12 @@
       setViewMode(msg.mode);
       return;
     }
+    if (msg.type === "collapseAll") {
+      expandedFiles.clear();
+      expandedCommits.clear();
+      render();
+      return;
+    }
     if (msg.type !== "load") return;
 
     branch = msg.branch || "";
