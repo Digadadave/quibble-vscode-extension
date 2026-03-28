@@ -1,3 +1,35 @@
+/**
+ * CommentsView.ts — The "Comments" sidebar panel, implemented as a VS Code
+ * `TreeDataProvider<TreeItem>`.
+ *
+ * VS Code TreeView concepts:
+ *
+ * • `TreeDataProvider` — the data source. VS Code calls `getChildren(element)`
+ *   to build the tree: `getChildren(undefined)` returns the root items; calling
+ *   it with an existing `TreeItem` returns that item's children.
+ *   `getTreeItem(element)` converts a data element into a display-ready
+ *   `vscode.TreeItem`.
+ *
+ * • `_onDidChangeTreeData.fire()` — signals VS Code to re-query the provider.
+ *   Call this whenever the underlying data changes to update the UI.
+ *
+ * • `TreeItem.command` — the action to run when the user clicks the item.
+ *   The command must be registered separately (see `createTreeView()`).
+ *
+ * • `TreeItem.contextValue` — a string matched against `when` clauses in
+ *   package.json menus (`view/item/context`). Controls which right-click
+ *   menu items appear on each row.
+ *
+ * • `TreeItem.iconPath` — accepts a `ThemeIcon` (codicon + optional color token)
+ *   for the row icon shown to the left of the label.
+ *
+ * • `treeView.badge` — the notification badge count shown on the sidebar icon.
+ *
+ * Tree structure:
+ *   CommentTreeItem          (root — one per review comment)
+ *   └─ ThreadTreeItem        (one per reply in the thread)
+ *   └─ ResolvedNoteTreeItem  (agent's resolution note, if present)
+ */
 import * as vscode from 'vscode';
 import { CommentManager, ReviewComment, CommentStatus } from './CommentManager';
 import { ICONS, STATUS_COLORS } from './icons';

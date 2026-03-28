@@ -1,3 +1,29 @@
+/**
+ * ReviewCommentController.ts — Bridges our comment data with VS Code's native
+ * comment UI (the gutter icons and threaded comment panels in diff editors).
+ *
+ * VS Code comment API concepts:
+ *
+ * • `vscode.CommentController` — the top-level owner. Create one per extension.
+ *   It manages all `CommentThread` instances and appears in the Comments panel.
+ *
+ * • `CommentThread` — a single collapsible thread pinned to a specific range in
+ *   a document URI. Each thread holds an array of `vscode.Comment` entries (the
+ *   individual messages). Threads are rendered as inline annotations in the editor
+ *   and listed in the COMMENTS sidebar panel.
+ *
+ * • `commentingRangeProvider` — controls which documents/lines show the "+" gutter
+ *   icon that lets the user start a new comment. We restrict this to the new (right)
+ *   side of our custom `commit-review-git://` diff URIs.
+ *
+ * • `CRComment extends vscode.Comment` — we add a `reviewId` field so that command
+ *   handlers (delete, status-change) can identify which stored record to mutate.
+ *
+ * Comment commands (resolve, dismiss, reopen, delete) are wired in package.json
+ * under `contributes.menus` → `comments/commentThread/title` and
+ * `comments/commentThread/context`. The `contextValue` on each thread (e.g.
+ * `"status:open"`) controls which menu items are shown via `when` clauses.
+ */
 import * as vscode from 'vscode';
 import * as path from 'path';
 import { CommentManager, ReviewComment, CommentSnapshot, SnapshotLine } from './CommentManager';

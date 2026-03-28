@@ -1,3 +1,30 @@
+/**
+ * extension.ts — Entry point for the VS Code extension.
+ *
+ * VS Code calls `activate()` once when the extension first activates (triggered
+ * by the `activationEvents` in package.json, e.g. when a git workspace is open).
+ * Everything registered here lives for the lifetime of the extension.
+ *
+ * Key VS Code concepts used in this file:
+ *
+ * • `context.subscriptions` — an array of Disposable objects. VS Code calls
+ *   `.dispose()` on every item when the extension deactivates (or the window
+ *   closes). Push anything that needs cleanup: commands, event listeners,
+ *   file-system watchers, status-bar items, etc.
+ *
+ * • Commands (`vscode.commands.registerCommand`) — named actions that can be
+ *   invoked from menus, keyboard shortcuts, or other commands. The command IDs
+ *   must match the `contributes.commands` entries in package.json.
+ *
+ * • WebviewViewProvider — a class that renders HTML inside a sidebar panel.
+ *   Registered with `registerWebviewViewProvider`; VS Code calls
+ *   `resolveWebviewView()` the first time the panel becomes visible.
+ *
+ * • FileSystemWatcher — fires events when files on disk change. Used here to
+ *   detect branch switches (.git/HEAD) and new commits (.git/refs/heads/**).
+ *
+ * • StatusBarItem — the small text/icon shown in the bottom status bar.
+ */
 import * as vscode from 'vscode';
 import * as path from 'path';
 import { GitService } from './GitService';

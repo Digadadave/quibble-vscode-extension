@@ -1,3 +1,23 @@
+/**
+ * GitService.ts — Thin shell-exec wrapper around the `git` CLI.
+ *
+ * All git commands are run synchronously via `execSync`. This is intentional:
+ * the extension host is single-threaded but git operations on local repos are
+ * fast enough that async overhead isn't worth the complexity. Commands that fail
+ * (non-zero exit, no git repo, etc.) return an empty string via the `exec()`
+ * helper rather than throwing — callers treat empty results as "nothing found".
+ *
+ * Key git concepts used here:
+ *   • merge-base    — the common ancestor commit between two branches.
+ *                     `git merge-base branch origin/main` finds where the branch
+ *                     diverged from the default branch (equivalent to a PR base).
+ *   • --first-parent — when listing branch commits, this flag ignores commits that
+ *                     were merged in from another branch, showing only the "main
+ *                     line" of the branch being reviewed.
+ *   • diff-tree     — low-level command that lists which files changed in a single
+ *                     commit (more reliable than `git show --name-status`).
+ *   • numstat       — adds insertion/deletion line counts to a diff output.
+ */
 import { execSync } from 'child_process';
 import * as fs from 'fs';
 import * as path from 'path';

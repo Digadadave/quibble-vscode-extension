@@ -1,3 +1,42 @@
+/**
+ * ChangesView.ts — The "Changes" sidebar panel, implemented as a VS Code
+ * `WebviewViewProvider`.
+ *
+ * VS Code WebviewView concepts:
+ *
+ * • `WebviewViewProvider` — a class that supplies HTML for a sidebar panel.
+ *   Register it with `vscode.window.registerWebviewViewProvider(viewType, provider)`.
+ *   VS Code calls `resolveWebviewView()` the first time the panel becomes visible
+ *   (lazily — not on startup). The `_view` property is undefined until then.
+ *
+ * • `retainContextWhenHidden: true` — keeps the webview alive (and its JS state
+ *   intact) when the panel is hidden/collapsed. Without this, VS Code destroys and
+ *   recreates the webview each time the panel is shown, losing UI state.
+ *
+ * • Content Security Policy (CSP) + nonce — webviews run in a sandboxed iframe.
+ *   The nonce is a random token embedded in the HTML `<meta http-equiv="Content-Security-Policy">`
+ *   and on every `<script>` tag. It proves a script was injected by the extension
+ *   (not by malicious content). The `{{nonce}}` placeholder in changes.html is
+ *   replaced at render time.
+ *
+ * • `webview.asWebviewUri(uri)` — converts a local file path to a `vscode-resource://`
+ *   URI that the webview iframe is allowed to load. Raw `file://` URIs are blocked.
+ *
+ * • Message passing (postMessage) — the only way to communicate between the
+ *   webview's JS sandbox and the extension host:
+ *     Extension → webview:  `webview.postMessage({ type, ...payload })`
+ *     Webview → extension:  `vscode.postMessage(...)` (inside webview JS)
+ *   Handled in the webview via `window.addEventListener('message', ...)` and
+ *   in the extension via `webview.onDidReceiveMessage(...)`.
+ *
+ * • `localResourceRoots` — whitelists which directories the webview may load
+ *   local files from. Only the listed paths are accessible.
+ *
+ * View modes:
+ *   'files'   — groups by file, shows per-commit badges (default)
+ *   'commits' — groups by commit, expandable file list per commit
+ * Mode is toggled via title-bar commands and synced to the webview via postMessage.
+ */
 import * as vscode from 'vscode';
 import * as fs from 'fs';
 import * as path from 'path';

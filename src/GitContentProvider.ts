@@ -2,6 +2,18 @@ import * as vscode from 'vscode';
 import { GitService } from './GitService';
 
 /**
+ * GitContentProvider.ts — Serves synthetic file content for custom URIs so
+ * VS Code can display historical file versions inside its native diff editor.
+ *
+ * VS Code `TextDocumentContentProvider` concept:
+ *   Normally VS Code only opens real files from disk. A `TextDocumentContentProvider`
+ *   lets extensions register a custom URI scheme (here: `commit-review-git`) and
+ *   return arbitrary text when VS Code asks to open a document with that scheme.
+ *   This is what powers `vscode.diff` — it opens two virtual documents side-by-side.
+ *
+ *   Register with: `vscode.workspace.registerTextDocumentContentProvider(scheme, provider)`
+ *   VS Code calls `provideTextDocumentContent(uri)` whenever it needs the content.
+ *
  * TextDocumentContentProvider for the `commit-review-git` URI scheme.
  *
  * URI format:
