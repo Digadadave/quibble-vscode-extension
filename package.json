@@ -250,8 +250,18 @@
           "group": "inline@2"
         },
         {
+          "command": "commitReview.comments.resolve",
+          "when": "view == commitReview.commentsView && viewItem == comment-addressed",
+          "group": "inline@1"
+        },
+        {
+          "command": "commitReview.comments.dismiss",
+          "when": "view == commitReview.commentsView && viewItem == comment-addressed",
+          "group": "inline@2"
+        },
+        {
           "command": "commitReview.comments.reopen",
-          "when": "view == commitReview.commentsView && (viewItem == comment-approved || viewItem == comment-addressed)",
+          "when": "view == commitReview.commentsView && viewItem == comment-approved",
           "group": "inline@1"
         },
         {
@@ -270,8 +280,18 @@
           "group": "1_status@2"
         },
         {
+          "command": "commitReview.comments.resolve",
+          "when": "view == commitReview.commentsView && viewItem == comment-addressed",
+          "group": "1_status@1"
+        },
+        {
+          "command": "commitReview.comments.dismiss",
+          "when": "view == commitReview.commentsView && viewItem == comment-addressed",
+          "group": "1_status@2"
+        },
+        {
           "command": "commitReview.comments.reopen",
-          "when": "view == commitReview.commentsView && (viewItem == comment-approved || viewItem == comment-addressed)",
+          "when": "view == commitReview.commentsView && viewItem == comment-approved",
           "group": "1_status@1"
         },
         {
