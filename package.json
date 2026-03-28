@@ -76,8 +76,8 @@
       },
       {
         "command": "commitReview.comments.resolve",
-        "title": "Resolve",
-        "icon": "$(check)",
+        "title": "Approve",
+        "icon": "$(check-all)",
         "category": "Commit Review"
       },
       {
