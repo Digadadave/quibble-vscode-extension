@@ -1133,41 +1133,41 @@ body.expander-resizing { cursor: ns-resize !important; user-select: none; }
   opacity: 0.85;
 }
 
-/* Filename: shrinks last — only truncates after everything else is gone */
+/* Label group: filename + folder + comment badge truncate together as one unit */
+.ch-file-label {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
 .ch-filename {
   font-size: 12px;
   font-weight: 500;
   white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  flex-shrink: 1;
-  min-width: 40px;
+  flex-shrink: 0;
 }
 
-/* Comment badge: disappears before stats (priority 3) */
+/* Comment badge */
 .ch-comment-badge {
   display: inline-flex;
   align-items: center;
   gap: 2px;
   font-size: 10px;
   color: var(--vscode-descriptionForeground, #888);
-  flex-shrink: 3;
-  min-width: 0;
-  overflow: hidden;
+  flex-shrink: 0;
   cursor: pointer;
 }
 .ch-comment-badge:hover { color: var(--vscode-foreground, #ccc); }
-.ch-comment-badge svg { opacity: 0.7; flex-shrink: 0; }
+.ch-comment-badge svg { opacity: 0.7; }
 
-/* Folder path: disappears first (priority 4) */
 .ch-folder {
   font-size: 11px;
   color: var(--vscode-descriptionForeground, #888);
   white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  flex-shrink: 4;
-  min-width: 0;
+  flex-shrink: 0;
 }
 
 /* Spacer: compresses first before any content element shrinks */

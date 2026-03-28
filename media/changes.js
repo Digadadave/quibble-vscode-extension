@@ -408,8 +408,7 @@
     return (
       `<div class="ch-file-item" data-hash="${esc(commitHash)}" data-file="${esc(file.path)}">` +
       iconHtml +
-      nameHtml +
-      folderHtml +
+      `<span class="ch-file-label">${nameHtml}${folderHtml}</span>` +
       `<span class="ch-spacer"></span>` +
       jumpHtml +
       statsHtml +
@@ -510,9 +509,7 @@
       `<div class="ch-file-block${isExpanded ? " ch-expanded" : ""}" data-file="${esc(file.path)}">` +
       `<div class="ch-row" data-file="${esc(file.path)}" title="${esc(file.path)}">` +
       iconHtml +
-      nameHtml +
-      folderHtml +
-      commentHtml +
+      `<span class="ch-file-label">${nameHtml}${folderHtml}${commentHtml}</span>` +
       `<span class="ch-spacer"></span>` +
       jumpHtml +
       statsHtml +
