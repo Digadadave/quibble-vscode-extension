@@ -50,14 +50,14 @@ export function activate(context: vscode.ExtensionContext): void {
     activeCommentsView.onDeleteComment = id => {
         if (!activeComments) return;
         activeComments.deleteComment(id);
-        refreshAll();
+        refreshOnMutation();
     };
 
     // When the user changes a comment's status from the tree.
     activeCommentsView.onUpdateStatus = (id, status) => {
         if (!activeComments) return;
         activeComments.updateStatus(id, status as import('./CommentManager').CommentStatus);
-        refreshAll();
+        refreshOnMutation();
     };
 
     const commentsTreeView = activeCommentsView.createTreeView();
@@ -209,7 +209,9 @@ export function activate(context: vscode.ExtensionContext): void {
     statusBar.tooltip = 'Select repo for Commit Review';
     context.subscriptions.push(statusBar);
 
-    // ── Shared refresh (called after any comment mutation) ────────────────────
+    // ── Shared refresh ────────────────────────────────────────────────────────
+
+    /** Full refresh: re-fetches git data. Use on repo/branch switch or new commits. */
     function refreshAll(): void {
         try {
             activeCommentsView?.refresh();
@@ -229,8 +231,29 @@ export function activate(context: vscode.ExtensionContext): void {
         updateStatusBar();
     }
 
+    /** Light refresh: comment counts + tree only, no git exec. Used on comment-only mutations. */
+    let mutationPending = false;
+    function refreshOnMutation(_id?: string): void {
+        if (mutationPending) return;
+        mutationPending = true;
+        queueMicrotask(() => {
+            mutationPending = false;
+            try {
+                activeCommentsView?.refresh();
+            } catch {
+                /* ignore */
+            }
+            try {
+                activeChangesView?.refreshCommentCounts();
+            } catch {
+                /* ignore */
+            }
+            updateStatusBar();
+        });
+    }
+
     // Wire the comment controller's mutation callback.
-    if (activeCommentController) activeCommentController.onCommentMutation = refreshAll;
+    if (activeCommentController) activeCommentController.onCommentMutation = refreshOnMutation;
 
     // ── Git change handler ─────────────────────────────────────────────────────
     // Called when .git/HEAD changes (branch switch) or .git/refs/heads/** changes
@@ -280,7 +303,7 @@ export function activate(context: vscode.ExtensionContext): void {
         activeCommentsView?.updateServices(activeComments);
         activeChangesView?.updateServices(activeGit, activeComments);
         activeCommentController?.updateRepo(repoPath, activeComments, activeGit);
-        if (activeCommentController) activeCommentController.onCommentMutation = refreshAll;
+        if (activeCommentController) activeCommentController.onCommentMutation = refreshOnMutation;
 
         // Auto-refresh when the working JSON changes externally (agent updates).
         commentChangeDisposable = activeComments.onDidChange(refreshAll);

@@ -118,11 +118,26 @@ export class ChangesView implements vscode.WebviewViewProvider, vscode.Disposabl
 
   // ── Data ──────────────────────────────────────────────────────────────────
 
+  /** Full refresh: re-fetch file list from git + comment counts. */
   refresh(): void {
     const data = this.buildData();
     this.cachedData = data;
     if (!this._view) return;
     this._view.webview.postMessage({ type: 'load', branch: data.branch, files: data.files });
+  }
+
+  /** Light refresh: re-compute comment counts only, skip git. Used on comment-only mutations. */
+  refreshCommentCounts(): void {
+    if (!this._view) return;
+    const allComments = this.comments.load();
+    const commentsByFile = new Map<string, number>();
+    for (const c of allComments) {
+      commentsByFile.set(c.file, (commentsByFile.get(c.file) ?? 0) + 1);
+    }
+    this._view.webview.postMessage({
+      type: 'updateCommentCounts',
+      counts: Object.fromEntries(commentsByFile),
+    });
   }
 
   private buildData(): { branch: string; files: object[] } {

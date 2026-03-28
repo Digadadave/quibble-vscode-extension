@@ -187,6 +187,8 @@ export class CommentsView implements vscode.TreeDataProvider<vscode.TreeItem>, v
   private treeView: vscode.TreeView<vscode.TreeItem> | undefined;
   private disposables: vscode.Disposable[] = [];
   private showClosed = false;
+  /** Snapshot of comments for the current refresh cycle. Null outside refresh(). */
+  private _cachedComments: ReviewComment[] | null = null;
 
   /** Called when the user clicks a comment — open the diff at that commit and scroll to the comment. */
   onFocusComment?: (file: string, line: number, commitHash: string, commentId: string) => void;
@@ -313,19 +315,22 @@ export class CommentsView implements vscode.TreeDataProvider<vscode.TreeItem>, v
 
   refresh(): void {
     if (this.treeView) { this.treeView.message = undefined; }
+    // Snapshot once for the entire refresh cycle (getChildren + description + badge)
+    this._cachedComments = this.comments.load();
     this._onDidChangeTreeData.fire();
     this.updateViewDescription();
     this.updateViewBadge();
+    this._cachedComments = null;
   }
 
   private getFilteredComments(): ReviewComment[] {
-    const all = this.comments.load();
+    const all = this._cachedComments ?? this.comments.load();
     return this.showClosed ? all : all.filter(c => !CLOSED_STATUSES.has(c.status));
   }
 
   private updateViewDescription(): void {
     if (!this.treeView) return;
-    const all = this.comments.load();
+    const all = this._cachedComments ?? this.comments.load();
     const openCount   = all.filter(c => !CLOSED_STATUSES.has(c.status)).length;
     const closedCount = all.filter(c =>  CLOSED_STATUSES.has(c.status)).length;
     this.treeView.description = `${openCount} open, ${closedCount} closed`;
@@ -333,7 +338,7 @@ export class CommentsView implements vscode.TreeDataProvider<vscode.TreeItem>, v
 
   private updateViewBadge(): void {
     if (!this.treeView) return;
-    const all = this.comments.load();
+    const all = this._cachedComments ?? this.comments.load();
     const openCount = all.filter(c => !CLOSED_STATUSES.has(c.status)).length;
     this.treeView.badge = openCount > 0
       ? { value: openCount, tooltip: `${openCount} open comment${openCount !== 1 ? 's' : ''}` }
