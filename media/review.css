@@ -1207,14 +1207,14 @@ body.expander-resizing { cursor: ns-resize !important; user-select: none; }
   flex-shrink: 1;
 }
 
-/* +/- stats: disappears after comment badge (priority 2) */
+/* +/- stats: fixed width so hash badges align across all rows */
 .ch-stats {
   font-size: 11px;
   font-family: var(--vscode-editor-font-family, monospace);
   white-space: nowrap;
   overflow: hidden;
-  flex-shrink: 2;
-  min-width: 0;
+  flex: 0 0 7ch;
+  text-align: right;
 }
 .ch-ins { color: var(--vscode-gitDecoration-addedResourceForeground, #2ea043); }
 .ch-del { color: var(--vscode-gitDecoration-deletedResourceForeground, #f85149); }
