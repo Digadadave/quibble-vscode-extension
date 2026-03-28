@@ -112,6 +112,27 @@ export function activate(context: vscode.ExtensionContext): void {
   activeChangesView = ChangesView.register(context, new GitService(''), new CommentManager('', context.globalState));
   activeChangesView.registerCommands(context);
 
+  context.subscriptions.push(
+    vscode.commands.registerCommand('commitReview.changes.openAllChanges', () => {
+      if (!activeGit) return;
+      const branch = activeGit.getCurrentBranch();
+      const base   = activeGit.getMergeBase(branch);
+      const head   = activeGit.getHeadHash();
+      if (!base || !head) return;
+      const repoPath = activeGit.getRepoPath();
+      const files    = activeGit.getDirectChangedFiles(base, head);
+      const resources = files.map(f => {
+        const oldRef = f.status === 'A' ? '__empty__' : base;
+        const newRef = f.status === 'D' ? '__empty__' : head;
+        return [
+          GitContentProvider.makeUri(repoPath, f.path, oldRef, 'old'),
+          GitContentProvider.makeUri(repoPath, f.path, newRef, 'new'),
+        ];
+      });
+      vscode.commands.executeCommand('vscode.changes', `Changes: ${branch}`, resources);
+    }),
+  );
+
   // Native diff: file click → cumulative single-file diff (branch base → HEAD)
   activeChangesView.onJumpToFileNative = async (file) => {
     if (!activeGit) return;
@@ -149,6 +170,23 @@ export function activate(context: vscode.ExtensionContext): void {
       editor.selection = new vscode.Selection(pos, pos);
       editor.revealRange(new vscode.Range(pos, pos), vscode.TextEditorRevealType.InCenter);
     } catch { /* file may not exist */ }
+  };
+
+  // "Open all changes" button on a commit row → multi-diff for that commit
+  activeChangesView.onOpenCommitChanges = (hash) => {
+    if (!activeGit) return;
+    const repoPath   = activeGit.getRepoPath();
+    const parentHash = activeGit.getParentHash(hash) || '__empty__';
+    const files      = activeGit.getChangedFilesWithStats(hash);
+    const resources  = files.map(f => {
+      const oldRef = f.status === 'A' ? '__empty__' : parentHash;
+      const newRef = f.status === 'D' ? '__empty__' : hash;
+      return [
+        GitContentProvider.makeUri(repoPath, f.path, oldRef, 'old'),
+        GitContentProvider.makeUri(repoPath, f.path, newRef, 'new'),
+      ];
+    });
+    vscode.commands.executeCommand('vscode.changes', `Commit ${hash.slice(0, 7)}`, resources);
   };
 
   // Comment badge click → open the diff at the first comment on that file
@@ -439,7 +477,7 @@ function copyAgentPrompt(git: GitService, comments: CommentManager): void {
 
   let prompt = '## Code Review Comments to Address\n\n';
   prompt += 'Please address the following review comments. After fixing each issue, ';
-  prompt += 'update `.vscode/commit-reviews.json` — set `"status": "resolved"` and ';
+  prompt += 'update `.vscode/commit-reviews.json` — set `"status": "addressed"` and ';
   prompt += '`"addressedByCommit"` to the new commit hash.\n\n---\n\n';
 
   for (const [hash, cs] of byCommit) {

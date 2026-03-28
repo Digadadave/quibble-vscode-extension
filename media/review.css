@@ -554,8 +554,7 @@ tr.del-line .line-num.old { background: var(--del-num); }
 .thread-container.status-question      { border-left-color: var(--status-question); }
 .thread-container.status-agent-replied { border-left-color: var(--status-replied); }
 .thread-container.status-addressed     { border-left-color: var(--status-addressed); }
-.thread-container.status-closed,
-.thread-container.status-resolved      { border-left-color: var(--status-closed); }
+.thread-container.status-closed        { border-left-color: var(--status-closed); }
 .thread-container.status-dismissed,
 .thread-container.status-outdated      { border-left-color: var(--status-dismissed); }
 
@@ -595,7 +594,6 @@ tr.del-line .line-num.old { background: var(--del-num); }
 .thread-status.question      { background: var(--status-question-bg);   color: var(--status-question); }
 .thread-status.agent-replied { background: var(--status-replied-bg);    color: var(--status-replied); }
 .thread-status.addressed     { background: var(--status-addressed-bg);  color: var(--status-addressed); }
-.thread-status.resolved      { background: var(--status-closed-bg);     color: var(--status-closed); }
 .thread-status.closed        { background: var(--status-closed-bg);     color: var(--status-closed); }
 .thread-status.dismissed     { background: var(--status-dismissed-bg);  color: var(--status-dismissed); }
 
@@ -1007,8 +1005,7 @@ tr.split-add .line-content.old { background: transparent; }
 .sidebar-comment-status.question { background: var(--status-question-bg);   color: var(--status-question); }
 .sidebar-comment-status.agent-replied { background: var(--status-replied-bg); color: var(--status-replied); }
 .sidebar-comment-status.addressed { background: var(--status-addressed-bg); color: var(--status-addressed); }
-.sidebar-comment-status.closed,
-.sidebar-comment-status.resolved { background: var(--status-closed-bg);     color: var(--status-closed); }
+.sidebar-comment-status.closed { background: var(--status-closed-bg);     color: var(--status-closed); }
 .sidebar-comment-status.dismissed { background: var(--status-dismissed-bg); color: var(--status-dismissed); }
 
 /* ── Hunk expander row ────────────────────────────────────────────────────── */
@@ -1261,6 +1258,14 @@ body.expander-resizing { cursor: ns-resize !important; user-select: none; }
   min-width: 0;
 }
 
+/* In the commits view header row, allow up to 2 lines so long messages aren't cut off too early */
+.ch-commit-row .ch-commit-msg {
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  white-space: normal;
+}
+
 /* Stats are right-aligned at a fixed width so all rows line up */
 .ch-commit-stats {
   font-size: 10px;
@@ -1308,7 +1313,7 @@ body.expander-resizing { cursor: ns-resize !important; user-select: none; }
 
 .ch-commit-row {
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   gap: 5px;
   padding: 4px 10px;
   cursor: pointer;
@@ -1317,6 +1322,19 @@ body.expander-resizing { cursor: ns-resize !important; user-select: none; }
   background: var(--vscode-sideBar-background, #252526);
 }
 .ch-commit-row:hover { background: var(--vscode-list-hoverBackground, #2a2d2e); }
+
+/* Open-all-changes icon on commit rows — hidden until hovered */
+.ch-open-changes {
+  flex-shrink: 0;
+  opacity: 0;
+  cursor: pointer;
+  color: var(--vscode-descriptionForeground, #888);
+  padding: 0 2px;
+  line-height: 1;
+  transition: opacity 0.1s;
+}
+.ch-commit-row:hover .ch-open-changes { opacity: 1; }
+.ch-open-changes:hover { color: var(--vscode-textLink-foreground, #4ea6ea); }
 
 /* Expand arrow: fixed width, muted */
 .ch-expand-arrow {

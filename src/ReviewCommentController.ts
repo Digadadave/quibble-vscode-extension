@@ -14,7 +14,6 @@ const STATUS_LABELS: Record<string, string> = {
   'needs-input':   'Needs Input',
   'addressed':     'Addressed',
   'approved':      'Approved',
-  'resolved':      'Resolved',
   'dismissed':     'Dismissed',
   'outdated':      'Outdated',
 };
@@ -193,8 +192,7 @@ export class ReviewCommentController implements vscode.Disposable {
       case 'agent-replied':
       case 'in-progress':   return this.mediaUri(ICON_FILES.STATUS_REPLIED);
       case 'addressed':     return this.mediaUri(ICON_FILES.STATUS_ADDRESSED);
-      case 'approved':
-      case 'resolved':      return this.mediaUri(ICON_FILES.STATUS_APPROVED);
+      case 'approved':      return this.mediaUri(ICON_FILES.STATUS_APPROVED);
       case 'dismissed':
       case 'outdated':      return this.mediaUri(ICON_FILES.STATUS_DISMISSED);
       default:              return this.mediaUri(ICON_FILES.STATUS_DEFAULT);
@@ -202,7 +200,7 @@ export class ReviewCommentController implements vscode.Disposable {
   }
 
   private isClosed(status: string): boolean {
-    return ['approved', 'resolved', 'dismissed', 'outdated'].includes(status);
+    return ['approved', 'dismissed', 'outdated'].includes(status);
   }
 
   // ── Snapshot capture ─────────────────────────────────────────────────────
@@ -299,10 +297,19 @@ export class ReviewCommentController implements vscode.Disposable {
       };
 
     context.subscriptions.push(
-      vscode.commands.registerCommand('commitReview.comment.resolve', makeStatusAction('addressed')),
-      vscode.commands.registerCommand('commitReview.comment.close',   makeStatusAction('approved')),
+      vscode.commands.registerCommand('commitReview.comment.resolve', makeStatusAction('approved')),
       vscode.commands.registerCommand('commitReview.comment.dismiss', makeStatusAction('dismissed')),
       vscode.commands.registerCommand('commitReview.comment.reopen',  makeStatusAction('open')),
+      vscode.commands.registerCommand('commitReview.comment.gotoFile', (thread: vscode.CommentThread) => {
+        const line = thread.range?.start.line ?? 0;
+        vscode.workspace.openTextDocument(thread.uri).then(doc => {
+          vscode.window.showTextDocument(doc, { preview: true }).then(editor => {
+            const pos = new vscode.Position(line, 0);
+            editor.selection = new vscode.Selection(pos, pos);
+            editor.revealRange(new vscode.Range(pos, pos), vscode.TextEditorRevealType.InCenter);
+          });
+        });
+      }),
     );
 
     // Cancel — only disposes new (unsaved) threads; for existing threads VS Code closes the reply box automatically

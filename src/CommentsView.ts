@@ -4,7 +4,7 @@ import { ICONS, STATUS_COLORS } from './icons';
 
 // ── Status metadata ──────────────────────────────────────────────────────────
 
-const CLOSED_STATUSES = new Set<CommentStatus>(['approved', 'resolved', 'dismissed', 'outdated']);
+const CLOSED_STATUSES = new Set<CommentStatus>(['approved', 'dismissed', 'outdated']);
 
 interface StatusMeta {
   label: string;
@@ -20,27 +20,10 @@ const STATUS_META: Record<string, StatusMeta> = {
   'in-progress':   { label: 'In Progress',   icon: ICONS.COMMENT_DISCUSSION, color: new vscode.ThemeColor(STATUS_COLORS.replied.token) },
   'addressed':     { label: 'Addressed',     icon: ICONS.CHECK,              color: new vscode.ThemeColor(STATUS_COLORS.addressed.token) },
   'approved':      { label: 'Approved',      icon: ICONS.CHECK_ALL,          color: new vscode.ThemeColor(STATUS_COLORS.approved.token) },
-  'resolved':      { label: 'Resolved',      icon: ICONS.CHECK_ALL,          color: new vscode.ThemeColor(STATUS_COLORS.approved.token) },
   'dismissed':     { label: 'Dismissed',     icon: ICONS.SYNC_IGNORED,       color: new vscode.ThemeColor(STATUS_COLORS.dismissed.token) },
   'outdated':      { label: 'Outdated',      icon: ICONS.SYNC_IGNORED,       color: new vscode.ThemeColor(STATUS_COLORS.dismissed.token) },
 };
 
-// ── Filter groups ─────────────────────────────────────────────────────────────
-// Each group maps a picker label → the set of raw status strings it covers.
-
-const FILTER_GROUPS = [
-  { id: 'open',      label: 'Open',                  icon: ICONS.COMMENT_UNRESOLVED, statuses: ['open'] },
-  { id: 'question',  label: 'Question / Needs Input', icon: ICONS.QUESTION,           statuses: ['question', 'needs-input'] },
-  { id: 'replied',   label: 'Agent Replied',          icon: ICONS.COMMENT_DISCUSSION, statuses: ['agent-replied', 'in-progress'] },
-  { id: 'addressed', label: 'Addressed',              icon: ICONS.CHECK,              statuses: ['addressed'] },
-  { id: 'approved',  label: 'Approved / Resolved',    icon: ICONS.CHECK_ALL,          statuses: ['approved', 'resolved'] },
-  { id: 'dismissed', label: 'Dismissed / Outdated',   icon: ICONS.SYNC_IGNORED,       statuses: ['dismissed', 'outdated'] },
-] as const;
-
-type FilterGroupId = typeof FILTER_GROUPS[number]['id'];
-
-// Default: everything visible except closed and dismissed
-const DEFAULT_ACTIVE_GROUPS = new Set<FilterGroupId>(['open', 'question', 'replied', 'addressed']);
 
 // ── Tree items ────────────────────────────────────────────────────────────────
 
@@ -203,7 +186,7 @@ export class CommentsView implements vscode.TreeDataProvider<vscode.TreeItem>, v
 
   private treeView: vscode.TreeView<vscode.TreeItem> | undefined;
   private disposables: vscode.Disposable[] = [];
-  private activeGroups: Set<FilterGroupId> = new Set(DEFAULT_ACTIVE_GROUPS);
+  private showClosed = false;
 
   /** Called when the user clicks a comment — open the diff at that commit and scroll to the comment. */
   onFocusComment?: (file: string, line: number, commitHash: string, commentId: string) => void;
@@ -247,7 +230,7 @@ export class CommentsView implements vscode.TreeDataProvider<vscode.TreeItem>, v
         this.onFocusComment?.(comment.file, comment.line, comment.commitHash, comment.id);
       }),
       vscode.commands.registerCommand('commitReview.comments.resolve', (item: CommentTreeItem) => {
-        this.onUpdateStatus?.(item.comment.id, 'resolved');
+        this.onUpdateStatus?.(item.comment.id, 'approved');
       }),
       vscode.commands.registerCommand('commitReview.comments.dismiss', (item: CommentTreeItem) => {
         this.onUpdateStatus?.(item.comment.id, 'dismissed');
@@ -258,38 +241,19 @@ export class CommentsView implements vscode.TreeDataProvider<vscode.TreeItem>, v
       vscode.commands.registerCommand('commitReview.comments.delete', (item: CommentTreeItem) => {
         this.onDeleteComment?.(item.comment.id);
       }),
-      // Multi-select filter picker — opens a checkable quick pick
-      vscode.commands.registerCommand('commitReview.comments.filterPicker', async () => {
-        const picks = await vscode.window.showQuickPick(
-          FILTER_GROUPS.map(g => ({
-            label: `$(${g.icon}) ${g.label}`,
-            picked: this.activeGroups.has(g.id),
-            id: g.id,
-          })),
-          { canPickMany: true, title: 'Filter Comments', placeHolder: 'Select visible statuses' },
-        );
-        if (picks === undefined) return; // cancelled
-        const chosen = new Set(picks.map(p => p.id as FilterGroupId));
-        this.activeGroups = chosen.size > 0 ? chosen : new Set(DEFAULT_ACTIVE_GROUPS);
-        this.syncFilterContext();
+      vscode.commands.registerCommand('commitReview.comments.showAll', () => {
+        this.showClosed = true;
+        vscode.commands.executeCommand('setContext', 'commitReview.showClosed', true);
         this.refresh();
       }),
-      // Keep per-group commands registered (used by syncFilterContext context keys)
-      ...FILTER_GROUPS.map(g =>
-        vscode.commands.registerCommand(`commitReview.comments.filter.${g.id}`, () => {
-          if (this.activeGroups.has(g.id)) {
-            if (this.activeGroups.size === 1) { return; }
-            this.activeGroups.delete(g.id);
-          } else {
-            this.activeGroups.add(g.id);
-          }
-          this.syncFilterContext();
-          this.refresh();
-        })
-      ),
+      vscode.commands.registerCommand('commitReview.comments.hideClosed', () => {
+        this.showClosed = false;
+        vscode.commands.executeCommand('setContext', 'commitReview.showClosed', false);
+        this.refresh();
+      }),
     );
 
-    this.syncFilterContext();  // set initial checkmark state
+    vscode.commands.executeCommand('setContext', 'commitReview.showClosed', false);
     this.updateViewDescription();
     return this.treeView;
   }
@@ -352,24 +316,11 @@ export class CommentsView implements vscode.TreeDataProvider<vscode.TreeItem>, v
     this._onDidChangeTreeData.fire();
     this.updateViewDescription();
     this.updateViewBadge();
-    this.syncFilterContext();
-  }
-
-  /** Push current activeGroups state to VS Code context so menu checkmarks update. */
-  private syncFilterContext(): void {
-    for (const g of FILTER_GROUPS) {
-      vscode.commands.executeCommand('setContext', `commitReview.filter.${g.id}`, this.activeGroups.has(g.id));
-    }
   }
 
   private getFilteredComments(): ReviewComment[] {
-    const allowed = new Set<string>();
-    for (const g of FILTER_GROUPS) {
-      if (this.activeGroups.has(g.id)) {
-        for (const s of g.statuses) { allowed.add(s); }
-      }
-    }
-    return this.comments.load().filter(c => allowed.has(c.status));
+    const all = this.comments.load();
+    return this.showClosed ? all : all.filter(c => !CLOSED_STATUSES.has(c.status));
   }
 
   private updateViewDescription(): void {
@@ -377,9 +328,7 @@ export class CommentsView implements vscode.TreeDataProvider<vscode.TreeItem>, v
     const all = this.comments.load();
     const openCount   = all.filter(c => !CLOSED_STATUSES.has(c.status)).length;
     const closedCount = all.filter(c =>  CLOSED_STATUSES.has(c.status)).length;
-    const isFiltered  = this.activeGroups.size < FILTER_GROUPS.length;
-    const filterSuffix = isFiltered ? ' — filtered' : '';
-    this.treeView.description = `${openCount} open, ${closedCount} closed${filterSuffix}`;
+    this.treeView.description = `${openCount} open, ${closedCount} closed`;
   }
 
   private updateViewBadge(): void {

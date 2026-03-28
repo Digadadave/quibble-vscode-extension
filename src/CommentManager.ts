@@ -3,7 +3,7 @@ import * as path from 'path';
 import * as crypto from 'crypto';
 import * as vscode from 'vscode';
 
-export type CommentStatus = 'open' | 'in-progress' | 'needs-input' | 'addressed' | 'approved' | 'resolved' | 'dismissed' | 'outdated';
+export type CommentStatus = 'open' | 'in-progress' | 'needs-input' | 'addressed' | 'approved' | 'dismissed' | 'outdated';
 
 export interface ThreadEntry {
   author: string;
@@ -87,7 +87,7 @@ const SCHEMA_DESCRIPTION = {
     author: 'Who wrote the comment — \'reviewer\' for the user, any string for agent replies',
     status: {
       description: 'Current state of the comment.',
-      'user-sets': 'open | approved | resolved | dismissed',
+      'user-sets': 'open | approved | dismissed',
       'agent-sets': 'in-progress | needs-input | addressed | outdated',
       'actionable-like-open': 'needs-input — agent should check these alongside open comments',
       values: {
@@ -96,7 +96,6 @@ const SCHEMA_DESCRIPTION = {
         'needs-input': 'Ball is in the user\'s court — either the agent has a question, or the agent answered a user question. Treat as actionable like open.',
         addressed: 'Agent has finished — user should confirm or reopen',
         approved: 'User confirmed and approved the agent\'s work',
-        resolved: 'User confirmed the agent\'s work is acceptable',
         dismissed: 'User decided no action is needed',
         outdated: 'Agent detected the code has changed enough that the comment may no longer apply. See resolvedNote for details. User should reopen or dismiss.',
       },
@@ -105,7 +104,7 @@ const SCHEMA_DESCRIPTION = {
     addressedAt: 'ISO 8601 timestamp when the agent marked it addressed, null otherwise',
     addressedByCommit: 'Full hash of the commit where the agent fixed the issue, null otherwise',
     codeSnippet: 'Plain-text copy of the target line(s) at the time of the comment, for quick reference',
-    resolvedNote: 'Written by the agent when updating status. For \'resolved\'/\'addressed\': what was changed. For \'outdated\': what changed in the code. For \'pending\': the agent\'s question for the user. Null if status is \'open\'.',
+    resolvedNote: 'Written by the agent when updating status. For \'addressed\': what was changed. For \'outdated\': what changed in the code. For \'pending\': the agent\'s question for the user. Null if status is \'open\'.',
     thread: {
       description: 'Ordered list of follow-up messages after the initial comment body',
       items: {
@@ -536,7 +535,7 @@ export class CommentManager implements vscode.Disposable {
   }
 
   getOpenComments(): ReviewComment[] {
-    return this.load().filter(c => c.status !== 'approved' && c.status !== 'resolved' && c.status !== 'dismissed');
+    return this.load().filter(c => c.status !== 'approved' && c.status !== 'dismissed');
   }
 
   getCommentsForCommit(hash: string): ReviewComment[] {
