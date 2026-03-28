@@ -263,16 +263,8 @@ export function activate(context: vscode.ExtensionContext): void {
         const branch = activeGit.getCurrentBranch();
         const hashes = activeGit.getBranchCommitHashes(branch);
 
-        if (branch !== activeBranch) {
-            // Branch switched — re-populate the working JSON from the DB.
-            activeBranch = branch;
-            activeComments.switchBranch(branch, hashes);
-        } else {
-            // Same branch, new commit — re-populate (new hash is now in the set)
-            // and refresh the commits list.
-            activeComments.switchBranch(branch, hashes);
-        }
-
+        activeBranch = branch;
+        activeComments.switchBranch(branch, hashes);
         refreshAll();
     }
 

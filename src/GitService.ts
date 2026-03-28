@@ -1,4 +1,5 @@
 import { execSync } from 'child_process';
+import * as fs from 'fs';
 import * as path from 'path';
 
 export interface GitCommit {
@@ -492,7 +493,6 @@ export class GitService {
      * Checks each immediate subdirectory for a .git folder.
      */
     static discoverRepos(rootDir: string): string[] {
-        const fs = require('fs') as typeof import('fs');
         const repos: string[] = [];
 
         // Check if rootDir itself is a git repo

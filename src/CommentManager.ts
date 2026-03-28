@@ -524,8 +524,7 @@ export class CommentManager implements vscode.Disposable {
     const uuid = wc.uuid;
 
     // Remove from working JSON
-    const idx = working.findIndex(c => c.id === id);
-    working.splice(idx, 1);
+    working.splice(working.indexOf(wc), 1);
     this.saveWorkingJson(working);
 
     // DB — remove ALL copies with same uuid (indexed lookup)

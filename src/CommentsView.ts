@@ -119,7 +119,7 @@ export class ThreadTreeItem extends vscode.TreeItem {
 
     this.description = body.length > 80 ? body.slice(0, 77) + '…' : body;
     this.iconPath = new vscode.ThemeIcon(
-      isAgent ? 'hubot' : 'person',
+      isAgent ? ICONS.HUBOT : ICONS.PERSON,
       isAgent
         ? new vscode.ThemeColor('terminal.ansiMagenta')
         : new vscode.ThemeColor('foreground'),
@@ -157,11 +157,11 @@ export class ResolvedNoteTreeItem extends vscode.TreeItem {
       ? comment.resolvedNote!.slice(0, 77) + '…'
       : comment.resolvedNote ?? '';
 
-    this.iconPath = new vscode.ThemeIcon('hubot', new vscode.ThemeColor('terminal.ansiMagenta'));
+    this.iconPath = new vscode.ThemeIcon(ICONS.HUBOT, new vscode.ThemeColor('terminal.ansiMagenta'));
 
     const md = new vscode.MarkdownString('', true);
     md.supportThemeIcons = true;
-    md.appendMarkdown(`$(hubot) **${noteLabel}**\n\n${comment.resolvedNote}`);
+    md.appendMarkdown(`$(${ICONS.HUBOT}) **${noteLabel}**\n\n${comment.resolvedNote}`);
     if (comment.addressedAt) md.appendMarkdown(`\n\n*${formatDate(comment.addressedAt)}*`);
     this.tooltip = md;
 
