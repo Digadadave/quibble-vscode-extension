@@ -54,7 +54,7 @@
       {
         "command": "commitReview.comment.dismiss",
         "title": "Dismiss",
-        "icon": "$(eye-closed)",
+        "icon": "$(circle-slash)",
         "category": "Commit Review"
       },
       {
@@ -305,14 +305,14 @@
           "when": "commentController == commit-review && commentThread =~ /status:(open|question|agent-replied|in-progress|needs-input)/"
         },
         {
-          "command": "commitReview.comment.gotoFile",
+          "command": "commitReview.comment.dismiss",
           "group": "inline@2",
-          "when": "commentController == commit-review"
+          "when": "commentController == commit-review && commentThread =~ /status:(open|question|agent-replied|in-progress|needs-input|addressed|approved)/"
         },
         {
-          "command": "commitReview.comment.dismiss",
+          "command": "commitReview.comment.gotoFile",
           "group": "inline@3",
-          "when": "commentController == commit-review && commentThread =~ /status:(open|question|agent-replied|in-progress|needs-input|addressed|approved)/"
+          "when": "commentController == commit-review"
         },
         {
           "command": "commitReview.comment.reopen",
