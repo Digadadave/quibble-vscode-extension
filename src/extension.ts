@@ -2,7 +2,6 @@ import * as vscode from 'vscode';
 import * as path from 'path';
 import { GitService } from './GitService';
 import { CommentManager } from './CommentManager';
-import { ReviewPanel } from './ReviewPanel';
 import { CommentsView } from './CommentsView';
 import { ChangesView } from './ChangesView';
 import { GitContentProvider } from './GitContentProvider';
@@ -13,7 +12,6 @@ import { ICONS } from './icons';
 
 let activeGit: GitService | undefined;
 let activeComments: CommentManager | undefined;
-let activeReviewPanel: ReviewPanel | undefined;
 let activeCommentsView: CommentsView | undefined;
 let activeChangesView: ChangesView | undefined;
 let activeCommentController: ReviewCommentController | undefined;
@@ -34,40 +32,6 @@ export function activate(context: vscode.ExtensionContext): void {
     // ── Native comment controller ─────────────────────────────────────────────
     activeCommentController = new ReviewCommentController(context, new CommentManager('', context.globalState));
     context.subscriptions.push(activeCommentController);
-
-    // ── Commits sidebar WebviewView ───────────────────────────────────────────
-    activeReviewPanel = ReviewPanel.register(context, new GitService(''));
-
-    // When the user expands a commit: push its file list to the sidebar.
-    activeReviewPanel.onExpandCommit = hash => {
-        if (!activeGit) return;
-        const files = activeGit.getChangedFilesWithStats(hash);
-        activeReviewPanel?.sendCommitFiles(hash, files);
-    };
-
-    // When a commit is selected (clicked), also expand its files immediately.
-    activeReviewPanel.onSelectionChanged = hashes => {
-        if (!activeGit) return;
-        for (const hash of hashes) {
-            const files = activeGit.getChangedFilesWithStats(hash);
-            activeReviewPanel?.sendCommitFiles(hash, files);
-        }
-    };
-
-    // When the user clicks a file row in the sidebar: open the native VS Code diff.
-    activeReviewPanel.onJumpToFile = (hash, file) => {
-        if (!activeGit) return;
-        openNativeDiff(activeGit, file, hash);
-    };
-
-    // When the user clicks the repo select button in the sidebar.
-    activeReviewPanel.onSelectRepo = () => {
-        vscode.commands.executeCommand('commitReview.selectRepo');
-    };
-
-    context.subscriptions.push(
-        vscode.window.registerWebviewViewProvider(ReviewPanel.viewType, activeReviewPanel, { webviewOptions: { retainContextWhenHidden: true } })
-    );
 
     // ── Comments sidebar TreeView ────────────────────────────────────────────
     activeCommentsView = CommentsView.register(context, new CommentManager('', context.globalState));
@@ -248,11 +212,6 @@ export function activate(context: vscode.ExtensionContext): void {
     // ── Shared refresh (called after any comment mutation) ────────────────────
     function refreshAll(): void {
         try {
-            activeReviewPanel?.sendCommits();
-        } catch {
-            /* ignore git errors */
-        }
-        try {
             activeCommentsView?.refresh();
         } catch {
             /* ignore */
@@ -297,7 +256,6 @@ export function activate(context: vscode.ExtensionContext): void {
     // ── Switch to a repo ──────────────────────────────────────────────────────
     function switchToRepo(repoPath: string): void {
         // Show loading state in all panels immediately
-        activeReviewPanel?.showLoading();
         activeChangesView?.showLoading();
         activeCommentsView?.showLoading();
 
@@ -319,7 +277,6 @@ export function activate(context: vscode.ExtensionContext): void {
 
         // Keep the content provider's git service up to date.
         gitContentProvider.setGit(activeGit);
-        activeReviewPanel?.updateServices(activeGit);
         activeCommentsView?.updateServices(activeComments);
         activeChangesView?.updateServices(activeGit, activeComments);
         activeCommentController?.updateRepo(repoPath, activeComments, activeGit);
@@ -366,16 +323,6 @@ export function activate(context: vscode.ExtensionContext): void {
                 placeHolder: 'Select a repository to review',
             });
             if (picked) switchToRepo(picked.repoPath);
-        })
-    );
-
-    context.subscriptions.push(
-        vscode.commands.registerCommand('commitReview.openPanel', () => {
-            if (!activeGit || !activeComments) {
-                vscode.commands.executeCommand('commitReview.selectRepo');
-                return;
-            }
-            vscode.commands.executeCommand(`${ReviewPanel.viewType}.focus`);
         })
     );
 

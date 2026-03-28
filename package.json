@@ -17,12 +17,6 @@
   "contributes": {
     "commands": [
       {
-        "command": "commitReview.openPanel",
-        "title": "Open Commit Review Panel",
-        "icon": "$(git-pull-request)",
-        "category": "Commit Review"
-      },
-      {
         "command": "commitReview.copyAgentPrompt",
         "title": "Copy Agent Prompt",
         "icon": "$(copy)",
@@ -175,12 +169,6 @@
           "id": "commitReview.changesView",
           "name": "Changes",
           "contextualTitle": "Commit Review"
-        },
-        {
-          "type": "webview",
-          "id": "commitReview.reviewView",
-          "name": "Commits",
-          "contextualTitle": "Commit Review"
         }
       ]
     },
@@ -197,11 +185,6 @@
     },
     "menus": {
       "view/title": [
-        {
-          "command": "commitReview.selectRepo",
-          "when": "view == commitReview.reviewView",
-          "group": "navigation"
-        },
         {
           "command": "commitReview.changes.toCommitsView",
           "when": "view == commitReview.changesView && commitReview.changesViewMode != 'commits'",
