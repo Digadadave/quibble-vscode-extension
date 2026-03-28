@@ -203,11 +203,6 @@
           "group": "navigation"
         },
         {
-          "command": "commitReview.selectRepo",
-          "when": "view == commitReview.commentsView",
-          "group": "navigation@2"
-        },
-        {
           "command": "commitReview.changes.toCommitsView",
           "when": "view == commitReview.changesView && commitReview.changesViewMode != 'commits'",
           "group": "navigation@1"
