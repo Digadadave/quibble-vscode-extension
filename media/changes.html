@@ -8,7 +8,8 @@
              style-src {{cspSource}} 'unsafe-inline';
              font-src {{cspSource}};
              script-src 'nonce-{{nonce}}';">
-  <link href="{{cssUri}}" rel="stylesheet">
+  <link href="{{sharedCssUri}}" rel="stylesheet">
+  <link href="{{changesCssUri}}" rel="stylesheet">
   <link href="{{codiconsUri}}" rel="stylesheet">
   {{statusCssVars}}
   <style>

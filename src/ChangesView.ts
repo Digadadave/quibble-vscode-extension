@@ -150,14 +150,10 @@ export class ChangesView implements vscode.WebviewViewProvider, vscode.Disposabl
   // ── HTML ──────────────────────────────────────────────────────────────────
 
   private buildHtml(webview: vscode.Webview): string {
-    const cssUri = webview.asWebviewUri(
-      vscode.Uri.file(path.join(this.context.extensionPath, 'media', 'review.css')),
-    );
+    const mediaPath = (file: string) =>
+      webview.asWebviewUri(vscode.Uri.file(path.join(this.context.extensionPath, 'media', file)));
     const codiconsUri = webview.asWebviewUri(
       vscode.Uri.file(path.join(this.context.extensionPath, 'node_modules', '@vscode', 'codicons', 'dist', 'codicon.css')),
-    );
-    const jsUri = webview.asWebviewUri(
-      vscode.Uri.file(path.join(this.context.extensionPath, 'media', 'changes.js')),
     );
     const nonce = generateNonce();
 
@@ -169,10 +165,11 @@ export class ChangesView implements vscode.WebviewViewProvider, vscode.Disposabl
     return template
       .replace(/\{\{nonce\}\}/g, nonce)
       .replace('{{cspSource}}', webview.cspSource)
-      .replace('{{cssUri}}', cssUri.toString())
+      .replace('{{sharedCssUri}}', mediaPath('shared.css').toString())
+      .replace('{{changesCssUri}}', mediaPath('changes.css').toString())
       .replace('{{codiconsUri}}', codiconsUri.toString())
       .replace('{{statusCssVars}}', buildStatusCssVars())
-      .replace('{{jsUri}}', jsUri.toString());
+      .replace('{{jsUri}}', mediaPath('changes.js').toString());
   }
 
   dispose(): void {
