@@ -1,4 +1,5 @@
 import * as vscode from 'vscode';
+import * as path from 'path';
 import { CommentManager, ReviewComment, CommentSnapshot, SnapshotLine } from './CommentManager';
 import { GitContentProvider } from './GitContentProvider';
 import { GitService } from './GitService';
@@ -13,8 +14,7 @@ const STATUS_LABELS: Record<string, string> = {
   'in-progress':   'In Progress',
   'needs-input':   'Needs Input',
   'addressed':     'Addressed',
-  'closed':        'Closed',
-  'resolved':      'Resolved',
+  'approved':      'Approved',
   'dismissed':     'Dismissed',
   'outdated':      'Outdated',
 };
@@ -193,8 +193,7 @@ export class ReviewCommentController implements vscode.Disposable {
       case 'agent-replied':
       case 'in-progress':   return this.mediaUri(ICON_FILES.STATUS_REPLIED);
       case 'addressed':     return this.mediaUri(ICON_FILES.STATUS_ADDRESSED);
-      case 'closed':
-      case 'resolved':      return this.mediaUri(ICON_FILES.STATUS_CLOSED);
+      case 'approved':      return this.mediaUri(ICON_FILES.STATUS_APPROVED);
       case 'dismissed':
       case 'outdated':      return this.mediaUri(ICON_FILES.STATUS_DISMISSED);
       default:              return this.mediaUri(ICON_FILES.STATUS_DEFAULT);
@@ -202,7 +201,7 @@ export class ReviewCommentController implements vscode.Disposable {
   }
 
   private isClosed(status: string): boolean {
-    return ['closed', 'resolved', 'dismissed', 'outdated'].includes(status);
+    return ['approved', 'dismissed', 'outdated'].includes(status);
   }
 
   // ── Snapshot capture ─────────────────────────────────────────────────────
@@ -299,10 +298,24 @@ export class ReviewCommentController implements vscode.Disposable {
       };
 
     context.subscriptions.push(
-      vscode.commands.registerCommand('commitReview.comment.resolve', makeStatusAction('addressed')),
-      vscode.commands.registerCommand('commitReview.comment.close',   makeStatusAction('dismissed')),
+      vscode.commands.registerCommand('commitReview.comment.resolve', makeStatusAction('approved')),
       vscode.commands.registerCommand('commitReview.comment.dismiss', makeStatusAction('dismissed')),
       vscode.commands.registerCommand('commitReview.comment.reopen',  makeStatusAction('open')),
+      vscode.commands.registerCommand('commitReview.comment.gotoFile', (thread: vscode.CommentThread) => {
+        const params   = new URLSearchParams(thread.uri.query);
+        const repoPath = params.get('repo') ?? '';
+        const filePath = thread.uri.path.startsWith('/') ? thread.uri.path.slice(1) : thread.uri.path;
+        const line     = thread.range?.start.line ?? 0;
+
+        const absUri = vscode.Uri.file(path.join(repoPath, filePath));
+        vscode.workspace.openTextDocument(absUri).then(doc => {
+          vscode.window.showTextDocument(doc, { preview: false }).then(editor => {
+            const pos = new vscode.Position(line, 0);
+            editor.selection = new vscode.Selection(pos, pos);
+            editor.revealRange(new vscode.Range(pos, pos), vscode.TextEditorRevealType.InCenter);
+          });
+        });
+      }),
     );
 
     // Cancel — only disposes new (unsaved) threads; for existing threads VS Code closes the reply box automatically

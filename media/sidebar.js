@@ -22,6 +22,11 @@ const state = {
 
 window.addEventListener('message', (/** @type {MessageEvent} */ event) => {
   const msg = event.data;
+  if (msg.type === 'loading') {
+    const container = document.getElementById('commits-list');
+    if (container) container.innerHTML = '<div style="padding:12px;color:var(--fg-muted);font-size:12px">Loading\u2026</div>';
+    return;
+  }
   if (msg.type === 'load') {
     state.commits = msg.commits ?? [];
     state.selectedHashes = new Set();

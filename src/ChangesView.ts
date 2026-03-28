@@ -11,14 +11,9 @@ export class ChangesView implements vscode.WebviewViewProvider, vscode.Disposabl
   private _view?: vscode.WebviewView;
   private disposables: vscode.Disposable[] = [];
   private cachedData: { branch: string; files: object[] } | null = null;
+  private viewMode: 'files' | 'commits' = 'files';
 
-  /** Called when the user clicks a file row — open the cumulative diff for that file. */
-  onJumpToFile?: (file: string) => void;
-
-  /** Called when the user clicks a commit hash badge — open the commit diff anchored on that file. */
-  onJumpToCommitFile?: (hash: string, file: string) => void;
-
-  /** Native diff variants (single-file VS Code diff editor). */
+  /** Called when the user clicks a file row — open single-file diff in VS Code native diff editor. */
   onJumpToFileNative?: (file: string) => void;
   onJumpToCommitFileNative?: (hash: string, file: string) => void;
 
@@ -27,6 +22,9 @@ export class ChangesView implements vscode.WebviewViewProvider, vscode.Disposabl
 
   /** Called when the user clicks the jump-to-source arrow — open file at first changed line. */
   onJumpToSource?: (file: string) => void;
+
+  /** Called when the user clicks "open all changes" on a commit row. */
+  onOpenCommitChanges?: (hash: string) => void;
 
   private constructor(
     private context: vscode.ExtensionContext,
@@ -57,6 +55,23 @@ export class ChangesView implements vscode.WebviewViewProvider, vscode.Disposabl
     this.refresh();
   }
 
+  /** Register the view-mode toggle commands. Call once after register(). */
+  registerCommands(context: vscode.ExtensionContext): void {
+    const setMode = (mode: 'files' | 'commits') => {
+      this.viewMode = mode;
+      vscode.commands.executeCommand('setContext', 'commitReview.changesViewMode', mode);
+      this._view?.webview.postMessage({ type: 'setViewMode', mode });
+    };
+    context.subscriptions.push(
+      vscode.commands.registerCommand('commitReview.changes.toCommitsView', () => setMode('commits')),
+      vscode.commands.registerCommand('commitReview.changes.toFilesView',   () => setMode('files')),
+      vscode.commands.registerCommand('commitReview.changes.collapseAll',   () => {
+        this._view?.webview.postMessage({ type: 'collapseAll' });
+      }),
+    );
+    vscode.commands.executeCommand('setContext', 'commitReview.changesViewMode', this.viewMode);
+  }
+
   /** Show loading state immediately (call before slow work begins). */
   showLoading(): void {
     this._view?.webview.postMessage({ type: 'loading' });
@@ -73,23 +88,25 @@ export class ChangesView implements vscode.WebviewViewProvider, vscode.Disposabl
 
     webviewView.webview.options = {
       enableScripts: true,
-      localResourceRoots: [vscode.Uri.file(path.join(this.context.extensionPath, 'media'))],
+      localResourceRoots: [
+        vscode.Uri.file(path.join(this.context.extensionPath, 'media')),
+        vscode.Uri.file(path.join(this.context.extensionPath, 'node_modules', '@vscode', 'codicons', 'dist')),
+      ],
     };
 
     webviewView.webview.html = this.buildHtml(webviewView.webview);
 
     webviewView.webview.onDidReceiveMessage(msg => {
-      const native = msg.diffMode === 'native';
       if (msg.type === 'jumpToFile') {
-        native ? this.onJumpToFileNative?.(msg.file) : this.onJumpToFile?.(msg.file);
+        this.onJumpToFileNative?.(msg.file as string);
       } else if (msg.type === 'jumpToCommitFile') {
-        native
-          ? this.onJumpToCommitFileNative?.(msg.hash, msg.file)
-          : this.onJumpToCommitFile?.(msg.hash, msg.file);
+        this.onJumpToCommitFileNative?.(msg.hash as string, msg.file as string);
       } else if (msg.type === 'jumpToComment') {
         this.onJumpToComment?.(msg.file as string);
       } else if (msg.type === 'jumpToSource') {
         this.onJumpToSource?.(msg.file as string);
+      } else if (msg.type === 'openCommitChanges') {
+        this.onOpenCommitChanges?.(msg.hash as string);
       }
     }, null, this.disposables);
 
@@ -135,6 +152,9 @@ export class ChangesView implements vscode.WebviewViewProvider, vscode.Disposabl
     const cssUri = webview.asWebviewUri(
       vscode.Uri.file(path.join(this.context.extensionPath, 'media', 'review.css')),
     );
+    const codiconsUri = webview.asWebviewUri(
+      vscode.Uri.file(path.join(this.context.extensionPath, 'node_modules', '@vscode', 'codicons', 'dist', 'codicon.css')),
+    );
     const jsUri = webview.asWebviewUri(
       vscode.Uri.file(path.join(this.context.extensionPath, 'media', 'changes.js')),
     );
@@ -148,8 +168,10 @@ export class ChangesView implements vscode.WebviewViewProvider, vscode.Disposabl
   <meta http-equiv="Content-Security-Policy"
     content="default-src 'none';
              style-src ${webview.cspSource} 'unsafe-inline';
+             font-src ${webview.cspSource};
              script-src 'nonce-${nonce}';">
   <link href="${cssUri}" rel="stylesheet">
+  <link href="${codiconsUri}" rel="stylesheet">
   ${buildStatusCssVars()}
   <style>
     body { overflow: hidden; display: flex; flex-direction: column; height: 100vh; margin: 0;

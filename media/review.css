@@ -554,8 +554,7 @@ tr.del-line .line-num.old { background: var(--del-num); }
 .thread-container.status-question      { border-left-color: var(--status-question); }
 .thread-container.status-agent-replied { border-left-color: var(--status-replied); }
 .thread-container.status-addressed     { border-left-color: var(--status-addressed); }
-.thread-container.status-closed,
-.thread-container.status-resolved      { border-left-color: var(--status-closed); }
+.thread-container.status-closed        { border-left-color: var(--status-closed); }
 .thread-container.status-dismissed,
 .thread-container.status-outdated      { border-left-color: var(--status-dismissed); }
 
@@ -595,7 +594,6 @@ tr.del-line .line-num.old { background: var(--del-num); }
 .thread-status.question      { background: var(--status-question-bg);   color: var(--status-question); }
 .thread-status.agent-replied { background: var(--status-replied-bg);    color: var(--status-replied); }
 .thread-status.addressed     { background: var(--status-addressed-bg);  color: var(--status-addressed); }
-.thread-status.resolved      { background: var(--status-closed-bg);     color: var(--status-closed); }
 .thread-status.closed        { background: var(--status-closed-bg);     color: var(--status-closed); }
 .thread-status.dismissed     { background: var(--status-dismissed-bg);  color: var(--status-dismissed); }
 
@@ -1007,8 +1005,7 @@ tr.split-add .line-content.old { background: transparent; }
 .sidebar-comment-status.question { background: var(--status-question-bg);   color: var(--status-question); }
 .sidebar-comment-status.agent-replied { background: var(--status-replied-bg); color: var(--status-replied); }
 .sidebar-comment-status.addressed { background: var(--status-addressed-bg); color: var(--status-addressed); }
-.sidebar-comment-status.closed,
-.sidebar-comment-status.resolved { background: var(--status-closed-bg);     color: var(--status-closed); }
+.sidebar-comment-status.closed { background: var(--status-closed-bg);     color: var(--status-closed); }
 .sidebar-comment-status.dismissed { background: var(--status-dismissed-bg); color: var(--status-dismissed); }
 
 /* ── Hunk expander row ────────────────────────────────────────────────────── */
@@ -1136,17 +1133,24 @@ body.expander-resizing { cursor: ns-resize !important; user-select: none; }
   opacity: 0.85;
 }
 
+/* Label group: filename + folder + comment badge truncate together as one unit */
+.ch-file-label {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
 .ch-filename {
   font-size: 12px;
   font-weight: 500;
   white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  flex-shrink: 1;
-  min-width: 0;
+  flex-shrink: 0;
 }
 
-/* Comment badge — right of folder label, clickable */
+/* Comment badge */
 .ch-comment-badge {
   display: inline-flex;
   align-items: center;
@@ -1159,19 +1163,15 @@ body.expander-resizing { cursor: ns-resize !important; user-select: none; }
 .ch-comment-badge:hover { color: var(--vscode-foreground, #ccc); }
 .ch-comment-badge svg { opacity: 0.7; }
 
-/* Folder path */
 .ch-folder {
   font-size: 11px;
   color: var(--vscode-descriptionForeground, #888);
   white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  flex-shrink: 1;
-  min-width: 0;
+  flex-shrink: 0;
 }
 
-/* Spacer pushes right-side content to the end */
-.ch-spacer { flex: 1; }
+/* Spacer: zero-width placeholder for jump-icon overlay; never grows */
+.ch-spacer { flex: 0 10 0; min-width: 0; }
 
 /* Badge (shared by row and expanded commit items) */
 .ch-badge {
@@ -1198,19 +1198,23 @@ body.expander-resizing { cursor: ns-resize !important; user-select: none; }
 }
 .ch-badge-more:hover { filter: brightness(1.15); }
 
-/* Fixed-width count badge (1…9 or +9 when capped) — same space always */
+/* Fixed-width count badge: disappears after stats (priority 1) */
 .ch-badge-count {
-  min-width: 20px;
+  min-width: 0;
   padding: 1px 4px;
   text-align: center;
+  overflow: hidden;
+  flex-shrink: 1;
 }
 
-/* +/- stats */
+/* +/- stats: fixed width so hash badges align across all rows */
 .ch-stats {
   font-size: 11px;
   font-family: var(--vscode-editor-font-family, monospace);
   white-space: nowrap;
-  flex-shrink: 0;
+  overflow: hidden;
+  flex: 0 0 7ch;
+  text-align: right;
 }
 .ch-ins { color: var(--vscode-gitDecoration-addedResourceForeground, #2ea043); }
 .ch-del { color: var(--vscode-gitDecoration-deletedResourceForeground, #f85149); }
@@ -1254,6 +1258,13 @@ body.expander-resizing { cursor: ns-resize !important; user-select: none; }
   min-width: 0;
 }
 
+/* In the commits view header row, truncate to a single line */
+.ch-commit-row .ch-commit-msg {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
 /* Stats are right-aligned at a fixed width so all rows line up */
 .ch-commit-stats {
   font-size: 10px;
@@ -1281,17 +1292,94 @@ body.expander-resizing { cursor: ns-resize !important; user-select: none; }
 }
 .ch-load-more:hover { text-decoration: underline; }
 
-/* Jump-to-source arrow — hidden until file row is hovered */
+/* Jump-to-source icon — floats over filename/folder area, appears on hover */
 .ch-jump-source {
   flex-shrink: 0;
-  font-size: 12px;
+  font-size: 14px;
   color: var(--vscode-descriptionForeground, #888);
   opacity: 0;
   cursor: pointer;
   line-height: 1;
   padding: 0 2px;
   transition: opacity 0.1s;
+  margin-left: -18px;
+  background: var(--vscode-sideBar-background, #252526);
 }
-.ch-row:hover .ch-jump-source { opacity: 1; }
+.ch-row:hover .ch-jump-source {
+  opacity: 1;
+  background: var(--vscode-list-hoverBackground, #2a2d2e);
+}
 .ch-jump-source:hover { color: var(--vscode-textLink-foreground, #4ea6ea); }
+
+/* ── Commits view (.ch-commit-block / .ch-commit-row / .ch-file-list) ────── */
+
+.ch-commit-block {}
+
+.ch-commit-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 5px;
+  padding: 4px 10px;
+  cursor: pointer;
+  user-select: none;
+  min-width: 0;
+  background: var(--vscode-sideBar-background, #252526);
+}
+.ch-commit-row:hover { background: var(--vscode-list-hoverBackground, #2a2d2e); }
+
+/* Open-all-changes icon on commit rows — overlays message, appears on hover */
+.ch-open-changes {
+  flex-shrink: 0;
+  opacity: 0;
+  cursor: pointer;
+  color: var(--vscode-descriptionForeground, #888);
+  padding: 0 4px;
+  line-height: 1;
+  transition: opacity 0.1s;
+  margin-right: -4px;
+  margin-left: -20px;
+  background: var(--vscode-sideBar-background, #252526);
+}
+.ch-commit-row:hover .ch-open-changes {
+  opacity: 1;
+  background: var(--vscode-list-hoverBackground, #2a2d2e);
+}
+.ch-open-changes:hover { color: var(--vscode-textLink-foreground, #4ea6ea); }
+
+/* Expanded file list under a commit row */
+.ch-file-list {
+  padding: 2px 0 4px 0;
+  background: var(--vscode-sideBar-background, #252526);
+}
+
+.ch-file-item {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  padding: 3px 10px 3px 16px;
+  cursor: pointer;
+  user-select: none;
+  min-width: 0;
+  font-size: 11px;
+}
+.ch-file-item:hover { background: var(--vscode-list-hoverBackground, rgba(255,255,255,0.04)); }
+
+/* Open-file icon on file items — overlays stats area, appears on hover */
+.ch-jump-file {
+  flex-shrink: 0;
+  font-size: 14px;
+  color: var(--vscode-descriptionForeground, #888);
+  opacity: 0;
+  cursor: pointer;
+  line-height: 1;
+  padding: 0 2px;
+  transition: opacity 0.1s;
+  margin-right: -18px;
+  background: var(--vscode-sideBar-background, #252526);
+}
+.ch-file-item:hover .ch-jump-file {
+  opacity: 1;
+  background: var(--vscode-list-hoverBackground, rgba(255,255,255,0.04));
+}
+.ch-jump-file:hover { color: var(--vscode-textLink-foreground, #4ea6ea); }
 

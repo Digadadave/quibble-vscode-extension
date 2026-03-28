@@ -5,7 +5,6 @@ import { CommentManager } from './CommentManager';
 import { ReviewPanel } from './ReviewPanel';
 import { CommentsView } from './CommentsView';
 import { ChangesView } from './ChangesView';
-import { DiffPanel } from './DiffPanel';
 import { GitContentProvider } from './GitContentProvider';
 import { ReviewCommentController } from './ReviewCommentController';
 import { ICONS } from './icons';
@@ -111,33 +110,28 @@ export function activate(context: vscode.ExtensionContext): void {
 
   // ── Changes sidebar WebviewView ───────────────────────────────────────────
   activeChangesView = ChangesView.register(context, new GitService(''), new CommentManager('', context.globalState));
+  activeChangesView.registerCommands(context);
 
-  // File click → open accumulated branch diff (all files) in DiffPanel, anchored on file
-  activeChangesView.onJumpToFile = (file) => {
-    if (!activeGit || !activeComments) return;
-    const branch = activeGit.getCurrentBranch();
-    const base   = activeGit.getMergeBase(branch);
-    const head   = activeGit.getHeadHash();
-    if (!base || !head) return;
-    const hashes = activeGit.getBranchCommitHashes(branch);
-    const panel  = DiffPanel.createOrShow(context, activeGit, activeComments);
-    panel.onCommentMutation = refreshAll;
-    panel.onSelectRepo = () => vscode.commands.executeCommand('commitReview.selectRepo');
-    panel.setRepoInfo(path.basename(activeGit.getRepoPath()), discoverAllRepos().length);
-    panel.showBranchDiff(base, head, hashes);
-    panel.focusFile(file);
-  };
-
-  // Hash badge click → open single commit diff (all files) in DiffPanel, anchored on file
-  activeChangesView.onJumpToCommitFile = (hash, file) => {
-    if (!activeGit || !activeComments) return;
-    const panel = DiffPanel.createOrShow(context, activeGit, activeComments);
-    panel.onCommentMutation = refreshAll;
-    panel.onSelectRepo = () => vscode.commands.executeCommand('commitReview.selectRepo');
-    panel.setRepoInfo(path.basename(activeGit.getRepoPath()), discoverAllRepos().length);
-    panel.showSelection([hash]);
-    panel.focusFile(file);
-  };
+  context.subscriptions.push(
+    vscode.commands.registerCommand('commitReview.changes.openAllChanges', () => {
+      if (!activeGit) return;
+      const branch = activeGit.getCurrentBranch();
+      const base   = activeGit.getMergeBase(branch);
+      const head   = activeGit.getHeadHash();
+      if (!base || !head) return;
+      const repoPath = activeGit.getRepoPath();
+      const files    = activeGit.getDirectChangedFiles(base, head);
+      const resources = files.map(f => {
+        const oldRef = f.status === 'A' ? '__empty__' : base;
+        const newRef = f.status === 'D' ? '__empty__' : head;
+        return [
+          GitContentProvider.makeUri(repoPath, f.path, oldRef, 'old'),
+          GitContentProvider.makeUri(repoPath, f.path, newRef, 'new'),
+        ];
+      });
+      vscode.commands.executeCommand('vscode.changes', `Changes: ${branch}`, resources);
+    }),
+  );
 
   // Native diff: file click → cumulative single-file diff (branch base → HEAD)
   activeChangesView.onJumpToFileNative = async (file) => {
@@ -146,9 +140,14 @@ export function activate(context: vscode.ExtensionContext): void {
     const base   = activeGit.getMergeBase(branch);
     const head   = activeGit.getHeadHash();
     if (!base || !head) return;
-    const repoPath = activeGit.getRepoPath();
-    const oldUri = GitContentProvider.makeUri(repoPath, file, base, 'old');
-    const newUri = GitContentProvider.makeUri(repoPath, file, head, 'new');
+    const repoPath  = activeGit.getRepoPath();
+    const changedFiles = activeGit.getDirectChangedFiles(base, head);
+    const fileStatus   = changedFiles.find(f => f.path === file)?.status ?? 'M';
+    // For added files (A), the old side is empty. For deleted files (D), the new side is empty.
+    const oldRef = fileStatus === 'A' ? '__empty__' : base;
+    const newRef = fileStatus === 'D' ? '__empty__' : head;
+    const oldUri = GitContentProvider.makeUri(repoPath, file, oldRef, 'old');
+    const newUri = GitContentProvider.makeUri(repoPath, file, newRef, 'new');
     await vscode.commands.executeCommand('vscode.diff', oldUri, newUri, `${path.basename(file)} (branch changes)`);
   };
 
@@ -171,6 +170,23 @@ export function activate(context: vscode.ExtensionContext): void {
       editor.selection = new vscode.Selection(pos, pos);
       editor.revealRange(new vscode.Range(pos, pos), vscode.TextEditorRevealType.InCenter);
     } catch { /* file may not exist */ }
+  };
+
+  // "Open all changes" button on a commit row → multi-diff for that commit
+  activeChangesView.onOpenCommitChanges = async (hash) => {
+    if (!activeGit) return;
+    const repoPath   = activeGit.getRepoPath();
+    const parentHash = activeGit.getParentHash(hash) || '__empty__';
+    const files      = activeGit.getChangedFilesWithStats(hash);
+    const resources = files.map(f => {
+      const oldRef = f.status === 'A' ? '__empty__' : parentHash;
+      const newRef = f.status === 'D' ? '__empty__' : hash;
+      const label    = vscode.Uri.file(path.join(repoPath, f.path));
+      const original = f.status === 'A' ? undefined : GitContentProvider.makeUri(repoPath, f.path, oldRef, 'old');
+      const modified = f.status === 'D' ? undefined : GitContentProvider.makeUri(repoPath, f.path, newRef, 'new');
+      return [label, original, modified] as [vscode.Uri, vscode.Uri | undefined, vscode.Uri | undefined];
+    });
+    await vscode.commands.executeCommand('vscode.changes', `Commit ${hash.slice(0, 7)}`, resources);
   };
 
   // Comment badge click → open the diff at the first comment on that file
@@ -203,9 +219,10 @@ export function activate(context: vscode.ExtensionContext): void {
       const uri = editor.document.uri;
       if (uri.scheme !== GitContentProvider.scheme) return;
 
-      // Skip if already inside a diff editor (the active tab is a TextDiff).
+      // Skip if already inside a diff or multi-diff editor.
       const activeTab = vscode.window.tabGroups?.activeTabGroup?.activeTab;
       if (activeTab?.input instanceof vscode.TabInputTextDiff) return;
+      if (!(activeTab?.input instanceof vscode.TabInputText)) return;
 
       const params = new URLSearchParams(uri.query);
       const commitHash = params.get('ref') ?? '';
@@ -281,7 +298,6 @@ export function activate(context: vscode.ExtensionContext): void {
     activeReviewPanel?.showLoading();
     activeChangesView?.showLoading();
     activeCommentsView?.showLoading();
-    DiffPanel.getInstance()?.showLoading();
 
     // Tear down previous watchers
     for (const d of gitFsWatchers) d.dispose();
@@ -330,14 +346,7 @@ export function activate(context: vscode.ExtensionContext): void {
 
     refreshAll();
 
-    const repoName  = path.basename(repoPath);
-    const repoCount = discoverAllRepos().length;
-    const diffPanel = DiffPanel.getInstance();
-    if (diffPanel) {
-      diffPanel.onSelectRepo = () => vscode.commands.executeCommand('commitReview.selectRepo');
-      diffPanel.setRepoInfo(repoName, repoCount);
-    }
-
+    const repoName = path.basename(repoPath);
     vscode.window.showInformationMessage(`Commit Review: switched to ${repoName}`);
   }
 
@@ -469,7 +478,7 @@ function copyAgentPrompt(git: GitService, comments: CommentManager): void {
 
   let prompt = '## Code Review Comments to Address\n\n';
   prompt += 'Please address the following review comments. After fixing each issue, ';
-  prompt += 'update `.vscode/commit-reviews.json` — set `"status": "resolved"` and ';
+  prompt += 'update `.vscode/commit-reviews.json` — set `"status": "addressed"` and ';
   prompt += '`"addressedByCommit"` to the new commit hash.\n\n---\n\n';
 
   for (const [hash, cs] of byCommit) {

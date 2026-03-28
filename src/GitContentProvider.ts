@@ -33,8 +33,11 @@ export class GitContentProvider implements vscode.TextDocumentContentProvider {
     const file = uri.path.startsWith('/') ? uri.path.slice(1) : uri.path;
     const git = this.git ?? new GitService(repo);
     try {
-      return git.getFileContentAtCommit(ref, file);
-    } catch {
+      const content = git.getFileContentAtCommit(ref, file);
+      console.log('[CommitReview] GitContentProvider', { ref: ref.slice(0, 8), file: file.split('/').pop(), contentLen: content.length });
+      return content;
+    } catch (err) {
+      console.log('[CommitReview] GitContentProvider ERROR', { ref: ref.slice(0, 8), file: file.split('/').pop(), err: String(err) });
       return '';
     }
   }

@@ -59,7 +59,7 @@ export interface DiffLine {
 
 function exec(cmd: string, cwd: string): string {
   try {
-    return execSync(cmd, { cwd, encoding: 'utf8', maxBuffer: 10 * 1024 * 1024 }).trim();
+    return execSync(cmd, { cwd, encoding: 'utf8', maxBuffer: 10 * 1024 * 1024, stdio: ['pipe', 'pipe', 'pipe'] }).trim();
   } catch {
     return '';
   }
@@ -130,11 +130,12 @@ export class GitService {
     const rs = '\x1e';
     const format = '--format=%H%x1f%h%x1f%s%x1f%ai%x1f%an%x1f%D%x1e';
     // Scope to commits unique to this branch (since merge-base with main/master).
+    // --first-parent excludes commits merged in from the default branch.
     // Falls back to full log if no merge-base can be found (e.g. on main itself).
     const base = this.getMergeBase(branch);
     const range = base ? `"${base}..${branch}"` : `"${branch}" -${limit}`;
     const limitFlag = base ? `-${limit}` : '';
-    const raw = exec(`git log ${range} ${format} ${limitFlag}`, this.repoPath);
+    const raw = exec(`git log --first-parent ${range} ${format} ${limitFlag}`, this.repoPath);
     if (!raw) return [];
 
     return raw
@@ -306,17 +307,24 @@ export class GitService {
   getBranchCommitHashes(branch: string): string[] {
     const base = this.getMergeBase(branch);
     if (!base) return [];
-    const raw = exec(`git log "${base}..${branch}" --format=%H`, this.repoPath);
+    const raw = exec(`git log --first-parent "${base}..${branch}" --format=%H`, this.repoPath);
     if (!raw) return [];
     return raw.split('\n').filter(Boolean);
   }
 
-  /** Returns the merge-base commit hash between this branch and main/master. */
+  /** Returns the merge-base commit hash between this branch and the default branch. */
   getMergeBase(branch: string): string {
-    return (
-      exec(`git merge-base "${branch}" main`, this.repoPath) ||
-      exec(`git merge-base "${branch}" master`, this.repoPath)
-    );
+    const defaultRef = this.findDefaultRef();
+    if (!defaultRef) return '';
+    return exec(`git merge-base "${branch}" "${defaultRef}"`, this.repoPath);
+  }
+
+  /** Returns the first valid default branch ref. */
+  private findDefaultRef(): string {
+    for (const ref of ['origin/HEAD', 'origin/main', 'origin/master', 'main', 'master']) {
+      if (exec(`git rev-parse --verify "${ref}"`, this.repoPath)) return ref;
+    }
+    return '';
   }
 
   /**
@@ -327,11 +335,12 @@ export class GitService {
     const base = this.getMergeBase(branch);
     if (!base) return [];
 
-    // Get commits on this branch since merge-base (newest first)
+    // Get commits on this branch since merge-base (newest first).
+    // --first-parent excludes commits merged in from the default branch.
     const sep = '\x1f';
     const rs  = '\x1e';
     const commitsRaw = exec(
-      `git log "${base}..${branch}" --format=%H%x1f%h%x1f%s%x1e`,
+      `git log --first-parent "${base}..${branch}" --format=%H%x1f%h%x1f%s%x1e`,
       this.repoPath,
     );
     if (!commitsRaw) return [];
@@ -373,6 +382,9 @@ export class GitService {
 
     const result: BranchFileChange[] = [];
     for (const [filePath, fileCommitList] of fileCommits) {
+      // Skip files with no net change base→HEAD (added then deleted/renamed within the branch).
+      // They appear in per-commit data but not in the cumulative diff.
+      if (!statusMap.has(filePath)) continue;
       const stats = statsMap.get(filePath) ?? { insertions: 0, deletions: 0 };
       const status = statusMap.get(filePath) ?? 'M';
       result.push({ path: filePath, status, commits: fileCommitList, ...stats });
@@ -396,7 +408,16 @@ export class GitService {
 
   getFileContentAtCommit(hash: string, filePath: string): string {
     const normalized = filePath.replace(/\\/g, '/');
-    return exec(`git show ${hash}:${normalized}`, this.repoPath);
+    try {
+      return execSync(
+        `git show ${hash}:${normalized}`,
+        { cwd: this.repoPath, encoding: 'utf8', maxBuffer: 10 * 1024 * 1024 },
+      ).trim();
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : String(err);
+      console.error(`[CommitReview] getFileContentAtCommit failed — hash=${hash.slice(0, 8)} file=${normalized} — ${msg}`);
+      return '';
+    }
   }
 
   /**

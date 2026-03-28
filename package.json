@@ -41,20 +41,20 @@
       },
       {
         "command": "commitReview.comment.resolve",
-        "title": "Mark Addressed",
-        "icon": "$(check)",
+        "title": "Approve",
+        "icon": "$(check-all)",
         "category": "Commit Review"
       },
       {
-        "command": "commitReview.comment.close",
-        "title": "Close",
-        "icon": "$(verified-filled)",
+        "command": "commitReview.comment.gotoFile",
+        "title": "Go to Source",
+        "icon": "$(go-to-file)",
         "category": "Commit Review"
       },
       {
         "command": "commitReview.comment.dismiss",
         "title": "Dismiss",
-        "icon": "$(sync-ignored)",
+        "icon": "$(circle-slash)",
         "category": "Commit Review"
       },
       {
@@ -76,8 +76,8 @@
       },
       {
         "command": "commitReview.comments.resolve",
-        "title": "Resolve",
-        "icon": "$(check)",
+        "title": "Approve",
+        "icon": "$(check-all)",
         "category": "Commit Review"
       },
       {
@@ -105,33 +105,39 @@
         "category": "Commit Review"
       },
       {
-        "command": "commitReview.comments.filter.open",
-        "title": "Open",
+        "command": "commitReview.changes.openAllChanges",
+        "title": "Open All Changes",
+        "icon": "$(diff-multiple)",
         "category": "Commit Review"
       },
       {
-        "command": "commitReview.comments.filter.question",
-        "title": "Question / Needs Input",
+        "command": "commitReview.changes.toCommitsView",
+        "title": "Switch to Commits View",
+        "icon": "$(list-tree)",
         "category": "Commit Review"
       },
       {
-        "command": "commitReview.comments.filter.replied",
-        "title": "Agent Replied",
+        "command": "commitReview.changes.toFilesView",
+        "title": "Switch to Files View",
+        "icon": "$(three-bars)",
         "category": "Commit Review"
       },
       {
-        "command": "commitReview.comments.filter.addressed",
-        "title": "Addressed",
+        "command": "commitReview.changes.collapseAll",
+        "title": "Collapse All",
+        "icon": "$(collapse-all)",
         "category": "Commit Review"
       },
       {
-        "command": "commitReview.comments.filter.closed",
-        "title": "Closed / Resolved",
+        "command": "commitReview.comments.showAll",
+        "title": "Show All Comments",
+        "icon": "$(eye-closed)",
         "category": "Commit Review"
       },
       {
-        "command": "commitReview.comments.filter.dismissed",
-        "title": "Dismissed / Outdated",
+        "command": "commitReview.comments.hideClosed",
+        "title": "Hide Closed Comments",
+        "icon": "$(eye)",
         "category": "Commit Review"
       },
       {
@@ -189,46 +195,7 @@
         }
       }
     },
-    "submenus": [
-      {
-        "id": "commitReview.filterMenu",
-        "label": "Filter Comments",
-        "icon": "$(filter)"
-      }
-    ],
     "menus": {
-      "commitReview.filterMenu": [
-        {
-          "command": "commitReview.comments.filter.open",
-          "group": "1@1",
-          "checked": "commitReview.filter.open"
-        },
-        {
-          "command": "commitReview.comments.filter.question",
-          "group": "1@2",
-          "checked": "commitReview.filter.question"
-        },
-        {
-          "command": "commitReview.comments.filter.replied",
-          "group": "1@3",
-          "checked": "commitReview.filter.replied"
-        },
-        {
-          "command": "commitReview.comments.filter.addressed",
-          "group": "1@4",
-          "checked": "commitReview.filter.addressed"
-        },
-        {
-          "command": "commitReview.comments.filter.closed",
-          "group": "1@5",
-          "checked": "commitReview.filter.closed"
-        },
-        {
-          "command": "commitReview.comments.filter.dismissed",
-          "group": "1@6",
-          "checked": "commitReview.filter.dismissed"
-        }
-      ],
       "view/title": [
         {
           "command": "commitReview.selectRepo",
@@ -236,14 +203,24 @@
           "group": "navigation"
         },
         {
-          "command": "commitReview.selectRepo",
-          "when": "view == commitReview.commentsView",
-          "group": "navigation"
+          "command": "commitReview.changes.toCommitsView",
+          "when": "view == commitReview.changesView && commitReview.changesViewMode != 'commits'",
+          "group": "navigation@1"
+        },
+        {
+          "command": "commitReview.changes.toFilesView",
+          "when": "view == commitReview.changesView && commitReview.changesViewMode == 'commits'",
+          "group": "navigation@1"
+        },
+        {
+          "command": "commitReview.changes.collapseAll",
+          "when": "view == commitReview.changesView",
+          "group": "navigation@0"
         },
         {
           "command": "commitReview.selectRepo",
           "when": "view == commitReview.changesView",
-          "group": "navigation"
+          "group": "navigation@2"
         },
         {
           "command": "commitReview.remapOrphans",
@@ -251,9 +228,14 @@
           "group": "navigation@0"
         },
         {
-          "submenu": "commitReview.filterMenu",
-          "when": "view == commitReview.commentsView",
-          "group": "navigation"
+          "command": "commitReview.comments.showAll",
+          "when": "view == commitReview.commentsView && !commitReview.showClosed",
+          "group": "navigation@1"
+        },
+        {
+          "command": "commitReview.comments.hideClosed",
+          "when": "view == commitReview.commentsView && commitReview.showClosed",
+          "group": "navigation@1"
         }
       ],
       "view/item/context": [
@@ -268,13 +250,23 @@
           "group": "inline@2"
         },
         {
+          "command": "commitReview.comments.resolve",
+          "when": "view == commitReview.commentsView && viewItem == comment-addressed",
+          "group": "inline@1"
+        },
+        {
+          "command": "commitReview.comments.dismiss",
+          "when": "view == commitReview.commentsView && viewItem == comment-addressed",
+          "group": "inline@2"
+        },
+        {
           "command": "commitReview.comments.reopen",
-          "when": "view == commitReview.commentsView && viewItem == comment-closed",
+          "when": "view == commitReview.commentsView && viewItem == comment-approved",
           "group": "inline@1"
         },
         {
           "command": "commitReview.comments.delete",
-          "when": "view == commitReview.commentsView && (viewItem == comment-open || viewItem == comment-closed)",
+          "when": "view == commitReview.commentsView && (viewItem == comment-open || viewItem == comment-approved || viewItem == comment-addressed)",
           "group": "inline@3"
         },
         {
@@ -288,13 +280,23 @@
           "group": "1_status@2"
         },
         {
+          "command": "commitReview.comments.resolve",
+          "when": "view == commitReview.commentsView && viewItem == comment-addressed",
+          "group": "1_status@1"
+        },
+        {
+          "command": "commitReview.comments.dismiss",
+          "when": "view == commitReview.commentsView && viewItem == comment-addressed",
+          "group": "1_status@2"
+        },
+        {
           "command": "commitReview.comments.reopen",
-          "when": "view == commitReview.commentsView && viewItem == comment-closed",
+          "when": "view == commitReview.commentsView && viewItem == comment-approved",
           "group": "1_status@1"
         },
         {
           "command": "commitReview.comments.delete",
-          "when": "view == commitReview.commentsView && (viewItem == comment-open || viewItem == comment-closed)",
+          "when": "view == commitReview.commentsView && (viewItem == comment-open || viewItem == comment-approved || viewItem == comment-addressed)",
           "group": "2_manage@1"
         }
       ],
@@ -313,29 +315,24 @@
       "comments/comment/title": [],
       "comments/commentThread/title": [
         {
-          "command": "commitReview.comment.delete",
-          "group": "inline@5",
-          "when": "commentController == commit-review && commentThread =~ /status:/"
-        },
-        {
           "command": "commitReview.comment.resolve",
           "group": "inline@1",
           "when": "commentController == commit-review && commentThread =~ /status:(open|question|agent-replied|in-progress|needs-input)/"
         },
         {
-          "command": "commitReview.comment.close",
+          "command": "commitReview.comment.dismiss",
           "group": "inline@2",
-          "when": "commentController == commit-review && commentThread =~ /status:(open|question|agent-replied|in-progress|needs-input|addressed)/"
+          "when": "commentController == commit-review && commentThread =~ /status:(open|question|agent-replied|in-progress|needs-input|addressed|approved)/"
         },
         {
-          "command": "commitReview.comment.dismiss",
+          "command": "commitReview.comment.gotoFile",
           "group": "inline@3",
-          "when": "commentController == commit-review && commentThread =~ /status:(open|question|agent-replied|in-progress|needs-input|addressed|closed)/"
+          "when": "commentController == commit-review"
         },
         {
           "command": "commitReview.comment.reopen",
           "group": "inline@4",
-          "when": "commentController == commit-review && commentThread =~ /status:(resolved|closed|dismissed|outdated)/"
+          "when": "commentController == commit-review && commentThread =~ /status:(approved|dismissed|outdated)/"
         }
       ]
     }
@@ -346,8 +343,11 @@
     "watch": "tsc -watch -p ./"
   },
   "devDependencies": {
-    "@types/vscode": "^1.85.0",
     "@types/node": "^20.0.0",
+    "@types/vscode": "^1.85.0",
     "typescript": "^5.3.0"
+  },
+  "dependencies": {
+    "@vscode/codicons": "^0.0.45"
   }
 }
