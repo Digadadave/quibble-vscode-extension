@@ -23,6 +23,9 @@ export class ChangesView implements vscode.WebviewViewProvider, vscode.Disposabl
   /** Called when the user clicks the jump-to-source arrow — open file at first changed line. */
   onJumpToSource?: (file: string) => void;
 
+  /** Called when the user clicks "open all changes" on a commit row. */
+  onOpenCommitChanges?: (hash: string) => void;
+
   private constructor(
     private context: vscode.ExtensionContext,
     private git: GitService,
@@ -96,6 +99,8 @@ export class ChangesView implements vscode.WebviewViewProvider, vscode.Disposabl
         this.onJumpToComment?.(msg.file as string);
       } else if (msg.type === 'jumpToSource') {
         this.onJumpToSource?.(msg.file as string);
+      } else if (msg.type === 'openCommitChanges') {
+        this.onOpenCommitChanges?.(msg.hash as string);
       }
     }, null, this.disposables);
 
