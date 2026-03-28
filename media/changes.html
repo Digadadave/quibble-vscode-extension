@@ -1,0 +1,32 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta http-equiv="Content-Security-Policy"
+    content="default-src 'none';
+             style-src {{cspSource}} 'unsafe-inline';
+             font-src {{cspSource}};
+             script-src 'nonce-{{nonce}}';">
+  <link href="{{cssUri}}" rel="stylesheet">
+  <link href="{{codiconsUri}}" rel="stylesheet">
+  {{statusCssVars}}
+  <style>
+    body { overflow: hidden; display: flex; flex-direction: column; height: 100vh; margin: 0;
+           background: var(--vscode-sideBar-background, #252526);
+           color: var(--vscode-sideBar-foreground, var(--vscode-foreground, #ccc)); }
+    #changes-list { flex: 1; overflow-y: auto; min-height: 0; }
+  </style>
+  <title>Changes</title>
+</head>
+<body>
+
+<div class="sidebar-section-header">
+  <span class="section-title">CHANGES</span>
+  <span id="branch-label" class="ch-branch-label"></span>
+</div>
+<div id="changes-list"></div>
+
+<script nonce="{{nonce}}" src="{{jsUri}}"></script>
+</body>
+</html>

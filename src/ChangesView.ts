@@ -1,4 +1,5 @@
 import * as vscode from 'vscode';
+import * as fs from 'fs';
 import * as path from 'path';
 import { GitService } from './GitService';
 import { CommentManager } from './CommentManager';
@@ -160,38 +161,18 @@ export class ChangesView implements vscode.WebviewViewProvider, vscode.Disposabl
     );
     const nonce = generateNonce();
 
-    return `<!DOCTYPE html>
-<html lang="en">
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <meta http-equiv="Content-Security-Policy"
-    content="default-src 'none';
-             style-src ${webview.cspSource} 'unsafe-inline';
-             font-src ${webview.cspSource};
-             script-src 'nonce-${nonce}';">
-  <link href="${cssUri}" rel="stylesheet">
-  <link href="${codiconsUri}" rel="stylesheet">
-  ${buildStatusCssVars()}
-  <style>
-    body { overflow: hidden; display: flex; flex-direction: column; height: 100vh; margin: 0;
-           background: var(--vscode-sideBar-background, #252526);
-           color: var(--vscode-sideBar-foreground, var(--vscode-foreground, #ccc)); }
-    #changes-list { flex: 1; overflow-y: auto; min-height: 0; }
-  </style>
-  <title>Changes</title>
-</head>
-<body>
+    const template = fs.readFileSync(
+      path.join(this.context.extensionPath, 'media', 'changes.html'),
+      'utf8',
+    );
 
-<div class="sidebar-section-header">
-  <span class="section-title">CHANGES</span>
-  <span id="branch-label" class="ch-branch-label"></span>
-</div>
-<div id="changes-list"></div>
-
-<script nonce="${nonce}" src="${jsUri}"></script>
-</body>
-</html>`;
+    return template
+      .replace(/\{\{nonce\}\}/g, nonce)
+      .replace('{{cspSource}}', webview.cspSource)
+      .replace('{{cssUri}}', cssUri.toString())
+      .replace('{{codiconsUri}}', codiconsUri.toString())
+      .replace('{{statusCssVars}}', buildStatusCssVars())
+      .replace('{{jsUri}}', jsUri.toString());
   }
 
   dispose(): void {
