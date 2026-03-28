@@ -1,30 +1,3 @@
-/**
- * CommentManager.ts — CRUD layer for review comments, with two storage tiers:
- *
- * 1. `globalState` (primary DB)
- *    VS Code's `Memento` key-value store, persisted per-user across sessions.
- *    Stored under key `"repo:<absoluteRepoPath>"` as a `RepoDb` object:
- *      { branches: { [branchName]: string[] }, comments: { [commitHash]: ReviewComment[] } }
- *    This is the authoritative store. Data here is never deleted (except by the
- *    user via dismiss/remap) so comments survive squash/rebase by uuid tracking.
- *
- * 2. Working JSON file (`.vscode/commit-reviews.json` by default)
- *    A human- and agent-readable snapshot of the current branch's comments.
- *    Written by the extension and watched for external edits (e.g. an AI agent
- *    updating statuses). When the file changes externally, `syncWorkingJsonToDb()`
- *    propagates the changes back into globalState.
- *
- * Orphan handling:
- *    After a squash or rebase, stored commit hashes no longer exist in git.
- *    These "orphaned" comments are detected in `switchBranch()` and surfaced to
- *    the user so they can be remapped to the squash commit or dismissed.
- *
- * uuid vs id:
- *    `id`   — unique per physical record (changes on remap/copy).
- *    `uuid` — stable identity across copies; all records with the same uuid
- *             represent the same logical comment. Status updates propagate to
- *             all copies via the uuid index so every branch stays consistent.
- */
 import * as fs from 'fs';
 import * as path from 'path';
 import * as crypto from 'crypto';
@@ -150,6 +123,19 @@ const SCHEMA_DESCRIPTION = {
 };
 
 // ── CommentManager ──────────────────────────────────────────────────────────
+//
+// Two storage tiers:
+//   1. globalState (primary DB) — VS Code's built-in Memento key-value store,
+//      persisted per-user across sessions. Key: "repo:<absoluteRepoPath>".
+//      Comments are never deleted here; orphaned records survive squash/rebase.
+//   2. Working JSON file (.vscode/commit-reviews.json) — human- and agent-readable
+//      snapshot of the current branch. The extension writes it; an AI agent may
+//      edit it. A FileSystemWatcher detects external writes and syncs them back.
+//
+// uuid vs id:
+//   `id`   — unique per physical DB record; changes when a comment is remapped.
+//   `uuid` — stable identity: all records with the same uuid are the same logical
+//            comment. Status/thread updates propagate to every copy via uuid index.
 
 export class CommentManager implements vscode.Disposable {
   private workingJsonPath: string;
@@ -169,6 +155,8 @@ export class CommentManager implements vscode.Disposable {
   /** Orphaned comments: comments from the orphaned hashes. */
   private _orphanedComments: ReviewComment[] = [];
 
+  // Firing onDidChange notifies the extension that the working JSON changed externally.
+  // This triggers a full UI refresh. Not fired on our own saves (see suppressNextWatchEvent).
   private _onDidChange = new vscode.EventEmitter<void>();
   readonly onDidChange = this._onDidChange.event;
 

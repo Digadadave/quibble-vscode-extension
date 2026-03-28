@@ -1,30 +1,3 @@
-/**
- * extension.ts — Entry point for the VS Code extension.
- *
- * VS Code calls `activate()` once when the extension first activates (triggered
- * by the `activationEvents` in package.json, e.g. when a git workspace is open).
- * Everything registered here lives for the lifetime of the extension.
- *
- * Key VS Code concepts used in this file:
- *
- * • `context.subscriptions` — an array of Disposable objects. VS Code calls
- *   `.dispose()` on every item when the extension deactivates (or the window
- *   closes). Push anything that needs cleanup: commands, event listeners,
- *   file-system watchers, status-bar items, etc.
- *
- * • Commands (`vscode.commands.registerCommand`) — named actions that can be
- *   invoked from menus, keyboard shortcuts, or other commands. The command IDs
- *   must match the `contributes.commands` entries in package.json.
- *
- * • WebviewViewProvider — a class that renders HTML inside a sidebar panel.
- *   Registered with `registerWebviewViewProvider`; VS Code calls
- *   `resolveWebviewView()` the first time the panel becomes visible.
- *
- * • FileSystemWatcher — fires events when files on disk change. Used here to
- *   detect branch switches (.git/HEAD) and new commits (.git/refs/heads/**).
- *
- * • StatusBarItem — the small text/icon shown in the bottom status bar.
- */
 import * as vscode from 'vscode';
 import * as path from 'path';
 import { GitService } from './GitService';
@@ -36,6 +9,8 @@ import { ReviewCommentController } from './ReviewCommentController';
 import { ICONS } from './icons';
 
 // ── Mutable active-repo state ────────────────────────────────────────────────
+// These module-level vars hold everything scoped to the currently active repo.
+// They are replaced wholesale when the user switches repos (see switchToRepo()).
 
 let activeGit: GitService | undefined;
 let activeComments: CommentManager | undefined;
@@ -49,10 +24,20 @@ let gitFsWatchers: vscode.Disposable[] = [];
 /** The branch name last loaded — used to detect branch switches vs. same-branch commits. */
 let activeBranch = '';
 
+/**
+ * VS Code calls activate() exactly once — when the extension first activates.
+ * `context.subscriptions` is an array of Disposable objects; VS Code calls
+ * .dispose() on every item when the extension is deactivated (window close, etc.).
+ * Push commands, event listeners, watchers, and status-bar items here so they
+ * are automatically cleaned up.
+ */
 export function activate(context: vscode.ExtensionContext): void {
     const repos = discoverAllRepos();
 
     // ── Git content provider (serves file content at specific commits) ─────────
+    // Registers the custom 'commit-review-git://' URI scheme. VS Code calls
+    // provideTextDocumentContent() whenever it needs to open a file at that scheme,
+    // which is how vscode.diff shows historical file versions side-by-side.
     const gitContentProvider = new GitContentProvider();
     context.subscriptions.push(vscode.workspace.registerTextDocumentContentProvider(GitContentProvider.scheme, gitContentProvider));
 
@@ -182,6 +167,9 @@ export function activate(context: vscode.ExtensionContext): void {
         }, 300);
     };
 
+    // retainContextWhenHidden keeps the webview iframe alive when the panel is
+    // collapsed/hidden, preserving JS state. Without it VS Code destroys and
+    // recreates the webview each time the panel becomes visible.
     context.subscriptions.push(
         vscode.window.registerWebviewViewProvider(ChangesView.viewType, activeChangesView, {
             webviewOptions: { retainContextWhenHidden: true },
@@ -231,6 +219,8 @@ export function activate(context: vscode.ExtensionContext): void {
     );
 
     // ── Status bar ────────────────────────────────────────────────────────────
+    // StatusBarItem is the clickable text/icon in the bottom-left status bar.
+    // Setting .command means clicking it runs that registered command.
     statusBar = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Left, 10);
     statusBar.command = 'commitReview.selectRepo';
     statusBar.tooltip = 'Select repo for Commit Review';
@@ -333,7 +323,9 @@ export function activate(context: vscode.ExtensionContext): void {
         activeBranch = branch;
         activeComments.switchBranch(branch, hashes);
 
-        // Watch .git/HEAD for branch switches and .git/refs/heads/** for new commits.
+        // FileSystemWatcher fires onChange/onCreate events when matching paths change on disk.
+        // RelativePattern(repoPath, glob) scopes the watcher to that specific directory.
+        // .git/HEAD changes on every branch switch; .git/refs/heads/** changes on every commit.
         const headWatcher = vscode.workspace.createFileSystemWatcher(new vscode.RelativePattern(repoPath, '.git/HEAD'));
         const refsWatcher = vscode.workspace.createFileSystemWatcher(new vscode.RelativePattern(repoPath, '.git/refs/heads/**'));
         headWatcher.onDidChange(onGitChange);
@@ -348,6 +340,9 @@ export function activate(context: vscode.ExtensionContext): void {
     }
 
     // ── Commands ──────────────────────────────────────────────────────────────
+    // Commands are named actions invoked from menus, keyboard shortcuts, or code.
+    // IDs must match `contributes.commands` entries in package.json.
+    // Push each registration to context.subscriptions so it is unregistered on deactivate.
 
     context.subscriptions.push(
         vscode.commands.registerCommand('commitReview.selectRepo', async () => {

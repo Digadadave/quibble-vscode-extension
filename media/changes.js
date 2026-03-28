@@ -1,38 +1,10 @@
 // @ts-check
 /// <reference lib="dom" />
-/**
- * changes.js — Webview JS for the "Changes" sidebar panel (ChangesView.ts).
- *
- * Webview security model:
- *   This script runs inside a sandboxed iframe, NOT in Node.js. There is no
- *   access to the VS Code extension API or the file system directly. The only
- *   communication channel is `vscode.postMessage()` (webview → extension) and
- *   `window.addEventListener('message', ...)` (extension → webview).
- *
- * `acquireVsCodeApi()` — a special function injected by VS Code into the webview
- *   iframe. Returns a proxy object with a single useful method:
- *     `vscode.postMessage(payload)` — sends a message to the extension host,
- *     where it is received by `webview.onDidReceiveMessage(...)` in ChangesView.ts.
- *
- * Incoming messages from the extension (handled by `window.addEventListener`):
- *   { type: 'load',               branch, files }  — full data reload
- *   { type: 'loading' }                             — show loading spinner
- *   { type: 'updateCommentCounts', counts }         — refresh badge numbers only
- *   { type: 'setViewMode',         mode }           — switch files/commits view
- *   { type: 'collapseAll' }                         — collapse all expanded rows
- *
- * Outgoing messages to the extension:
- *   { type: 'jumpToFile',         file }            — open cumulative file diff
- *   { type: 'jumpToCommitFile',   hash, file }      — open single-commit file diff
- *   { type: 'jumpToComment',      file }            — focus first comment on file
- *   { type: 'jumpToSource',       file }            — open live file at first change
- *   { type: 'openCommitChanges',  hash }            — multi-diff for a whole commit
- *
- * All user interaction uses event delegation: a single `document.addEventListener('click')`
- * at the top checks `e.target.closest(selector)` rather than attaching listeners
- * to individual elements. This works reliably with dynamically re-rendered HTML.
- */
 (function () {
+  // acquireVsCodeApi() is injected by VS Code into this sandboxed iframe. It returns
+  // a proxy with one useful method: vscode.postMessage(payload). This is the ONLY way
+  // to send data from the webview back to the extension host (ChangesView.ts).
+  // This script has no Node.js access — no file system, no require(), no VS Code API.
   const vscode = acquireVsCodeApi();
 
   // 20-color muted palette for commit hash badges (consistent order, index 0 first)
@@ -153,6 +125,9 @@
   }
 
   // ── Message handler ────────────────────────────────────────────────────────
+  // Messages sent from ChangesView.ts via webview.postMessage() arrive here.
+  // Protocol: { type: 'load', branch, files } | 'loading' | 'updateCommentCounts' |
+  //            'setViewMode' | 'collapseAll'
 
   window.addEventListener("message", (e) => {
     const msg = e.data;
@@ -216,6 +191,9 @@
   }
 
   // ── Click delegation ───────────────────────────────────────────────────────
+  // Single top-level listener handles all clicks via e.target.closest(selector).
+  // This is more reliable than per-element listeners on dynamically re-rendered HTML.
+  // Each branch sends a postMessage to the extension host and returns early.
 
   document.addEventListener("click", (e) => {
     const target = /** @type {HTMLElement} */ (e.target);

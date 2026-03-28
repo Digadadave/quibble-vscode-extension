@@ -1,29 +1,3 @@
-/**
- * ReviewCommentController.ts — Bridges our comment data with VS Code's native
- * comment UI (the gutter icons and threaded comment panels in diff editors).
- *
- * VS Code comment API concepts:
- *
- * • `vscode.CommentController` — the top-level owner. Create one per extension.
- *   It manages all `CommentThread` instances and appears in the Comments panel.
- *
- * • `CommentThread` — a single collapsible thread pinned to a specific range in
- *   a document URI. Each thread holds an array of `vscode.Comment` entries (the
- *   individual messages). Threads are rendered as inline annotations in the editor
- *   and listed in the COMMENTS sidebar panel.
- *
- * • `commentingRangeProvider` — controls which documents/lines show the "+" gutter
- *   icon that lets the user start a new comment. We restrict this to the new (right)
- *   side of our custom `commit-review-git://` diff URIs.
- *
- * • `CRComment extends vscode.Comment` — we add a `reviewId` field so that command
- *   handlers (delete, status-change) can identify which stored record to mutate.
- *
- * Comment commands (resolve, dismiss, reopen, delete) are wired in package.json
- * under `contributes.menus` → `comments/commentThread/title` and
- * `comments/commentThread/context`. The `contextValue` on each thread (e.g.
- * `"status:open"`) controls which menu items are shown via `when` clauses.
- */
 import * as vscode from 'vscode';
 import * as path from 'path';
 import { CommentManager, ReviewComment, CommentSnapshot, SnapshotLine } from './CommentManager';
@@ -57,6 +31,12 @@ interface CRComment extends vscode.Comment {
 
 // ── Controller ───────────────────────────────────────────────────────────────
 
+/**
+ * Wraps the VS Code comment API to render our stored comments as native gutter
+ * threads in diff editors. A `CommentController` is the top-level owner; each
+ * `CommentThread` is one collapsible annotation pinned to a range in a document.
+ * Threads appear both inline in the editor and in the COMMENTS sidebar panel.
+ */
 export class ReviewCommentController implements vscode.Disposable {
   static readonly id = 'commit-review';
 
@@ -87,7 +67,10 @@ export class ReviewCommentController implements vscode.Disposable {
       placeHolder: 'Write a comment…',
     };
 
-    // Show the gutter icon only on the new (right) side of our custom diffs.
+    // commentingRangeProvider controls where the "+" gutter icon appears.
+    // Returning [] hides it; returning a Range makes every line in that range
+    // commentable. We only show it on the new (right) side of our diffs so users
+    // can't accidentally comment on the old file content.
     this.controller.commentingRangeProvider = {
       provideCommentingRanges: (document) => {
         if (document.uri.scheme !== GitContentProvider.scheme) return [];
@@ -174,6 +157,9 @@ export class ReviewCommentController implements vscode.Disposable {
     const uri  = GitContentProvider.makeUri(this.repoPath, rc.file, rc.commitHash, 'new');
     const line = Math.max(0, rc.line - 1);
 
+    // A CommentThread is pinned to a URI + Range. Setting .comments populates the messages.
+    // thread.contextValue (e.g. "status:open") is matched by `when` clauses in package.json
+    // menus to show/hide the resolve, dismiss, and reopen buttons on each thread.
     const thread = this.controller.createCommentThread(
       uri,
       new vscode.Range(line, 0, line, 0),
