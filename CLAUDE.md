@@ -77,5 +77,13 @@ When adding a new status, update both `STATUS_META` and `FILTER_GROUPS`.
 - No over-engineering: minimal abstractions, no helpers for one-time operations
 - Keep changes focused — don't refactor surrounding code when fixing a bug
 
-## Workflow
-- After completing a set of changes, run `npm run compile` to verify no TypeScript errors, then commit.
+## Workflow — REQUIRED Steps After Every Change
+
+This is a **VS Code extension**. There is no browser preview — never start a dev server or call preview tools.
+
+After completing any set of changes, you **must**:
+
+1. Run `npm run compile` — fix all TypeScript errors before proceeding.
+2. Commit with `git add` + `git commit` — every completed task ends in a commit.
+
+These steps are **not optional**. Do not end your turn without compiling and committing.
