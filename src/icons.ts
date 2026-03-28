@@ -8,10 +8,11 @@ export const ICONS = {
   GIT_PULL_REQUEST:   'git-pull-request',
   REPO:               'repo',
   // Comments
-  COMMENT:            'comment',
-  COMMENT_DISCUSSION: 'comment-discussion',
-  COMMENT_UNRESOLVED: 'comment-unresolved',
-  CIRCLE_SLASH:       'circle-slash',
+  COMMENT:                      'comment',
+  COMMENT_DISCUSSION:           'comment-discussion',
+  COMMENT_DISCUSSION_SPARKLE:   'comment-discussion-sparkle',
+  COMMENT_UNRESOLVED:           'comment-unresolved',
+  CIRCLE_SLASH:                 'circle-slash',
   // Status actions
   CHECK:              'check',
   CHECK_ALL:          'check-all',
