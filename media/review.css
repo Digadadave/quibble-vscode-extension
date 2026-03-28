@@ -1170,8 +1170,8 @@ body.expander-resizing { cursor: ns-resize !important; user-select: none; }
   flex-shrink: 0;
 }
 
-/* Spacer: compresses first before any content element shrinks */
-.ch-spacer { flex: 1 10 0; min-width: 0; }
+/* Spacer: zero-width placeholder for jump-icon overlay; never grows */
+.ch-spacer { flex: 0 10 0; min-width: 0; }
 
 /* Badge (shared by row and expanded commit items) */
 .ch-badge {
