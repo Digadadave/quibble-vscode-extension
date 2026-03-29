@@ -21,8 +21,6 @@ let statusBar: vscode.StatusBarItem | undefined;
 let commentChangeDisposable: vscode.Disposable | undefined;
 /** Disposables for the .git/HEAD and .git/refs watchers of the active repo. */
 let gitFsWatchers: vscode.Disposable[] = [];
-/** The branch name last loaded — used to detect branch switches vs. same-branch commits. */
-let activeBranch = '';
 
 /**
  * VS Code calls activate() exactly once — when the extension first activates.
@@ -280,7 +278,6 @@ export function activate(context: vscode.ExtensionContext): void {
         const branch = activeGit.getCurrentBranch();
         const hashes = activeGit.getBranchCommitHashes(branch);
 
-        activeBranch = branch;
         activeComments.switchBranch(branch, hashes);
         refreshAll();
     }
@@ -294,7 +291,6 @@ export function activate(context: vscode.ExtensionContext): void {
         // Tear down previous watchers
         for (const d of gitFsWatchers) d.dispose();
         gitFsWatchers = [];
-        activeBranch = '';
         commentChangeDisposable?.dispose();
         activeComments?.dispose();
 
@@ -320,7 +316,6 @@ export function activate(context: vscode.ExtensionContext): void {
         // Initialise the working JSON for the current branch.
         const branch = activeGit.getCurrentBranch();
         const hashes = activeGit.getBranchCommitHashes(branch);
-        activeBranch = branch;
         activeComments.switchBranch(branch, hashes);
 
         // FileSystemWatcher fires onChange/onCreate events when matching paths change on disk.
