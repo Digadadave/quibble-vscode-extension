@@ -89,7 +89,8 @@ export function activate(context: vscode.ExtensionContext): void {
             const resources = files.map(f => {
                 const oldRef = f.status === 'A' ? '__empty__' : base;
                 const newRef = f.status === 'D' ? '__empty__' : head;
-                return [GitContentProvider.makeUri(repoPath, f.path, oldRef, 'old'), GitContentProvider.makeUri(repoPath, f.path, newRef, 'new')];
+                const reviewRef = newRef !== '__empty__' ? head : oldRef;
+            return [GitContentProvider.makeUri(repoPath, f.path, oldRef, 'old', reviewRef), GitContentProvider.makeUri(repoPath, f.path, newRef, 'new')];
             });
             vscode.commands.executeCommand('vscode.changes', `Changes: ${branch}`, resources);
         })
@@ -108,7 +109,8 @@ export function activate(context: vscode.ExtensionContext): void {
         // For added files (A), the old side is empty. For deleted files (D), the new side is empty.
         const oldRef = fileStatus === 'A' ? '__empty__' : base;
         const newRef = fileStatus === 'D' ? '__empty__' : head;
-        const oldUri = GitContentProvider.makeUri(repoPath, file, oldRef, 'old');
+        const reviewHash = fileStatus === 'D' ? oldRef : newRef;
+        const oldUri = GitContentProvider.makeUri(repoPath, file, oldRef, 'old', reviewHash);
         const newUri = GitContentProvider.makeUri(repoPath, file, newRef, 'new');
         await vscode.commands.executeCommand('vscode.diff', oldUri, newUri, `${path.basename(file)} (branch changes)`);
     };
@@ -146,7 +148,7 @@ export function activate(context: vscode.ExtensionContext): void {
             const oldRef = f.status === 'A' ? '__empty__' : parentHash;
             const newRef = f.status === 'D' ? '__empty__' : hash;
             const label = vscode.Uri.file(path.join(repoPath, f.path));
-            const original = f.status === 'A' ? undefined : GitContentProvider.makeUri(repoPath, f.path, oldRef, 'old');
+            const original = f.status === 'A' ? undefined : GitContentProvider.makeUri(repoPath, f.path, oldRef, 'old', hash);
             const modified = f.status === 'D' ? undefined : GitContentProvider.makeUri(repoPath, f.path, newRef, 'new');
             return [label, original, modified] as [vscode.Uri, vscode.Uri | undefined, vscode.Uri | undefined];
         });
@@ -431,7 +433,7 @@ async function openNativeDiff(git: GitService, file: string, commitHash: string)
     const repoPath = git.getRepoPath();
     const parentHash = git.getParentHash(commitHash) || '__empty__';
 
-    const oldUri = GitContentProvider.makeUri(repoPath, file, parentHash, 'old');
+    const oldUri = GitContentProvider.makeUri(repoPath, file, parentHash, 'old', commitHash);
     const newUri = GitContentProvider.makeUri(repoPath, file, commitHash, 'new');
     const title = `${path.basename(file)} @ ${commitHash.slice(0, 7)}`;
 

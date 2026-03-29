@@ -82,7 +82,7 @@ const SCHEMA_DESCRIPTION = {
     file: 'Relative path to the file from the repo root',
     line: 'First line number of the selection at the time of the commit (1-based)',
     lineEnd: 'Last line number of the selection; equals line for single-line comments',
-    side: '\'right\' = new (post-commit) file side; \'left\' = old (pre-commit) file side',
+    side: '\'right\' = new (post-commit) file side, code that was added or kept; \'left\' = old (pre-commit) file side, code that was removed or changed by this commit',
     body: 'The review comment text written by the user',
     author: 'Who wrote the comment — \'reviewer\' for the user, any string for agent replies',
     status: {

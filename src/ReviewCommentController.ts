@@ -69,13 +69,12 @@ export class ReviewCommentController implements vscode.Disposable {
 
     // commentingRangeProvider controls where the "+" gutter icon appears.
     // Returning [] hides it; returning a Range makes every line in that range
-    // commentable. We only show it on the new (right) side of our diffs so users
-    // can't accidentally comment on the old file content.
+    // commentable. We show it on both sides of our diffs — the right (new) side
+    // for commenting on current code, and the left (old) side for commenting on
+    // code that was removed or changed by the commit.
     this.controller.commentingRangeProvider = {
       provideCommentingRanges: (document) => {
         if (document.uri.scheme !== GitContentProvider.scheme) return [];
-        const params = new URLSearchParams(document.uri.query);
-        if (params.get('side') !== 'new') return [];
         return [new vscode.Range(0, 0, Math.max(0, document.lineCount - 1), 0)];
       },
     };
@@ -287,14 +286,23 @@ export class ReviewCommentController implements vscode.Disposable {
           if (thread.comments.length === 0) {
             // New comment from the gutter
             const params      = new URLSearchParams(thread.uri.query);
-            const commitHash  = params.get('ref') ?? '';
+            const uriRef      = params.get('ref') ?? '';
+            const uriSide     = params.get('side') ?? 'new';
             const file        = thread.uri.path.startsWith('/') ? thread.uri.path.slice(1) : thread.uri.path;
             const line        = (thread.range?.start.line ?? 0) + 1;
 
-            const snapshot    = this.captureSnapshot(commitHash, file, line);
+            // Left-side comments are about removed/changed code. Use reviewHash as
+            // the stored commitHash (the reviewed commit), while uriRef (the parent)
+            // is only used to capture the snapshot of the old file content.
+            const isLeftSide  = uriSide === 'old';
+            const commitHash  = isLeftSide ? (params.get('reviewHash') ?? uriRef) : uriRef;
+            const snapshotRef = isLeftSide ? uriRef : commitHash;
+            const side        = isLeftSide ? 'left' : 'right';
+
+            const snapshot    = this.captureSnapshot(snapshotRef, file, line);
             const codeSnippet = snapshot?.target.map(l => l.content).join('\n') ?? '';
 
-            const added = this.comments.addComment({ commitHash, file, line, body: text.trim(), codeSnippet, snapshot });
+            const added = this.comments.addComment({ commitHash, file, line, side, body: text.trim(), codeSnippet, snapshot });
             // Reuse the pending thread in-place so VS Code doesn't re-open the reply widget
             thread.label            = STATUS_LABELS[added.status] ?? added.status;
             thread.contextValue     = `status:${added.status}`;
