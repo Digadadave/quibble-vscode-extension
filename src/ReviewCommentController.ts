@@ -297,12 +297,23 @@ export class ReviewCommentController implements vscode.Disposable {
             const added = this.comments.addComment({ commitHash, file, line, body: text.trim(), codeSnippet, snapshot });
             thread.dispose();  // Replace the temporary "pending" thread with a real one
             this.refresh();
+            // Collapse new threads — user already wrote the comment, no need to keep it expanded
+            const newThread = this.threads.get(added.id);
+            if (newThread) {
+              newThread.collapsibleState = vscode.CommentThreadCollapsibleState.Collapsed;
+            }
             this.onCommentMutation?.(added.id);
           } else {
             // Reply to existing comment thread
             const first = thread.comments[0] as CRComment | undefined;
             if (first?.reviewId) {
               this.comments.addThreadReply(first.reviewId, 'reviewer', text.trim());
+              // If the agent had set the status, reset to 'open' so it gets attention again
+              const current = this.comments.load().find(c => c.id === first.reviewId);
+              const agentStatuses: string[] = ['addressed', 'in-progress', 'needs-input'];
+              if (current && agentStatuses.includes(current.status)) {
+                this.comments.updateStatus(first.reviewId, 'open');
+              }
               this.refreshComment(first.reviewId);
               this.onCommentMutation?.(first.reviewId);
             }

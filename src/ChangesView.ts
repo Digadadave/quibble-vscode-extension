@@ -2,8 +2,10 @@ import * as vscode from 'vscode';
 import * as fs from 'fs';
 import * as path from 'path';
 import { GitService } from './GitService';
-import { CommentManager } from './CommentManager';
+import { CommentManager, CommentStatus } from './CommentManager';
 import { buildStatusCssVars } from './icons';
+
+const CLOSED_STATUSES = new Set<CommentStatus>(['approved', 'dismissed', 'outdated']);
 
 /**
  * Implements WebviewViewProvider — VS Code calls resolveWebviewView() the first
@@ -142,7 +144,9 @@ export class ChangesView implements vscode.WebviewViewProvider, vscode.Disposabl
     const allComments = this.comments.load();
     const commentsByFile = new Map<string, number>();
     for (const c of allComments) {
-      commentsByFile.set(c.file, (commentsByFile.get(c.file) ?? 0) + 1);
+      if (!CLOSED_STATUSES.has(c.status)) {
+        commentsByFile.set(c.file, (commentsByFile.get(c.file) ?? 0) + 1);
+      }
     }
     this._view.webview.postMessage({
       type: 'updateCommentCounts',
@@ -158,7 +162,9 @@ export class ChangesView implements vscode.WebviewViewProvider, vscode.Disposabl
 
       const commentsByFile = new Map<string, number>();
       for (const c of allComments) {
-        commentsByFile.set(c.file, (commentsByFile.get(c.file) ?? 0) + 1);
+        if (!CLOSED_STATUSES.has(c.status)) {
+          commentsByFile.set(c.file, (commentsByFile.get(c.file) ?? 0) + 1);
+        }
       }
 
       const files = rawFiles.map(f => ({
