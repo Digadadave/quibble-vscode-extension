@@ -322,13 +322,26 @@ export class CommentsView implements vscode.TreeDataProvider<vscode.TreeItem>, v
   }
 
   refresh(): void {
-    if (this.treeView) { this.treeView.message = undefined; }
     // Snapshot once for the entire refresh cycle (getChildren + description + badge)
     this._cachedComments = this.comments.load();
     this._onDidChangeTreeData.fire();
     this.updateViewDescription();
     this.updateViewBadge();
+    this.updateEmptyMessage();
     this._cachedComments = null;
+  }
+
+  private updateEmptyMessage(): void {
+    if (!this.treeView) return;
+    const all = this._cachedComments ?? this.comments.load();
+    const filtered = this.getFilteredComments();
+    if (filtered.length > 0) {
+      this.treeView.message = undefined;
+    } else if (all.length === 0) {
+      this.treeView.message = 'No comments yet. Open a diff and add your first comment.';
+    } else {
+      this.treeView.message = 'All comments are closed.';
+    }
   }
 
   private getFilteredComments(): ReviewComment[] {
