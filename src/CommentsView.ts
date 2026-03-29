@@ -161,21 +161,23 @@ export class ResolvedNoteTreeItem extends vscode.TreeItem {
 
     this.iconPath = new vscode.ThemeIcon(ICONS.HUBOT, new vscode.ThemeColor('terminal.ansiMagenta'));
 
-    const hasFixCommit = comment.status === 'addressed' && !!comment.addressedByCommit;
-    const actionLabel = hasFixCommit ? 'View fix' : 'Go to code';
-
     const md = new vscode.MarkdownString('', true);
     md.supportThemeIcons = true;
     md.appendMarkdown(`$(${ICONS.HUBOT}) **${noteLabel}**\n\n${comment.resolvedNote}`);
     if (comment.addressedAt) md.appendMarkdown(`\n\n*${formatDate(comment.addressedAt)}*`);
-    md.appendMarkdown(`\n\n*Click to ${actionLabel.toLowerCase()}*`);
     this.tooltip = md;
 
-    // Click → view the fix commit diff, or fall back to opening the file on disk
-    this.command = hasFixCommit
-      ? { command: 'commitReview.viewFix', title: actionLabel, arguments: [comment.addressedByCommit] }
-      : { command: 'commitReview.goToCode', title: actionLabel, arguments: [comment.file, comment.line] };
-    this.contextValue = 'resolvedNote';
+    // Click → navigate to the comment in the diff
+    this.command = {
+      command: 'commitReview.comments.openDiff',
+      title: 'Open in Diff',
+      arguments: [comment],
+    };
+
+    // contextValue drives the "View Fix" inline button (see package.json menus)
+    this.contextValue = comment.status === 'addressed' && comment.addressedByCommit
+      ? 'resolvedNote-fix'
+      : 'resolvedNote';
   }
 }
 
@@ -262,6 +264,11 @@ export class CommentsView implements vscode.TreeDataProvider<vscode.TreeItem>, v
         this.showClosed = false;
         vscode.commands.executeCommand('setContext', 'commitReview.showClosed', false);
         this.refresh();
+      }),
+      vscode.commands.registerCommand('commitReview.comments.viewFix', (item: ResolvedNoteTreeItem) => {
+        if (item.comment.addressedByCommit) {
+          vscode.commands.executeCommand('commitReview.viewFix', item.comment.addressedByCommit);
+        }
       }),
     );
 
