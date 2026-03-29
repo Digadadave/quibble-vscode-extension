@@ -207,10 +207,23 @@ export class ReviewCommentController implements vscode.Disposable {
                       : rc.status === 'outdated'        ? '⚠️ Outdated'
                       : rc.status === 'addressed'       ? '✅ Agent Update'
                       : 'Agent Note';
+
+      const hasFixCommit = rc.status === 'addressed' && !!rc.addressedByCommit;
+      const actionArgs = hasFixCommit
+        ? encodeURIComponent(JSON.stringify([rc.addressedByCommit]))
+        : encodeURIComponent(JSON.stringify([rc.file, rc.line]));
+      const actionCmd  = hasFixCommit ? 'commitReview.viewFix' : 'commitReview.goToCode';
+      const actionText = hasFixCommit ? 'View fix →' : 'Go to code →';
+
+      const body = new vscode.MarkdownString(
+        `${rc.resolvedNote}\n\n[${actionText}](command:${actionCmd}?${actionArgs})`,
+      );
+      body.isTrusted = { enabledCommands: ['commitReview.viewFix', 'commitReview.goToCode'] };
+
       items.push({
         reviewId:  rc.id,
         author:    { name: noteLabel, iconPath: this.mediaUri(ICON_FILES.AGENT) },
-        body:      new vscode.MarkdownString(rc.resolvedNote),
+        body,
         mode:      vscode.CommentMode.Preview,
         timestamp: rc.addressedAt ? new Date(rc.addressedAt) : undefined,
       });

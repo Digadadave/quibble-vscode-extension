@@ -161,18 +161,20 @@ export class ResolvedNoteTreeItem extends vscode.TreeItem {
 
     this.iconPath = new vscode.ThemeIcon(ICONS.HUBOT, new vscode.ThemeColor('terminal.ansiMagenta'));
 
+    const hasFixCommit = comment.status === 'addressed' && !!comment.addressedByCommit;
+    const actionLabel = hasFixCommit ? 'View fix' : 'Go to code';
+
     const md = new vscode.MarkdownString('', true);
     md.supportThemeIcons = true;
     md.appendMarkdown(`$(${ICONS.HUBOT}) **${noteLabel}**\n\n${comment.resolvedNote}`);
     if (comment.addressedAt) md.appendMarkdown(`\n\n*${formatDate(comment.addressedAt)}*`);
+    md.appendMarkdown(`\n\n*Click to ${actionLabel.toLowerCase()}*`);
     this.tooltip = md;
 
-    // Click → navigate to parent comment in diff
-    this.command = {
-      command: 'commitReview.comments.openDiff',
-      title: 'Open in Diff',
-      arguments: [comment],
-    };
+    // Click → view the fix commit diff, or fall back to opening the file on disk
+    this.command = hasFixCommit
+      ? { command: 'commitReview.viewFix', title: actionLabel, arguments: [comment.addressedByCommit] }
+      : { command: 'commitReview.goToCode', title: actionLabel, arguments: [comment.file, comment.line] };
     this.contextValue = 'resolvedNote';
   }
 }

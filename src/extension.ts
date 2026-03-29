@@ -409,6 +409,44 @@ export function activate(context: vscode.ExtensionContext): void {
         })
     );
 
+    // ── View fix / go to code ──────────────────────────────────────────────────
+    // viewFix: open the multi-file diff for the commit where the agent made the fix.
+    context.subscriptions.push(
+        vscode.commands.registerCommand('commitReview.viewFix', async (hash: string) => {
+            if (!activeGit) return;
+            const repoPath = activeGit.getRepoPath();
+            const parentHash = activeGit.getParentHash(hash) || '__empty__';
+            const files = activeGit.getChangedFilesWithStats(hash);
+            const resources = files.map(f => {
+                const oldRef = f.status === 'A' ? '__empty__' : parentHash;
+                const newRef = f.status === 'D' ? '__empty__' : hash;
+                const label = vscode.Uri.file(path.join(repoPath, f.path));
+                const original = f.status === 'A' ? undefined : GitContentProvider.makeUri(repoPath, f.path, oldRef, 'old', hash);
+                const modified = f.status === 'D' ? undefined : GitContentProvider.makeUri(repoPath, f.path, newRef, 'new');
+                return [label, original, modified] as [vscode.Uri, vscode.Uri | undefined, vscode.Uri | undefined];
+            });
+            await vscode.commands.executeCommand('vscode.changes', `Fix: ${hash.slice(0, 7)}`, resources);
+        })
+    );
+
+    // goToCode: open the current file on disk at the commented line (fallback when no fix commit).
+    context.subscriptions.push(
+        vscode.commands.registerCommand('commitReview.goToCode', async (file: string, line: number) => {
+            if (!activeGit) return;
+            const repoPath = activeGit.getRepoPath();
+            const absPath = path.join(repoPath, file);
+            try {
+                const doc = await vscode.workspace.openTextDocument(absPath);
+                const editor = await vscode.window.showTextDocument(doc, { preview: true });
+                const pos = new vscode.Position(Math.max(0, line - 1), 0);
+                editor.selection = new vscode.Selection(pos, pos);
+                editor.revealRange(new vscode.Range(pos, pos), vscode.TextEditorRevealType.InCenter);
+            } catch {
+                vscode.window.showWarningMessage(`Could not open file: ${file}`);
+            }
+        })
+    );
+
     // ── Auto-select repo ──────────────────────────────────────────────────────
     if (repos.length === 1) {
         switchToRepo(repos[0]);
