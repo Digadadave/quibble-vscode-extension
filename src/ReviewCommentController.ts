@@ -297,11 +297,6 @@ export class ReviewCommentController implements vscode.Disposable {
             const added = this.comments.addComment({ commitHash, file, line, body: text.trim(), codeSnippet, snapshot });
             thread.dispose();  // Replace the temporary "pending" thread with a real one
             this.refresh();
-            // Collapse new threads — user already wrote the comment, no need to keep it expanded
-            const newThread = this.threads.get(added.id);
-            if (newThread) {
-              newThread.collapsibleState = vscode.CommentThreadCollapsibleState.Collapsed;
-            }
             this.onCommentMutation?.(added.id);
           } else {
             // Reply to existing comment thread
