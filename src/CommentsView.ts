@@ -117,9 +117,9 @@ export class ThreadTreeItem extends vscode.TreeItem {
     public readonly isAgent: boolean,
     public readonly parentComment: ReviewComment,
   ) {
-    super(author, vscode.TreeItemCollapsibleState.None);
+    super(body, vscode.TreeItemCollapsibleState.None);
 
-    this.description = body.length > 80 ? body.slice(0, 77) + '…' : body;
+    this.description = author;
     this.iconPath = new vscode.ThemeIcon(
       isAgent ? ICONS.HUBOT : ICONS.PERSON,
       isAgent
