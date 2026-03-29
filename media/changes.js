@@ -367,7 +367,7 @@
     const rowHtml =
       `<div class="ch-commit-row${isExpanded ? " ch-expanded" : ""}" data-hash="${esc(commit.hash)}">` +
       `<span class="ch-badge ch-badge-hash" style="background:${color};color:${tColor}">${esc(commit.shortHash)}</span>` +
-      `<span class="ch-commit-msg">${esc(commit.message)}</span>` +
+      `<span class="ch-commit-msg" title="${esc(commit.message)}">${esc(commit.message)}</span>` +
       `<span class="ch-open-changes" data-hash="${esc(commit.hash)}" title="Open All Changes">${ICON_OPEN_CHANGES}</span>` +
       statsHtml +
       `</div>`;
@@ -497,7 +497,7 @@
             return (
               `<div class="ch-commit-item" data-hash="${esc(c.hash)}" data-file="${esc(file.path)}">` +
               `<span class="ch-badge ch-badge-hash" style="background:${color};color:${tColor}" data-hash="${esc(c.hash)}">${esc(c.shortHash)}</span>` +
-              `<span class="ch-commit-msg">${esc(c.message)}</span>` +
+              `<span class="ch-commit-msg" title="${esc(c.message)}">${esc(c.message)}</span>` +
               cStats +
               `</div>`
             );
