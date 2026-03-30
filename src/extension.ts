@@ -192,10 +192,15 @@ export function activate(context: vscode.ExtensionContext): void {
             if (!(activeTab?.input instanceof vscode.TabInputText)) return;
 
             const params = new URLSearchParams(uri.query);
-            const commitHash = params.get('ref') ?? '';
             const side = params.get('side');
-            if (!commitHash || side !== 'new') return;
+            if (side !== 'new' && side !== 'old') return;
             if (!activeGit) return;
+
+            // For the old side, reviewHash is the actual commit being reviewed.
+            const commitHash = side === 'old'
+                ? (params.get('reviewHash') ?? params.get('ref') ?? '')
+                : (params.get('ref') ?? '');
+            if (!commitHash) return;
 
             const file = uri.path.startsWith('/') ? uri.path.slice(1) : uri.path;
 
@@ -203,9 +208,10 @@ export function activate(context: vscode.ExtensionContext): void {
             await vscode.commands.executeCommand('workbench.action.closeActiveEditor');
             await openNativeDiff(activeGit, file, commitHash);
 
-            // Scroll to the first matching comment in the newly opened diff.
+            // Scroll to the matching comment in the newly opened diff.
             if (activeComments) {
-                const comment = activeComments.load().find(c => c.commitHash === commitHash && c.file === file);
+                const comment = activeComments.load().find(c => c.commitHash === commitHash && c.file === file && c.side === (side === 'old' ? 'left' : 'right'))
+                    ?? activeComments.load().find(c => c.commitHash === commitHash && c.file === file);
                 if (comment) {
                     setTimeout(() => {
                         vscode.commands.executeCommand('revealLine', {

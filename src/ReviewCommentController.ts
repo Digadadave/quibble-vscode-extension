@@ -152,7 +152,13 @@ export class ReviewCommentController implements vscode.Disposable {
   // ── Private ───────────────────────────────────────────────────────────────
 
   private createThread(rc: ReviewComment): void {
-    const uri  = GitContentProvider.makeUri(this.repoPath, rc.file, rc.commitHash, 'new');
+    let uri: vscode.Uri;
+    if (rc.side === 'left' && this.git) {
+      const parentHash = this.git.getParentHash(rc.commitHash) || '__empty__';
+      uri = GitContentProvider.makeUri(this.repoPath, rc.file, parentHash, 'old', rc.commitHash);
+    } else {
+      uri = GitContentProvider.makeUri(this.repoPath, rc.file, rc.commitHash, 'new');
+    }
     const line = Math.max(0, rc.line - 1);
 
     // A CommentThread is pinned to a URI + Range. Setting .comments populates the messages.
