@@ -8,15 +8,14 @@ import { ICON_FILES } from './icons';
 // ── Status display labels ────────────────────────────────────────────────────
 
 const STATUS_LABELS: Record<string, string> = {
-  'open':          'Open',
-  'question':      'Question',
-  'agent-replied': 'Agent Replied',
-  'in-progress':   'In Progress',
-  'needs-input':   'Needs Input',
-  'addressed':     'Addressed',
-  'approved':      'Approved',
-  'dismissed':     'Dismissed',
-  'outdated':      'Outdated',
+  'open':                'Open',
+  'in-progress':         'In Progress',
+  'needs-input':         'Needs Input',
+  'addressed':           'Addressed',
+  'addressed-no-change': 'Addressed (No Change)',
+  'approved':            'Approved',
+  'dismissed':           'Dismissed',
+  'outdated':            'Outdated',
 };
 
 // ── Extended Comment interface ────────────────────────────────────────────────
@@ -238,21 +237,20 @@ export class ReviewCommentController implements vscode.Disposable {
 
   private statusThemeIcon(status: string): vscode.Uri {
     switch (status) {
-      case 'open':          return this.mediaUri(ICON_FILES.STATUS_OPEN);
-      case 'question':
-      case 'needs-input':   return this.mediaUri(ICON_FILES.STATUS_QUESTION);
-      case 'agent-replied':
-      case 'in-progress':   return this.mediaUri(ICON_FILES.STATUS_REPLIED);
-      case 'addressed':     return this.mediaUri(ICON_FILES.STATUS_ADDRESSED);
-      case 'approved':      return this.mediaUri(ICON_FILES.STATUS_APPROVED);
+      case 'open':               return this.mediaUri(ICON_FILES.STATUS_OPEN);
+      case 'needs-input':        return this.mediaUri(ICON_FILES.STATUS_QUESTION);
+      case 'in-progress':        return this.mediaUri(ICON_FILES.STATUS_REPLIED);
+      case 'addressed':          return this.mediaUri(ICON_FILES.STATUS_ADDRESSED);
+      case 'addressed-no-change': return this.mediaUri(ICON_FILES.STATUS_REPLIED);
+      case 'approved':           return this.mediaUri(ICON_FILES.STATUS_APPROVED);
       case 'dismissed':
-      case 'outdated':      return this.mediaUri(ICON_FILES.STATUS_DISMISSED);
-      default:              return this.mediaUri(ICON_FILES.STATUS_DEFAULT);
+      case 'outdated':           return this.mediaUri(ICON_FILES.STATUS_DISMISSED);
+      default:                   return this.mediaUri(ICON_FILES.STATUS_DEFAULT);
     }
   }
 
   private isClosed(status: string): boolean {
-    return ['approved', 'dismissed', 'outdated'].includes(status);
+    return ['approved', 'dismissed'].includes(status);
   }
 
   // ── Snapshot capture ─────────────────────────────────────────────────────

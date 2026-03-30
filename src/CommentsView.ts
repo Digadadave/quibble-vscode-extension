@@ -4,7 +4,7 @@ import { ICONS, STATUS_COLORS } from './icons';
 
 // ── Status metadata ──────────────────────────────────────────────────────────
 
-const CLOSED_STATUSES = new Set<CommentStatus>(['approved', 'dismissed', 'outdated']);
+const CLOSED_STATUSES = new Set<CommentStatus>(['approved', 'dismissed']);
 
 interface StatusMeta {
   label: string;
@@ -13,15 +13,14 @@ interface StatusMeta {
 }
 
 const STATUS_META: Record<string, StatusMeta> = {
-  'open':          { label: 'Open',          icon: ICONS.COMMENT_UNRESOLVED, color: new vscode.ThemeColor(STATUS_COLORS.open.token) },
-  'question':      { label: 'Question',      icon: ICONS.QUESTION,           color: new vscode.ThemeColor(STATUS_COLORS.question.token) },
-  'needs-input':   { label: 'Needs Input',   icon: ICONS.COMMENT_DISCUSSION_SPARKLE, color: new vscode.ThemeColor(STATUS_COLORS.question.token) },
-  'agent-replied': { label: 'Agent Replied', icon: ICONS.COMMENT_DISCUSSION, color: new vscode.ThemeColor(STATUS_COLORS.replied.token) },
-  'in-progress':   { label: 'In Progress',   icon: ICONS.COMMENT_DISCUSSION, color: new vscode.ThemeColor(STATUS_COLORS.replied.token) },
-  'addressed':     { label: 'Addressed',     icon: ICONS.CHECK,              color: new vscode.ThemeColor(STATUS_COLORS.addressed.token) },
-  'approved':      { label: 'Approved',      icon: ICONS.CHECK_ALL,          color: new vscode.ThemeColor(STATUS_COLORS.approved.token) },
-  'dismissed':     { label: 'Dismissed',     icon: ICONS.SYNC_IGNORED,       color: new vscode.ThemeColor(STATUS_COLORS.dismissed.token) },
-  'outdated':      { label: 'Outdated',      icon: ICONS.SYNC_IGNORED,       color: new vscode.ThemeColor(STATUS_COLORS.dismissed.token) },
+  'open':                { label: 'Open',                 icon: ICONS.COMMENT_UNRESOLVED,      color: new vscode.ThemeColor(STATUS_COLORS.open.token) },
+  'needs-input':         { label: 'Needs Input',          icon: ICONS.FEEDBACK,                color: new vscode.ThemeColor(STATUS_COLORS.question.token) },
+  'in-progress':         { label: 'In Progress',          icon: ICONS.EDIT_SPARKLE,            color: new vscode.ThemeColor(STATUS_COLORS.replied.token) },
+  'addressed':           { label: 'Addressed',            icon: ICONS.CHECK,                   color: new vscode.ThemeColor(STATUS_COLORS.addressed.token) },
+  'addressed-no-change': { label: 'Addressed (No Change)', icon: ICONS.COMMENT_DISCUSSION_QUOTE, color: new vscode.ThemeColor(STATUS_COLORS.replied.token) },
+  'approved':            { label: 'Approved',             icon: ICONS.CHECK_ALL,               color: new vscode.ThemeColor(STATUS_COLORS.approved.token) },
+  'dismissed':           { label: 'Dismissed',            icon: ICONS.SYNC_IGNORED,            color: new vscode.ThemeColor(STATUS_COLORS.dismissed.token) },
+  'outdated':            { label: 'Outdated',             icon: ICONS.SYNC_IGNORED,            color: new vscode.ThemeColor(STATUS_COLORS.dismissed.token) },
 };
 
 

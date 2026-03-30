@@ -3,7 +3,7 @@ import * as path from 'path';
 import * as crypto from 'crypto';
 import * as vscode from 'vscode';
 
-export type CommentStatus = 'open' | 'in-progress' | 'needs-input' | 'addressed' | 'approved' | 'dismissed' | 'outdated';
+export type CommentStatus = 'open' | 'in-progress' | 'needs-input' | 'addressed' | 'addressed-no-change' | 'approved' | 'dismissed' | 'outdated';
 
 export interface ThreadEntry {
   author: string;
@@ -88,13 +88,14 @@ const SCHEMA_DESCRIPTION = {
     status: {
       description: 'Current state of the comment.',
       'user-sets': 'open | approved | dismissed',
-      'agent-sets': 'in-progress | needs-input | addressed | outdated',
+      'agent-sets': 'in-progress | needs-input | addressed | addressed-no-change | outdated',
       'actionable-like-open': 'needs-input — agent should check these alongside open comments',
       values: {
         open: 'User has left a comment or question for the agent to address',
         'in-progress': 'Agent is actively working on this comment',
-        'needs-input': 'Ball is in the user\'s court — either the agent has a question, or the agent answered a user question. Treat as actionable like open.',
+        'needs-input': 'Agent needs more info from the user before making a change. Treat as actionable like open.',
         addressed: 'Agent has finished — user should confirm or reopen',
+        'addressed-no-change': 'Agent replied to the comment but no code change was needed — see thread for response',
         approved: 'User confirmed and approved the agent\'s work',
         dismissed: 'User decided no action is needed',
         outdated: 'Agent detected the code has changed enough that the comment may no longer apply. See resolvedNote for details. User should reopen or dismiss.',
