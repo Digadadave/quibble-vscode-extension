@@ -2,10 +2,10 @@ import * as vscode from 'vscode';
 import * as fs from 'fs';
 import * as path from 'path';
 import { GitService } from './GitService';
-import { CommentManager, CommentStatus } from './CommentManager';
+import { CommentManager, CommentStatus, STATUS } from './CommentManager';
 import { buildStatusCssVars } from './icons';
 
-const CLOSED_STATUSES = new Set<CommentStatus>(['approved', 'dismissed', 'outdated']);
+const CLOSED_STATUSES = new Set<CommentStatus>([STATUS.APPROVED, STATUS.DISMISSED, STATUS.OUTDATED]);
 
 /**
  * Implements WebviewViewProvider — VS Code calls resolveWebviewView() the first

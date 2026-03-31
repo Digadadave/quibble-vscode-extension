@@ -1,12 +1,11 @@
 import * as vscode from 'vscode';
-import { CommentManager, ReviewComment, CommentStatus } from './CommentManager';
+import { CommentManager, ReviewComment, CommentStatus, STATUS, CLOSED_STATUSES } from './CommentManager';
 import { ICONS, STATUS_COLORS } from './icons';
 
 // ── Status metadata ──────────────────────────────────────────────────────────
 
-const CLOSED_STATUSES      = new Set<CommentStatus>(['approved', 'dismissed']);
-const ADDRESSED_STATUSES   = new Set<CommentStatus>(['addressed', 'addressed-no-change']);
-const NO_CODE_NAV_STATUSES = new Set<CommentStatus>(['addressed-no-change', 'needs-input']);
+const ADDRESSED_STATUSES   = new Set<CommentStatus>([STATUS.ADDRESSED, STATUS.ADDRESSED_NO_CHANGE]);
+const NO_CODE_NAV_STATUSES = new Set<CommentStatus>([STATUS.ADDRESSED_NO_CHANGE, STATUS.NEEDS_INPUT]);
 
 interface StatusMeta {
   label: string;
@@ -14,15 +13,15 @@ interface StatusMeta {
   color: vscode.ThemeColor;
 }
 
-const STATUS_META: Record<string, StatusMeta> = {
-  'open':                { label: 'Open',                 icon: ICONS.COMMENT_UNRESOLVED,      color: new vscode.ThemeColor(STATUS_COLORS.open.token) },
-  'needs-input':         { label: 'Needs Input',          icon: ICONS.FEEDBACK,                color: new vscode.ThemeColor(STATUS_COLORS.question.token) },
-  'in-progress':         { label: 'In Progress',          icon: ICONS.EDIT_SPARKLE,            color: new vscode.ThemeColor(STATUS_COLORS.replied.token) },
-  'addressed':           { label: 'Addressed',            icon: ICONS.CHECK,                   color: new vscode.ThemeColor(STATUS_COLORS.addressed.token) },
-  'addressed-no-change': { label: 'Addressed (No Change)', icon: ICONS.COMMENT_DISCUSSION_QUOTE, color: new vscode.ThemeColor(STATUS_COLORS.replied.token) },
-  'approved':            { label: 'Approved',             icon: ICONS.CHECK_ALL,               color: new vscode.ThemeColor(STATUS_COLORS.approved.token) },
-  'dismissed':           { label: 'Dismissed',            icon: ICONS.SYNC_IGNORED,            color: new vscode.ThemeColor(STATUS_COLORS.dismissed.token) },
-  'outdated':            { label: 'Outdated',             icon: ICONS.SYNC_IGNORED,            color: new vscode.ThemeColor(STATUS_COLORS.dismissed.token) },
+const STATUS_META: Record<CommentStatus, StatusMeta> = {
+  [STATUS.OPEN]:                { label: 'Open',                  icon: ICONS.COMMENT_UNRESOLVED,       color: new vscode.ThemeColor(STATUS_COLORS.open.token) },
+  [STATUS.NEEDS_INPUT]:         { label: 'Needs Input',           icon: ICONS.FEEDBACK,                 color: new vscode.ThemeColor(STATUS_COLORS.question.token) },
+  [STATUS.IN_PROGRESS]:         { label: 'In Progress',           icon: ICONS.EDIT_SPARKLE,             color: new vscode.ThemeColor(STATUS_COLORS.replied.token) },
+  [STATUS.ADDRESSED]:           { label: 'Addressed',             icon: ICONS.CHECK,                    color: new vscode.ThemeColor(STATUS_COLORS.addressed.token) },
+  [STATUS.ADDRESSED_NO_CHANGE]: { label: 'Addressed (No Change)', icon: ICONS.COMMENT_DISCUSSION_QUOTE, color: new vscode.ThemeColor(STATUS_COLORS.replied.token) },
+  [STATUS.APPROVED]:            { label: 'Approved',              icon: ICONS.CHECK_ALL,                color: new vscode.ThemeColor(STATUS_COLORS.approved.token) },
+  [STATUS.DISMISSED]:           { label: 'Dismissed',             icon: ICONS.SYNC_IGNORED,             color: new vscode.ThemeColor(STATUS_COLORS.dismissed.token) },
+  [STATUS.OUTDATED]:            { label: 'Outdated',              icon: ICONS.SYNC_IGNORED,             color: new vscode.ThemeColor(STATUS_COLORS.dismissed.token) },
 };
 
 
@@ -51,7 +50,7 @@ export class CommentTreeItem extends vscode.TreeItem {
     this.description = body.length > 80 ? body.slice(0, 77) + '…' : body;
 
     // Icon: status-colored codicon
-    const meta = STATUS_META[comment.status] ?? STATUS_META['open'];
+    const meta = STATUS_META[comment.status] ?? STATUS_META[STATUS.OPEN];
     this.iconPath = new vscode.ThemeIcon(meta.icon, meta.color);
 
     // Tooltip: rich markdown with full details
@@ -150,9 +149,9 @@ export class ResolvedNoteTreeItem extends vscode.TreeItem {
     public readonly comment: ReviewComment,
   ) {
     const noteLabel =
-      comment.status === 'needs-input'  ? 'Agent Note'
-      : comment.status === 'outdated'   ? 'Outdated'
-      : comment.status === 'addressed'  ? 'Agent Update'
+      comment.status === STATUS.NEEDS_INPUT  ? 'Agent Note'
+      : comment.status === STATUS.OUTDATED   ? 'Outdated'
+      : comment.status === STATUS.ADDRESSED  ? 'Agent Update'
       : 'Agent Note';
 
     super(noteLabel, vscode.TreeItemCollapsibleState.None);
@@ -177,7 +176,7 @@ export class ResolvedNoteTreeItem extends vscode.TreeItem {
     };
 
     // contextValue drives the "View Fix" inline button (see package.json menus)
-    this.contextValue = comment.status === 'addressed' && comment.addressedByCommit
+    this.contextValue = comment.status === STATUS.ADDRESSED && comment.addressedByCommit
       ? 'resolvedNote-fix'
       : 'resolvedNote';
   }
@@ -246,13 +245,13 @@ export class CommentsView implements vscode.TreeDataProvider<vscode.TreeItem>, v
         this.onFocusComment?.(comment.file, comment.line, comment.commitHash, comment.id);
       }),
       vscode.commands.registerCommand('commitReview.comments.resolve', (item: CommentTreeItem) => {
-        this.onUpdateStatus?.(item.comment.id, 'approved');
+        this.onUpdateStatus?.(item.comment.id, STATUS.APPROVED);
       }),
       vscode.commands.registerCommand('commitReview.comments.dismiss', (item: CommentTreeItem) => {
-        this.onUpdateStatus?.(item.comment.id, 'dismissed');
+        this.onUpdateStatus?.(item.comment.id, STATUS.DISMISSED);
       }),
       vscode.commands.registerCommand('commitReview.comments.reopen', (item: CommentTreeItem) => {
-        this.onUpdateStatus?.(item.comment.id, 'open');
+        this.onUpdateStatus?.(item.comment.id, STATUS.OPEN);
       }),
       vscode.commands.registerCommand('commitReview.comments.delete', (item: CommentTreeItem) => {
         this.onDeleteComment?.(item.comment.id);

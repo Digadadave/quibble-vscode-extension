@@ -1,26 +1,25 @@
 import * as vscode from 'vscode';
 import * as path from 'path';
-import { CommentManager, ReviewComment, CommentSnapshot, CommentStatus, SnapshotLine } from './CommentManager';
+import { CommentManager, ReviewComment, CommentSnapshot, CommentStatus, SnapshotLine, STATUS, CLOSED_STATUSES } from './CommentManager';
 import { GitContentProvider } from './GitContentProvider';
 import { GitService } from './GitService';
 import { ICON_FILES } from './icons';
 
 // ── Status sets ──────────────────────────────────────────────────────────────
 
-const CLOSED_STATUSES = new Set<CommentStatus>(['approved', 'dismissed']);
-const AGENT_STATUSES  = new Set<CommentStatus>(['addressed', 'addressed-no-change', 'in-progress', 'needs-input']);
+const AGENT_STATUSES = new Set<CommentStatus>([STATUS.ADDRESSED, STATUS.ADDRESSED_NO_CHANGE, STATUS.IN_PROGRESS, STATUS.NEEDS_INPUT]);
 
 // ── Status display labels ────────────────────────────────────────────────────
 
-const STATUS_LABELS: Record<string, string> = {
-  'open':                'Open',
-  'in-progress':         'In Progress',
-  'needs-input':         'Needs Input',
-  'addressed':           'Addressed',
-  'addressed-no-change': 'Addressed (No Change)',
-  'approved':            'Approved',
-  'dismissed':           'Dismissed',
-  'outdated':            'Outdated',
+const STATUS_LABELS: Record<CommentStatus, string> = {
+  [STATUS.OPEN]:                'Open',
+  [STATUS.IN_PROGRESS]:         'In Progress',
+  [STATUS.NEEDS_INPUT]:         'Needs Input',
+  [STATUS.ADDRESSED]:           'Addressed',
+  [STATUS.ADDRESSED_NO_CHANGE]: 'Addressed (No Change)',
+  [STATUS.APPROVED]:            'Approved',
+  [STATUS.DISMISSED]:           'Dismissed',
+  [STATUS.OUTDATED]:            'Outdated',
 };
 
 // ── Extended Comment interface ────────────────────────────────────────────────
@@ -213,9 +212,9 @@ export class ReviewCommentController implements vscode.Disposable {
 
     // Show the agent's resolvedNote as a pinned note in the thread
     if (rc.resolvedNote) {
-      const noteLabel = rc.status === 'needs-input'    ? '🔔 Agent Note'
-                      : rc.status === 'outdated'        ? '⚠️ Outdated'
-                      : rc.status === 'addressed'       ? '✅ Agent Update'
+      const noteLabel = rc.status === STATUS.NEEDS_INPUT ? '🔔 Agent Note'
+                      : rc.status === STATUS.OUTDATED    ? '⚠️ Outdated'
+                      : rc.status === STATUS.ADDRESSED   ? '✅ Agent Update'
                       : 'Agent Note';
 
       const hasFixCommit = rc.status === 'addressed' && !!rc.addressedByCommit;
@@ -246,17 +245,17 @@ export class ReviewCommentController implements vscode.Disposable {
     return vscode.Uri.joinPath(this.extensionUri, 'media', filename);
   }
 
-  private statusThemeIcon(status: string): vscode.Uri {
+  private statusThemeIcon(status: CommentStatus): vscode.Uri {
     switch (status) {
-      case 'open':               return this.mediaUri(ICON_FILES.STATUS_OPEN);
-      case 'needs-input':        return this.mediaUri(ICON_FILES.STATUS_QUESTION);
-      case 'in-progress':        return this.mediaUri(ICON_FILES.STATUS_REPLIED);
-      case 'addressed':          return this.mediaUri(ICON_FILES.STATUS_ADDRESSED);
-      case 'addressed-no-change': return this.mediaUri(ICON_FILES.STATUS_REPLIED);
-      case 'approved':           return this.mediaUri(ICON_FILES.STATUS_APPROVED);
-      case 'dismissed':
-      case 'outdated':           return this.mediaUri(ICON_FILES.STATUS_DISMISSED);
-      default:                   return this.mediaUri(ICON_FILES.STATUS_DEFAULT);
+      case STATUS.OPEN:                return this.mediaUri(ICON_FILES.STATUS_OPEN);
+      case STATUS.NEEDS_INPUT:         return this.mediaUri(ICON_FILES.STATUS_QUESTION);
+      case STATUS.IN_PROGRESS:         return this.mediaUri(ICON_FILES.STATUS_REPLIED);
+      case STATUS.ADDRESSED:           return this.mediaUri(ICON_FILES.STATUS_ADDRESSED);
+      case STATUS.ADDRESSED_NO_CHANGE: return this.mediaUri(ICON_FILES.STATUS_REPLIED);
+      case STATUS.APPROVED:            return this.mediaUri(ICON_FILES.STATUS_APPROVED);
+      case STATUS.DISMISSED:
+      case STATUS.OUTDATED:            return this.mediaUri(ICON_FILES.STATUS_DISMISSED);
+      default:                         return this.mediaUri(ICON_FILES.STATUS_DEFAULT);
     }
   }
 
@@ -341,7 +340,7 @@ export class ReviewCommentController implements vscode.Disposable {
               // If the agent had set the status, reset to 'open' so it gets attention again
               const current = this.comments.load().find(c => c.id === first.reviewId);
               if (current && AGENT_STATUSES.has(current.status)) {
-                this.comments.updateStatus(first.reviewId, 'open');
+                this.comments.updateStatus(first.reviewId, STATUS.OPEN);
               }
               this.refreshComment(first.reviewId);
               this.onCommentMutation?.(first.reviewId);
@@ -378,9 +377,9 @@ export class ReviewCommentController implements vscode.Disposable {
       };
 
     context.subscriptions.push(
-      vscode.commands.registerCommand('commitReview.comment.resolve', makeStatusAction('approved')),
-      vscode.commands.registerCommand('commitReview.comment.dismiss', makeStatusAction('dismissed')),
-      vscode.commands.registerCommand('commitReview.comment.reopen',  makeStatusAction('open')),
+      vscode.commands.registerCommand('commitReview.comment.resolve', makeStatusAction(STATUS.APPROVED)),
+      vscode.commands.registerCommand('commitReview.comment.dismiss', makeStatusAction(STATUS.DISMISSED)),
+      vscode.commands.registerCommand('commitReview.comment.reopen',  makeStatusAction(STATUS.OPEN)),
       vscode.commands.registerCommand('commitReview.comment.gotoFile', (thread: vscode.CommentThread) => {
         const params   = new URLSearchParams(thread.uri.query);
         const repoPath = params.get('repo') ?? '';

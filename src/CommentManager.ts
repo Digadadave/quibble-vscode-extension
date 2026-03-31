@@ -3,7 +3,21 @@ import * as path from 'path';
 import * as crypto from 'crypto';
 import * as vscode from 'vscode';
 
-export type CommentStatus = 'open' | 'in-progress' | 'needs-input' | 'addressed' | 'addressed-no-change' | 'approved' | 'dismissed' | 'outdated';
+export const STATUS = {
+  OPEN:                'open',
+  IN_PROGRESS:         'in-progress',
+  NEEDS_INPUT:         'needs-input',
+  ADDRESSED:           'addressed',
+  ADDRESSED_NO_CHANGE: 'addressed-no-change',
+  APPROVED:            'approved',
+  DISMISSED:           'dismissed',
+  OUTDATED:            'outdated',
+} as const;
+
+export type CommentStatus = typeof STATUS[keyof typeof STATUS];
+
+/** Statuses set by the user to close out a comment (no further agent action needed). */
+export const CLOSED_STATUSES = new Set<CommentStatus>([STATUS.APPROVED, STATUS.DISMISSED]);
 
 export interface ThreadEntry {
   author: string;
@@ -472,7 +486,7 @@ export class CommentManager implements vscode.Disposable {
     const comment: ReviewComment = {
       id,
       uuid: id,
-      status: 'open',
+      status: STATUS.OPEN,
       commitHash: params.commitHash,
       branchName: this.currentBranch,
       file: params.file,
@@ -511,7 +525,7 @@ export class CommentManager implements vscode.Disposable {
     if (!wc) return false;
 
     wc.status = status;
-    if (status === 'addressed') wc.addressedAt = new Date().toISOString();
+    if (status === STATUS.ADDRESSED) wc.addressedAt = new Date().toISOString();
     this.saveWorkingJson(working);
 
     // DB — update ALL copies with same uuid (indexed lookup)
@@ -522,7 +536,7 @@ export class CommentManager implements vscode.Disposable {
       for (const c of db.comments[hash] ?? []) {
         if (c.uuid === uuid) {
           c.status = status;
-          if (status === 'addressed') c.addressedAt = new Date().toISOString();
+          if (status === STATUS.ADDRESSED) c.addressedAt = new Date().toISOString();
         }
       }
     }
@@ -581,7 +595,7 @@ export class CommentManager implements vscode.Disposable {
   }
 
   getOpenComments(): ReviewComment[] {
-    return this.load().filter(c => c.status !== 'approved' && c.status !== 'dismissed');
+    return this.load().filter(c => !CLOSED_STATUSES.has(c.status));
   }
 
   getCommentsForCommit(hash: string): ReviewComment[] {
