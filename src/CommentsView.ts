@@ -118,7 +118,7 @@ export class ThreadTreeItem extends vscode.TreeItem {
   ) {
     super(author, vscode.TreeItemCollapsibleState.None);
 
-    this.description = body;
+    this.description = body.length > 80 ? body.slice(0, 77) + '…' : body;
     this.iconPath = new vscode.ThemeIcon(
       isAgent ? ICONS.HUBOT : ICONS.PERSON,
       isAgent
