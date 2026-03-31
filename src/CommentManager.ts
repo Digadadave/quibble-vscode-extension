@@ -74,6 +74,7 @@ interface ReviewStore {
 
 const SCHEMA_DESCRIPTION = {
   description: 'Local commit review metadata for a VS Code extension. Each entry in \'reviews\' represents a comment left by the user on a specific file and line at the time of a commit. Comments are intended to be addressed by an AI agent. The snapshot field captures surrounding code context at the time the comment was made so the agent can understand the original intent even if the code has since changed. The agent should check this file before starting any task and address all open comments.',
+  update_order: 'When writing a response to a comment, always update fields in this order: (1) thread — append the reply first, (2) resolvedNote — set the summary, (3) addressedAt — set the timestamp, (4) addressedByCommit — set after committing, (5) status — update last, after all other fields are written. This ensures the UI never shows a new status without the supporting context already in place.',
   fields: {
     id: 'Unique identifier for the comment (e.g. \'cr_a1b2c3d4\')',
     uuid: 'Stable identity across copies — same uuid means same logical comment, even if commitHash differs (squash/rebase remap)',
