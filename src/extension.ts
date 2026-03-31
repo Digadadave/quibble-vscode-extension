@@ -370,6 +370,17 @@ export function activate(context: vscode.ExtensionContext): void {
     );
 
     context.subscriptions.push(
+        vscode.commands.registerCommand('commitReview.repoMenu', async () => {
+            const picked = await vscode.window.showQuickPick([
+                { label: `$(repo) Select Repository`, id: 'repo' },
+                { label: `$(git-branch) Set Base Branch`, id: 'branch' },
+            ], { placeHolder: 'Commit Review' });
+            if (picked?.id === 'repo') vscode.commands.executeCommand('commitReview.selectRepo');
+            if (picked?.id === 'branch') vscode.commands.executeCommand('commitReview.setBaseBranch');
+        })
+    );
+
+    context.subscriptions.push(
         vscode.commands.registerCommand('commitReview.setBaseBranch', async () => {
             if (!activeGit || !activeComments) return;
             const branches = activeGit.getBranches();
