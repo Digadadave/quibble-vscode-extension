@@ -133,7 +133,7 @@
     const msg = e.data;
     if (msg.type === "loading") {
       const list = document.getElementById("changes-list");
-      if (list) list.innerHTML = '<div class="ch-empty">Loading\u2026</div>';
+      if (list) list.innerHTML = '<div class="ch-loading"><span class="ch-spinner"></span></div>';
       return;
     }
     if (msg.type === "setViewMode") {

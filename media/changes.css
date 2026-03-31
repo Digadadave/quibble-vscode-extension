@@ -222,6 +222,28 @@
   text-align: right;
 }
 
+/* Loading state */
+.ch-loading {
+  padding: 24px 16px;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+.ch-spinner {
+  width: 16px;
+  height: 16px;
+  border: 2px solid var(--vscode-descriptionForeground, #888);
+  border-top-color: transparent;
+  border-radius: 50%;
+  animation: ch-spin 0.7s linear infinite;
+  display: inline-block;
+}
+
+@keyframes ch-spin {
+  to { transform: rotate(360deg); }
+}
+
 /* Empty state */
 .ch-empty {
   padding: 24px 16px;
