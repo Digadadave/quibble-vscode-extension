@@ -56,18 +56,21 @@ export class CommentTreeItem extends vscode.TreeItem {
     this.tooltip = this.buildTooltip(comment, dir);
 
     // TreeItem.command runs when the user clicks the row.
-    // The command must be registered separately (see createTreeView()).
-    this.command = {
-      command: 'commitReview.comments.openDiff',
-      title: 'Open in Diff',
-      arguments: [comment],
-    };
+    // Skip for statuses where no code change was made — there's nothing to diff.
+    const hasCodeNav = comment.status !== 'addressed-no-change' && comment.status !== 'needs-input';
+    if (hasCodeNav) {
+      this.command = {
+        command: 'commitReview.comments.openDiff',
+        title: 'Open in Diff',
+        arguments: [comment],
+      };
+    }
 
     // TreeItem.contextValue is matched against `when` clauses in package.json menus
     // (view/item/context), controlling which right-click menu items appear on each row.
     const isClosed = CLOSED_STATUSES.has(comment.status);
     this.contextValue = isClosed ? 'comment-approved'
-      : comment.status === 'addressed' ? 'comment-addressed'
+      : (comment.status === 'addressed' || comment.status === 'addressed-no-change') ? 'comment-addressed'
       : 'comment-open';
 
     this.id = comment.id;
