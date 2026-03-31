@@ -82,8 +82,19 @@ function exec(cmd: string, cwd: string): string {
 }
 
 export class GitService {
+    private _defaultBranch = '';
+    private _defaultRefCache: string | null = null;
+    private _mergeBaseCache = new Map<string, { head: string; base: string }>();
+
     /** Custom base branch for merge-base calculation. Empty string = auto-detect. */
-    defaultBranch = '';
+    get defaultBranch(): string { return this._defaultBranch; }
+    set defaultBranch(value: string) {
+        if (this._defaultBranch !== value) {
+            this._defaultBranch = value;
+            this._defaultRefCache = null;
+            this._mergeBaseCache.clear();
+        }
+    }
 
     constructor(private repoPath: string) {}
 
@@ -366,27 +377,40 @@ export class GitService {
      * Returns the merge-base commit hash between this branch and the default branch.
      * The merge-base is the common ancestor — i.e. where this branch diverged from
      * main/master. It's used as the "base" for all PR-style diffs and commit listings.
+     * Result is cached per-branch, keyed by the branch's current HEAD hash.
      */
     getMergeBase(branch: string): string {
         const defaultRef = this.findDefaultRef();
         if (!defaultRef) return '';
-        return exec(`git merge-base "${branch}" "${defaultRef}"`, this.repoPath);
+        const head = exec(`git rev-parse "${branch}"`, this.repoPath);
+        if (head) {
+            const cached = this._mergeBaseCache.get(branch);
+            if (cached && cached.head === head) return cached.base;
+        }
+        const base = exec(`git merge-base "${branch}" "${defaultRef}"`, this.repoPath);
+        if (head) this._mergeBaseCache.set(branch, { head, base });
+        return base;
     }
 
     /** Returns the first valid default branch ref.
      * Checks the user-configured `defaultBranch` first, then falls back to
-     * the standard auto-detect list.
+     * the standard auto-detect list. Result is cached until `defaultBranch` changes.
      */
     private findDefaultRef(): string {
-        if (this.defaultBranch) {
-            if (exec(`git rev-parse --verify "${this.defaultBranch}"`, this.repoPath)) {
-                return this.defaultBranch;
+        if (this._defaultRefCache !== null) return this._defaultRefCache;
+        let result = '';
+        if (this._defaultBranch) {
+            if (exec(`git rev-parse --verify "${this._defaultBranch}"`, this.repoPath)) {
+                result = this._defaultBranch;
             }
         }
-        for (const ref of ['origin/HEAD', 'origin/main', 'origin/master', 'main', 'master']) {
-            if (exec(`git rev-parse --verify "${ref}"`, this.repoPath)) return ref;
+        if (!result) {
+            for (const ref of ['origin/HEAD', 'origin/main', 'origin/master', 'main', 'master']) {
+                if (exec(`git rev-parse --verify "${ref}"`, this.repoPath)) { result = ref; break; }
+            }
         }
-        return '';
+        this._defaultRefCache = result;
+        return result;
     }
 
     /**
@@ -397,36 +421,34 @@ export class GitService {
         const base = this.getMergeBase(branch);
         if (!base) return [];
 
-        // Get commits on this branch since merge-base (newest first).
-        // --first-parent excludes commits merged in from the default branch.
         const sep = '\x1f';
-        const rs = '\x1e';
-        const commitsRaw = exec(
-            `git log --first-parent "${base}..${branch}" --format=%H%x1f%h%x1f%s%x1e`,
+        // Single git log call with --numstat to get per-commit file stats without N+1 spawns.
+        // Output alternates between a commit header line and numstat lines for that commit.
+        const numstatRaw = exec(
+            `git log --first-parent "${base}..${branch}" --format="commit:%H${sep}%h${sep}%s" --numstat`,
             this.repoPath
         );
-        if (!commitsRaw) return [];
 
-        const commits = commitsRaw
-            .split(rs)
-            .map(s => s.trim())
-            .filter(Boolean)
-            .map(record => {
-                const parts = record.split(sep);
-                return { hash: parts[0] ?? '', shortHash: parts[1] ?? '', message: parts[2] ?? '' };
-            });
-
-        // Build file → commits map; Map insertion order = first seen = newest commit that touched it
-        // Use getChangedFilesWithStats to capture per-commit per-file +/- counts.
-        type CommitEntry = (typeof commits)[0] & { insertions: number; deletions: number };
+        type CommitMeta = { hash: string; shortHash: string; message: string };
+        type CommitEntry = CommitMeta & { insertions: number; deletions: number };
         const fileCommits = new Map<string, CommitEntry[]>();
-        for (const commit of commits) {
-            for (const f of this.getChangedFilesWithStats(commit.hash)) {
-                if (!fileCommits.has(f.path)) fileCommits.set(f.path, []);
-                fileCommits
-                    .get(f.path)!
-                    .push({ ...commit, insertions: f.insertions, deletions: f.deletions });
+
+        let currentCommit: CommitMeta | null = null;
+        for (const line of numstatRaw.split('\n')) {
+            if (line.startsWith('commit:')) {
+                const parts = line.slice('commit:'.length).split(sep);
+                currentCommit = { hash: parts[0] ?? '', shortHash: parts[1] ?? '', message: parts[2] ?? '' };
+                continue;
             }
+            if (!currentCommit || !line.trim()) continue;
+            const parts = line.split('\t');
+            if (parts.length < 3) continue;
+            const insertions = parseInt(parts[0]) || 0;
+            const deletions = parseInt(parts[1]) || 0;
+            const filePath = parts[2] ?? '';
+            if (!filePath) continue;
+            if (!fileCommits.has(filePath)) fileCommits.set(filePath, []);
+            fileCommits.get(filePath)!.push({ ...currentCommit, insertions, deletions });
         }
 
         // Cumulative net +/- per file across the whole branch
