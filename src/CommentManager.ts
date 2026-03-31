@@ -354,6 +354,17 @@ export class CommentManager implements vscode.Disposable {
   /** Start watching the working JSON for external changes (e.g. agent writes). */
   startWatching(): void {
     if (!this.repoPath || !this.workingJsonPath) return;
+
+    // If the JSON already exists from a previous session, patch the schema to the
+    // latest version without touching the reviews.
+    if (fs.existsSync(this.workingJsonPath)) {
+      try {
+        const store: ReviewStore = JSON.parse(fs.readFileSync(this.workingJsonPath, 'utf8'));
+        store._schema = SCHEMA_DESCRIPTION;
+        fs.writeFileSync(this.workingJsonPath, JSON.stringify(store, null, 2), 'utf8');
+      } catch { /* ignore */ }
+    }
+
     const rel = path.relative(this.repoPath, this.workingJsonPath).replace(/\\/g, '/');
     const pattern = new vscode.RelativePattern(this.repoPath, rel);
     this.watcher = vscode.workspace.createFileSystemWatcher(pattern);
