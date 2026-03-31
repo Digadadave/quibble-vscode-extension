@@ -146,7 +146,6 @@ export class CommentManager implements vscode.Disposable {
   private watcher: vscode.FileSystemWatcher | undefined;
   /** Prevents the file watcher from echoing back our own saves. */
   private suppressNextWatchEvent = false;
-  private cachedSchema: unknown = undefined;
 
   /** Current branch's git commit hashes. */
   private currentHashes: Set<string> = new Set();
@@ -375,7 +374,6 @@ export class CommentManager implements vscode.Disposable {
     if (!this.workingJsonPath || !fs.existsSync(this.workingJsonPath)) return [];
     try {
       const store: ReviewStore = JSON.parse(fs.readFileSync(this.workingJsonPath, 'utf8'));
-      if (store._schema !== undefined) this.cachedSchema = store._schema;
       this._cache = store.reviews ?? [];
       return this._cache;
     } catch {
@@ -394,19 +392,8 @@ export class CommentManager implements vscode.Disposable {
     if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
     this.suppressNextWatchEvent = true;
 
-    // Preserve existing schema block, or use the default
-    if (this.cachedSchema === undefined && fs.existsSync(this.workingJsonPath)) {
-      try {
-        const existing: ReviewStore = JSON.parse(fs.readFileSync(this.workingJsonPath, 'utf8'));
-        if (existing._schema !== undefined) this.cachedSchema = existing._schema;
-      } catch { /* ignore */ }
-    }
-    if (this.cachedSchema === undefined) {
-      this.cachedSchema = SCHEMA_DESCRIPTION;
-    }
-
     const store: ReviewStore = {
-      _schema: this.cachedSchema,
+      _schema: SCHEMA_DESCRIPTION,
       version: 1,
       reviews: comments,
     };
