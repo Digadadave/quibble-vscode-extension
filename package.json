@@ -152,6 +152,11 @@
         "title": "View Fix",
         "icon": "$(go-to-file)",
         "category": "Commit Review"
+      },
+      {
+        "command": "commitReview.setBaseBranch",
+        "title": "Set Base Branch",
+        "category": "Commit Review"
       }
     ],
     "viewsContainers": {
@@ -210,7 +215,12 @@
         {
           "command": "commitReview.selectRepo",
           "when": "view == commitReview.changesView",
-          "group": "navigation@2"
+          "group": "1_settings@1"
+        },
+        {
+          "command": "commitReview.setBaseBranch",
+          "when": "view == commitReview.changesView",
+          "group": "1_settings@2"
         },
         {
           "command": "commitReview.remapOrphans",

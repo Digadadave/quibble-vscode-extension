@@ -305,6 +305,9 @@ export function activate(context: vscode.ExtensionContext): void {
         activeGit = new GitService(repoPath);
         activeComments = new CommentManager(repoPath, context.globalState);
 
+        // Restore stored base branch so commit range is correct on reload.
+        activeGit.defaultBranch = activeComments.getBaseBranch() ?? '';
+
         // Migrate old per-branch JSON files and old flat DB into globalState.
         activeComments.migrateOldFiles(context.globalStorageUri);
 
@@ -363,6 +366,41 @@ export function activate(context: vscode.ExtensionContext): void {
                 placeHolder: 'Select a repository to review',
             });
             if (picked) switchToRepo(picked.repoPath);
+        })
+    );
+
+    context.subscriptions.push(
+        vscode.commands.registerCommand('commitReview.setBaseBranch', async () => {
+            if (!activeGit || !activeComments) return;
+            const branches = activeGit.getBranches();
+            const current = activeComments.getBaseBranch();
+
+            const autoItem: vscode.QuickPickItem = {
+                label: '$(circle-slash) Auto-detect',
+                description: 'Scan for origin/HEAD, origin/main, origin/master, main, master',
+                detail: !current ? '$(check) Currently active' : undefined,
+            };
+            const separator: vscode.QuickPickItem = { label: '', kind: vscode.QuickPickItemKind.Separator };
+            const branchItems: vscode.QuickPickItem[] = branches.map(b => ({
+                label: b.name,
+                description: b.remote ? 'remote' : 'local',
+                detail: b.name === current ? '$(check) Currently active' : undefined,
+            }));
+
+            const picked = await vscode.window.showQuickPick([autoItem, separator, ...branchItems], {
+                placeHolder: 'Select the base branch used to determine your commit range',
+                title: 'Set Base Branch',
+            });
+
+            if (!picked) return;
+
+            const branch = picked.label.startsWith('$(circle-slash)') ? undefined : picked.label;
+            activeComments.setBaseBranch(branch);
+            activeGit.defaultBranch = branch ?? '';
+            refreshAll();
+
+            const msg = branch ? `Base branch set to "${branch}"` : 'Base branch reset to auto-detect';
+            vscode.window.showInformationMessage(`Commit Review: ${msg}`);
         })
     );
 

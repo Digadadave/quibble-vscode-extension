@@ -63,6 +63,8 @@ export interface ReviewComment {
 export interface RepoDb {
   branches: Record<string, string[]>;
   comments: Record<string, ReviewComment[]>;
+  /** Custom base branch for merge-base calculation. Undefined = auto-detect. */
+  baseBranch?: string;
 }
 
 // ── Working JSON shape (the file the agent reads/writes) ─────────────────────
@@ -593,6 +595,20 @@ export class CommentManager implements vscode.Disposable {
 
   getReviewsFilePath(): string {
     return this.workingJsonPath;
+  }
+
+  // ── Base branch ───────────────────────────────────────────────────────────
+
+  /** Returns the stored custom base branch for this repo, or undefined if auto-detect. */
+  getBaseBranch(): string | undefined {
+    return this.dbLoad().baseBranch;
+  }
+
+  /** Persists a custom base branch. Pass undefined to clear (revert to auto-detect). */
+  setBaseBranch(branch: string | undefined): void {
+    const db = this.dbLoad();
+    db.baseBranch = branch;
+    this.dbSave(db);
   }
 
   // ── Migration ─────────────────────────────────────────────────────────────

@@ -82,6 +82,9 @@ function exec(cmd: string, cwd: string): string {
 }
 
 export class GitService {
+    /** Custom base branch for merge-base calculation. Empty string = auto-detect. */
+    defaultBranch = '';
+
     constructor(private repoPath: string) {}
 
     getRepoPath(): string {
@@ -370,8 +373,16 @@ export class GitService {
         return exec(`git merge-base "${branch}" "${defaultRef}"`, this.repoPath);
     }
 
-    /** Returns the first valid default branch ref. */
+    /** Returns the first valid default branch ref.
+     * Checks the user-configured `defaultBranch` first, then falls back to
+     * the standard auto-detect list.
+     */
     private findDefaultRef(): string {
+        if (this.defaultBranch) {
+            if (exec(`git rev-parse --verify "${this.defaultBranch}"`, this.repoPath)) {
+                return this.defaultBranch;
+            }
+        }
         for (const ref of ['origin/HEAD', 'origin/main', 'origin/master', 'main', 'master']) {
             if (exec(`git rev-parse --verify "${ref}"`, this.repoPath)) return ref;
         }
