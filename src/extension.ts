@@ -359,13 +359,17 @@ export function activate(context: vscode.ExtensionContext): void {
             }
             if (allRepos.length === 1) {
                 switchToRepo(allRepos[0]);
+                vscode.commands.executeCommand('commitReview.setBaseBranch');
                 return;
             }
             const items = allRepos.map(r => ({ label: path.basename(r), description: r, repoPath: r }));
             const picked = await vscode.window.showQuickPick(items, {
                 placeHolder: 'Select a repository to review',
             });
-            if (picked) switchToRepo(picked.repoPath);
+            if (picked) {
+                switchToRepo(picked.repoPath);
+                vscode.commands.executeCommand('commitReview.setBaseBranch');
+            }
         })
     );
 
