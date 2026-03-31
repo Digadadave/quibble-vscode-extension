@@ -1,9 +1,14 @@
 import * as vscode from 'vscode';
 import * as path from 'path';
-import { CommentManager, ReviewComment, CommentSnapshot, SnapshotLine } from './CommentManager';
+import { CommentManager, ReviewComment, CommentSnapshot, CommentStatus, SnapshotLine } from './CommentManager';
 import { GitContentProvider } from './GitContentProvider';
 import { GitService } from './GitService';
 import { ICON_FILES } from './icons';
+
+// ── Status sets ──────────────────────────────────────────────────────────────
+
+const CLOSED_STATUSES = new Set<CommentStatus>(['approved', 'dismissed']);
+const AGENT_STATUSES  = new Set<CommentStatus>(['addressed', 'addressed-no-change', 'in-progress', 'needs-input']);
 
 // ── Status display labels ────────────────────────────────────────────────────
 
@@ -255,8 +260,8 @@ export class ReviewCommentController implements vscode.Disposable {
     }
   }
 
-  private isClosed(status: string): boolean {
-    return ['approved', 'dismissed'].includes(status);
+  private isClosed(status: CommentStatus): boolean {
+    return CLOSED_STATUSES.has(status);
   }
 
   // ── Snapshot capture ─────────────────────────────────────────────────────
@@ -335,8 +340,7 @@ export class ReviewCommentController implements vscode.Disposable {
               this.comments.addThreadReply(first.reviewId, 'reviewer', text.trim());
               // If the agent had set the status, reset to 'open' so it gets attention again
               const current = this.comments.load().find(c => c.id === first.reviewId);
-              const agentStatuses: string[] = ['addressed', 'in-progress', 'needs-input'];
-              if (current && agentStatuses.includes(current.status)) {
+              if (current && AGENT_STATUSES.has(current.status)) {
                 this.comments.updateStatus(first.reviewId, 'open');
               }
               this.refreshComment(first.reviewId);

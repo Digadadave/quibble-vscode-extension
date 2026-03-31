@@ -4,7 +4,9 @@ import { ICONS, STATUS_COLORS } from './icons';
 
 // ── Status metadata ──────────────────────────────────────────────────────────
 
-const CLOSED_STATUSES = new Set<CommentStatus>(['approved', 'dismissed']);
+const CLOSED_STATUSES      = new Set<CommentStatus>(['approved', 'dismissed']);
+const ADDRESSED_STATUSES   = new Set<CommentStatus>(['addressed', 'addressed-no-change']);
+const NO_CODE_NAV_STATUSES = new Set<CommentStatus>(['addressed-no-change', 'needs-input']);
 
 interface StatusMeta {
   label: string;
@@ -57,8 +59,7 @@ export class CommentTreeItem extends vscode.TreeItem {
 
     // TreeItem.command runs when the user clicks the row.
     // Skip for statuses where no code change was made — there's nothing to diff.
-    const hasCodeNav = comment.status !== 'addressed-no-change' && comment.status !== 'needs-input';
-    if (hasCodeNav) {
+    if (!NO_CODE_NAV_STATUSES.has(comment.status)) {
       this.command = {
         command: 'commitReview.comments.openDiff',
         title: 'Open in Diff',
@@ -68,9 +69,8 @@ export class CommentTreeItem extends vscode.TreeItem {
 
     // TreeItem.contextValue is matched against `when` clauses in package.json menus
     // (view/item/context), controlling which right-click menu items appear on each row.
-    const isClosed = CLOSED_STATUSES.has(comment.status);
-    this.contextValue = isClosed ? 'comment-approved'
-      : (comment.status === 'addressed' || comment.status === 'addressed-no-change') ? 'comment-addressed'
+    this.contextValue = CLOSED_STATUSES.has(comment.status)    ? 'comment-approved'
+      : ADDRESSED_STATUSES.has(comment.status)                 ? 'comment-addressed'
       : 'comment-open';
 
     this.id = comment.id;

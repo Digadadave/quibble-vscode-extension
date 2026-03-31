@@ -141,13 +141,7 @@ export class ChangesView implements vscode.WebviewViewProvider, vscode.Disposabl
   /** Light refresh: re-compute comment counts only, skip git. Used on comment-only mutations. */
   refreshCommentCounts(): void {
     if (!this._view) return;
-    const allComments = this.comments.load();
-    const commentsByFile = new Map<string, number>();
-    for (const c of allComments) {
-      if (!CLOSED_STATUSES.has(c.status)) {
-        commentsByFile.set(c.file, (commentsByFile.get(c.file) ?? 0) + 1);
-      }
-    }
+    const commentsByFile = this.buildCommentsByFile(this.comments.load());
     this._view.webview.postMessage({
       type: 'updateCommentCounts',
       counts: Object.fromEntries(commentsByFile),
@@ -160,12 +154,7 @@ export class ChangesView implements vscode.WebviewViewProvider, vscode.Disposabl
       const rawFiles = this.git.getChangesOnBranch(branch);
       const allComments = this.comments.load();
 
-      const commentsByFile = new Map<string, number>();
-      for (const c of allComments) {
-        if (!CLOSED_STATUSES.has(c.status)) {
-          commentsByFile.set(c.file, (commentsByFile.get(c.file) ?? 0) + 1);
-        }
-      }
+      const commentsByFile = this.buildCommentsByFile(allComments);
 
       const files = rawFiles.map(f => ({
         ...f,
@@ -176,6 +165,16 @@ export class ChangesView implements vscode.WebviewViewProvider, vscode.Disposabl
     } catch {
       return { branch: '', files: [] };
     }
+  }
+
+  private buildCommentsByFile(comments: ReturnType<CommentManager['load']>): Map<string, number> {
+    const map = new Map<string, number>();
+    for (const c of comments) {
+      if (!CLOSED_STATUSES.has(c.status)) {
+        map.set(c.file, (map.get(c.file) ?? 0) + 1);
+      }
+    }
+    return map;
   }
 
   // ── HTML ──────────────────────────────────────────────────────────────────
