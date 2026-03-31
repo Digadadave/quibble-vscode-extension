@@ -408,6 +408,7 @@ export function activate(context: vscode.ExtensionContext): void {
             const branch = picked.label.startsWith('$(circle-slash)') ? undefined : picked.label;
             activeComments.setBaseBranch(branch);
             activeGit.defaultBranch = branch ?? '';
+            activeChangesView?.showLoading();
             refreshAll();
 
             const msg = branch ? `Base branch set to "${branch}"` : 'Base branch reset to auto-detect';
