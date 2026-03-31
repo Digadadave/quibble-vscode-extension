@@ -215,6 +215,11 @@
         {
           "command": "commitReview.selectRepo",
           "when": "view == commitReview.changesView",
+          "group": "navigation@2"
+        },
+        {
+          "command": "commitReview.selectRepo",
+          "when": "view == commitReview.changesView",
           "group": "1_settings@1"
         },
         {
