@@ -536,9 +536,11 @@ export class GitService {
     static discoverRepos(rootDir: string): string[] {
         const repos: string[] = [];
 
-        // Check if rootDir itself is a git repo
-        if (GitService.getRepoRoot(rootDir)) {
-            repos.push(path.normalize(rootDir));
+        // Check if rootDir is inside a git repo — use the actual repo root,
+        // not rootDir itself (which may be a subdirectory of the git root).
+        const rootRepoRoot = GitService.getRepoRoot(rootDir);
+        if (rootRepoRoot) {
+            repos.push(rootRepoRoot);
         }
 
         // Check immediate subdirectories
