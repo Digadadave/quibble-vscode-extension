@@ -35,6 +35,9 @@ export class ChangesView implements vscode.WebviewViewProvider, vscode.Disposabl
   /** Called when the user clicks "open all changes" on a commit row. */
   onOpenCommitChanges?: (hash: string) => void;
 
+  /** Called once the first time this panel becomes visible. Use to defer heavy init. */
+  onFirstVisible?: () => void;
+
   private constructor(
     private context: vscode.ExtensionContext,
     private git: GitService,
@@ -94,6 +97,7 @@ export class ChangesView implements vscode.WebviewViewProvider, vscode.Disposabl
     _ctx: vscode.WebviewViewResolveContext,
     _token: vscode.CancellationToken,
   ): void {
+    const firstVisible = !this._view;
     this._view = webviewView;
 
     // localResourceRoots whitelists which directories the iframe can load files from.
@@ -123,9 +127,13 @@ export class ChangesView implements vscode.WebviewViewProvider, vscode.Disposabl
       }
     }, null, this.disposables);
 
-    const data = this.cachedData ?? this.buildData();
-    this.cachedData = null;
-    webviewView.webview.postMessage({ type: 'load', branch: data.branch, files: data.files });
+    if (firstVisible && this.onFirstVisible) {
+      this.onFirstVisible();
+    } else {
+      const data = this.cachedData ?? this.buildData();
+      this.cachedData = null;
+      webviewView.webview.postMessage({ type: 'load', branch: data.branch, files: data.files });
+    }
   }
 
   // ── Data ──────────────────────────────────────────────────────────────────

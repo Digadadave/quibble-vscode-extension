@@ -30,7 +30,6 @@ let gitFsWatchers: vscode.Disposable[] = [];
  * are automatically cleaned up.
  */
 export function activate(context: vscode.ExtensionContext): void {
-    const repos = discoverAllRepos();
 
     // ── Git content provider (serves file content at specific commits) ─────────
     // Registers the custom 'commit-review-git://' URI scheme. VS Code calls
@@ -507,15 +506,20 @@ export function activate(context: vscode.ExtensionContext): void {
         })
     );
 
-    // ── Auto-select repo ──────────────────────────────────────────────────────
-    if (repos.length === 1) {
-        switchToRepo(repos[0]);
-    } else if (repos.length > 1) {
-        updateStatusBar();
-        vscode.commands.executeCommand('commitReview.selectRepo');
-    } else {
-        updateStatusBar();
-    }
+    // ── Defer repo init until the sidebar is first opened ────────────────────
+    // Repo discovery and switchToRepo are deferred until the user first opens
+    // the extension's sidebar panel. This avoids git work on every VS Code launch.
+    activeChangesView.onFirstVisible = () => {
+        const repos = discoverAllRepos();
+        if (repos.length === 1) {
+            switchToRepo(repos[0]);
+        } else if (repos.length > 1) {
+            updateStatusBar();
+            vscode.commands.executeCommand('commitReview.selectRepo');
+        } else {
+            updateStatusBar();
+        }
+    };
 }
 
 export function deactivate(): void {

@@ -403,6 +403,8 @@ export class CommentManager implements vscode.Disposable {
 
   private saveWorkingJson(comments: ReviewComment[]): void {
     if (!this.workingJsonPath) return;
+    // Don't create the file until there's at least one comment to write.
+    if (comments.length === 0 && !fs.existsSync(this.workingJsonPath)) return;
     this._cache = comments; // write-through: update cache immediately
     const dir = path.dirname(this.workingJsonPath);
     if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
