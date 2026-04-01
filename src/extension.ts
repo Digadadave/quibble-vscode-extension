@@ -21,8 +21,6 @@ let statusBar: vscode.StatusBarItem | undefined;
 let commentChangeDisposable: vscode.Disposable | undefined;
 /** Disposables for the .git/HEAD and .git/refs watchers of the active repo. */
 let gitFsWatchers: vscode.Disposable[] = [];
-/** The branch name last loaded — used to detect branch switches vs. same-branch commits. */
-let activeBranch = '';
 
 /**
  * VS Code calls activate() exactly once — when the extension first activates.
@@ -32,7 +30,6 @@ let activeBranch = '';
  * are automatically cleaned up.
  */
 export function activate(context: vscode.ExtensionContext): void {
-    const repos = discoverAllRepos();
 
     // ── Git content provider (serves file content at specific commits) ─────────
     // Registers the custom 'commit-review-git://' URI scheme. VS Code calls
@@ -91,7 +88,8 @@ export function activate(context: vscode.ExtensionContext): void {
             const resources = files.map(f => {
                 const oldRef = f.status === 'A' ? '__empty__' : base;
                 const newRef = f.status === 'D' ? '__empty__' : head;
-                return [GitContentProvider.makeUri(repoPath, f.path, oldRef, 'old'), GitContentProvider.makeUri(repoPath, f.path, newRef, 'new')];
+                const reviewRef = newRef !== '__empty__' ? head : oldRef;
+            return [GitContentProvider.makeUri(repoPath, f.path, oldRef, 'old', reviewRef), GitContentProvider.makeUri(repoPath, f.path, newRef, 'new')];
             });
             vscode.commands.executeCommand('vscode.changes', `Changes: ${branch}`, resources);
         })
@@ -110,7 +108,8 @@ export function activate(context: vscode.ExtensionContext): void {
         // For added files (A), the old side is empty. For deleted files (D), the new side is empty.
         const oldRef = fileStatus === 'A' ? '__empty__' : base;
         const newRef = fileStatus === 'D' ? '__empty__' : head;
-        const oldUri = GitContentProvider.makeUri(repoPath, file, oldRef, 'old');
+        const reviewHash = fileStatus === 'D' ? oldRef : newRef;
+        const oldUri = GitContentProvider.makeUri(repoPath, file, oldRef, 'old', reviewHash);
         const newUri = GitContentProvider.makeUri(repoPath, file, newRef, 'new');
         await vscode.commands.executeCommand('vscode.diff', oldUri, newUri, `${path.basename(file)} (branch changes)`);
     };
@@ -148,7 +147,7 @@ export function activate(context: vscode.ExtensionContext): void {
             const oldRef = f.status === 'A' ? '__empty__' : parentHash;
             const newRef = f.status === 'D' ? '__empty__' : hash;
             const label = vscode.Uri.file(path.join(repoPath, f.path));
-            const original = f.status === 'A' ? undefined : GitContentProvider.makeUri(repoPath, f.path, oldRef, 'old');
+            const original = f.status === 'A' ? undefined : GitContentProvider.makeUri(repoPath, f.path, oldRef, 'old', hash);
             const modified = f.status === 'D' ? undefined : GitContentProvider.makeUri(repoPath, f.path, newRef, 'new');
             return [label, original, modified] as [vscode.Uri, vscode.Uri | undefined, vscode.Uri | undefined];
         });
@@ -192,10 +191,15 @@ export function activate(context: vscode.ExtensionContext): void {
             if (!(activeTab?.input instanceof vscode.TabInputText)) return;
 
             const params = new URLSearchParams(uri.query);
-            const commitHash = params.get('ref') ?? '';
             const side = params.get('side');
-            if (!commitHash || side !== 'new') return;
+            if (side !== 'new' && side !== 'old') return;
             if (!activeGit) return;
+
+            // For the old side, reviewHash is the actual commit being reviewed.
+            const commitHash = side === 'old'
+                ? (params.get('reviewHash') ?? params.get('ref') ?? '')
+                : (params.get('ref') ?? '');
+            if (!commitHash) return;
 
             const file = uri.path.startsWith('/') ? uri.path.slice(1) : uri.path;
 
@@ -203,9 +207,10 @@ export function activate(context: vscode.ExtensionContext): void {
             await vscode.commands.executeCommand('workbench.action.closeActiveEditor');
             await openNativeDiff(activeGit, file, commitHash);
 
-            // Scroll to the first matching comment in the newly opened diff.
+            // Scroll to the matching comment in the newly opened diff.
             if (activeComments) {
-                const comment = activeComments.load().find(c => c.commitHash === commitHash && c.file === file);
+                const comment = activeComments.load().find(c => c.commitHash === commitHash && c.file === file && c.side === (side === 'old' ? 'left' : 'right'))
+                    ?? activeComments.load().find(c => c.commitHash === commitHash && c.file === file);
                 if (comment) {
                     setTimeout(() => {
                         vscode.commands.executeCommand('revealLine', {
@@ -280,7 +285,6 @@ export function activate(context: vscode.ExtensionContext): void {
         const branch = activeGit.getCurrentBranch();
         const hashes = activeGit.getBranchCommitHashes(branch);
 
-        activeBranch = branch;
         activeComments.switchBranch(branch, hashes);
         refreshAll();
     }
@@ -294,12 +298,14 @@ export function activate(context: vscode.ExtensionContext): void {
         // Tear down previous watchers
         for (const d of gitFsWatchers) d.dispose();
         gitFsWatchers = [];
-        activeBranch = '';
         commentChangeDisposable?.dispose();
         activeComments?.dispose();
 
         activeGit = new GitService(repoPath);
         activeComments = new CommentManager(repoPath, context.globalState);
+
+        // Restore stored base branch so commit range is correct on reload.
+        activeGit.defaultBranch = activeComments.getBaseBranch() ?? '';
 
         // Migrate old per-branch JSON files and old flat DB into globalState.
         activeComments.migrateOldFiles(context.globalStorageUri);
@@ -320,7 +326,6 @@ export function activate(context: vscode.ExtensionContext): void {
         // Initialise the working JSON for the current branch.
         const branch = activeGit.getCurrentBranch();
         const hashes = activeGit.getBranchCommitHashes(branch);
-        activeBranch = branch;
         activeComments.switchBranch(branch, hashes);
 
         // FileSystemWatcher fires onChange/onCreate events when matching paths change on disk.
@@ -353,13 +358,64 @@ export function activate(context: vscode.ExtensionContext): void {
             }
             if (allRepos.length === 1) {
                 switchToRepo(allRepos[0]);
+                vscode.commands.executeCommand('commitReview.setBaseBranch');
                 return;
             }
             const items = allRepos.map(r => ({ label: path.basename(r), description: r, repoPath: r }));
             const picked = await vscode.window.showQuickPick(items, {
                 placeHolder: 'Select a repository to review',
             });
-            if (picked) switchToRepo(picked.repoPath);
+            if (picked) {
+                switchToRepo(picked.repoPath);
+                vscode.commands.executeCommand('commitReview.setBaseBranch');
+            }
+        })
+    );
+
+    context.subscriptions.push(
+        vscode.commands.registerCommand('commitReview.repoMenu', async () => {
+            const picked = await vscode.window.showQuickPick([
+                { label: `$(repo) Select Repository`, id: 'repo' },
+                { label: `$(git-branch) Set Base Branch`, id: 'branch' },
+            ], { placeHolder: 'Commit Review' });
+            if (picked?.id === 'repo') vscode.commands.executeCommand('commitReview.selectRepo');
+            if (picked?.id === 'branch') vscode.commands.executeCommand('commitReview.setBaseBranch');
+        })
+    );
+
+    context.subscriptions.push(
+        vscode.commands.registerCommand('commitReview.setBaseBranch', async () => {
+            if (!activeGit || !activeComments) return;
+            const branches = activeGit.getBranches();
+            const current = activeComments.getBaseBranch();
+
+            const autoItem: vscode.QuickPickItem = {
+                label: '$(circle-slash) Auto-detect',
+                description: 'Scan for origin/HEAD, origin/main, origin/master, main, master',
+                detail: !current ? '$(check) Currently active' : undefined,
+            };
+            const separator: vscode.QuickPickItem = { label: '', kind: vscode.QuickPickItemKind.Separator };
+            const branchItems: vscode.QuickPickItem[] = branches.map(b => ({
+                label: b.name,
+                description: b.remote ? 'remote' : 'local',
+                detail: b.name === current ? '$(check) Currently active' : undefined,
+            }));
+
+            const picked = await vscode.window.showQuickPick([autoItem, separator, ...branchItems], {
+                placeHolder: 'Select the base branch used to determine your commit range',
+                title: 'Set Base Branch',
+            });
+
+            if (!picked) return;
+
+            const branch = picked.label.startsWith('$(circle-slash)') ? undefined : picked.label;
+            activeComments.setBaseBranch(branch);
+            activeGit.defaultBranch = branch ?? '';
+            activeChangesView?.showLoading();
+            refreshAll();
+
+            const msg = branch ? `Base branch set to "${branch}"` : 'Base branch reset to auto-detect';
+            vscode.window.showInformationMessage(`Commit Review: ${msg}`);
         })
     );
 
@@ -412,15 +468,58 @@ export function activate(context: vscode.ExtensionContext): void {
         })
     );
 
-    // ── Auto-select repo ──────────────────────────────────────────────────────
-    if (repos.length === 1) {
-        switchToRepo(repos[0]);
-    } else if (repos.length > 1) {
-        updateStatusBar();
-        vscode.commands.executeCommand('commitReview.selectRepo');
-    } else {
-        updateStatusBar();
-    }
+    // ── View fix / go to code ──────────────────────────────────────────────────
+    // viewFix: open the multi-file diff for the commit where the agent made the fix.
+    context.subscriptions.push(
+        vscode.commands.registerCommand('commitReview.viewFix', async (hash: string) => {
+            if (!activeGit) return;
+            const repoPath = activeGit.getRepoPath();
+            const parentHash = activeGit.getParentHash(hash) || '__empty__';
+            const files = activeGit.getChangedFilesWithStats(hash);
+            const resources = files.map(f => {
+                const oldRef = f.status === 'A' ? '__empty__' : parentHash;
+                const newRef = f.status === 'D' ? '__empty__' : hash;
+                const label = vscode.Uri.file(path.join(repoPath, f.path));
+                const original = f.status === 'A' ? undefined : GitContentProvider.makeUri(repoPath, f.path, oldRef, 'old', hash);
+                const modified = f.status === 'D' ? undefined : GitContentProvider.makeUri(repoPath, f.path, newRef, 'new');
+                return [label, original, modified] as [vscode.Uri, vscode.Uri | undefined, vscode.Uri | undefined];
+            });
+            await vscode.commands.executeCommand('vscode.changes', `Fix: ${hash.slice(0, 7)}`, resources);
+        })
+    );
+
+    // goToCode: open the current file on disk at the commented line (fallback when no fix commit).
+    context.subscriptions.push(
+        vscode.commands.registerCommand('commitReview.goToCode', async (file: string, line: number) => {
+            if (!activeGit) return;
+            const repoPath = activeGit.getRepoPath();
+            const absPath = path.join(repoPath, file);
+            try {
+                const doc = await vscode.workspace.openTextDocument(absPath);
+                const editor = await vscode.window.showTextDocument(doc, { preview: true });
+                const pos = new vscode.Position(Math.max(0, line - 1), 0);
+                editor.selection = new vscode.Selection(pos, pos);
+                editor.revealRange(new vscode.Range(pos, pos), vscode.TextEditorRevealType.InCenter);
+            } catch {
+                vscode.window.showWarningMessage(`Could not open file: ${file}`);
+            }
+        })
+    );
+
+    // ── Defer repo init until the sidebar is first opened ────────────────────
+    // Repo discovery and switchToRepo are deferred until the user first opens
+    // the extension's sidebar panel. This avoids git work on every VS Code launch.
+    activeChangesView.onFirstVisible = () => {
+        const repos = discoverAllRepos();
+        if (repos.length === 1) {
+            switchToRepo(repos[0]);
+        } else if (repos.length > 1) {
+            updateStatusBar();
+            vscode.commands.executeCommand('commitReview.selectRepo');
+        } else {
+            updateStatusBar();
+        }
+    };
 }
 
 export function deactivate(): void {
@@ -436,7 +535,7 @@ async function openNativeDiff(git: GitService, file: string, commitHash: string)
     const repoPath = git.getRepoPath();
     const parentHash = git.getParentHash(commitHash) || '__empty__';
 
-    const oldUri = GitContentProvider.makeUri(repoPath, file, parentHash, 'old');
+    const oldUri = GitContentProvider.makeUri(repoPath, file, parentHash, 'old', commitHash);
     const newUri = GitContentProvider.makeUri(repoPath, file, commitHash, 'new');
     const title = `${path.basename(file)} @ ${commitHash.slice(0, 7)}`;
 

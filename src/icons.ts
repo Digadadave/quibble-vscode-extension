@@ -11,7 +11,10 @@ export const ICONS = {
   COMMENT:                      'comment',
   COMMENT_DISCUSSION:           'comment-discussion',
   COMMENT_DISCUSSION_SPARKLE:   'comment-discussion-sparkle',
+  COMMENT_DISCUSSION_QUOTE:     'comment-discussion-quote',
   COMMENT_UNRESOLVED:           'comment-unresolved',
+  EDIT_SPARKLE:                 'edit-sparkle',
+  FEEDBACK:                     'feedback',
   CIRCLE_SLASH:                 'circle-slash',
   // Status actions
   CHECK:              'check',

@@ -50,16 +50,19 @@ export class GitContentProvider implements vscode.TextDocumentContentProvider {
 
   /**
    * Build a URI for `file` at `ref` (a full commit hash or `__empty__`).
-   * `side` indicates which half of the diff this represents; the comment
-   * controller only allows new comments on the `new` side.
+   * `side` indicates which half of the diff this represents.
+   * `reviewHash` is the commit being reviewed — passed on the old side so that
+   * left-side comments are stored under the reviewed commit, not the parent.
    */
   static makeUri(
     repoPath: string,
     filePath: string,
     ref: string,
     side: 'old' | 'new',
+    reviewHash?: string,
   ): vscode.Uri {
     const params = new URLSearchParams({ repo: repoPath, ref, side });
+    if (reviewHash) params.set('reviewHash', reviewHash);
     return vscode.Uri.from({
       scheme: GitContentProvider.scheme,
       path:  '/' + filePath,

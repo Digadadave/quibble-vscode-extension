@@ -1,10 +1,11 @@
 import * as vscode from 'vscode';
-import { CommentManager, ReviewComment, CommentStatus } from './CommentManager';
+import { CommentManager, ReviewComment, CommentStatus, STATUS, CLOSED_STATUSES } from './CommentManager';
 import { ICONS, STATUS_COLORS } from './icons';
 
 // ── Status metadata ──────────────────────────────────────────────────────────
 
-const CLOSED_STATUSES = new Set<CommentStatus>(['approved', 'dismissed', 'outdated']);
+const ADDRESSED_STATUSES   = new Set<CommentStatus>([STATUS.ADDRESSED, STATUS.ADDRESSED_NO_CHANGE]);
+const NO_CODE_NAV_STATUSES = new Set<CommentStatus>([STATUS.ADDRESSED_NO_CHANGE, STATUS.NEEDS_INPUT]);
 
 interface StatusMeta {
   label: string;
@@ -12,16 +13,15 @@ interface StatusMeta {
   color: vscode.ThemeColor;
 }
 
-const STATUS_META: Record<string, StatusMeta> = {
-  'open':          { label: 'Open',          icon: ICONS.COMMENT_UNRESOLVED, color: new vscode.ThemeColor(STATUS_COLORS.open.token) },
-  'question':      { label: 'Question',      icon: ICONS.QUESTION,           color: new vscode.ThemeColor(STATUS_COLORS.question.token) },
-  'needs-input':   { label: 'Needs Input',   icon: ICONS.COMMENT_DISCUSSION_SPARKLE, color: new vscode.ThemeColor(STATUS_COLORS.question.token) },
-  'agent-replied': { label: 'Agent Replied', icon: ICONS.COMMENT_DISCUSSION, color: new vscode.ThemeColor(STATUS_COLORS.replied.token) },
-  'in-progress':   { label: 'In Progress',   icon: ICONS.COMMENT_DISCUSSION, color: new vscode.ThemeColor(STATUS_COLORS.replied.token) },
-  'addressed':     { label: 'Addressed',     icon: ICONS.CHECK,              color: new vscode.ThemeColor(STATUS_COLORS.addressed.token) },
-  'approved':      { label: 'Approved',      icon: ICONS.CHECK_ALL,          color: new vscode.ThemeColor(STATUS_COLORS.approved.token) },
-  'dismissed':     { label: 'Dismissed',     icon: ICONS.SYNC_IGNORED,       color: new vscode.ThemeColor(STATUS_COLORS.dismissed.token) },
-  'outdated':      { label: 'Outdated',      icon: ICONS.SYNC_IGNORED,       color: new vscode.ThemeColor(STATUS_COLORS.dismissed.token) },
+const STATUS_META: Record<CommentStatus, StatusMeta> = {
+  [STATUS.OPEN]:                { label: 'Open',                  icon: ICONS.COMMENT_UNRESOLVED,       color: new vscode.ThemeColor(STATUS_COLORS.open.token) },
+  [STATUS.NEEDS_INPUT]:         { label: 'Needs Input',           icon: ICONS.FEEDBACK,                 color: new vscode.ThemeColor(STATUS_COLORS.question.token) },
+  [STATUS.IN_PROGRESS]:         { label: 'In Progress',           icon: ICONS.EDIT_SPARKLE,             color: new vscode.ThemeColor(STATUS_COLORS.replied.token) },
+  [STATUS.ADDRESSED]:           { label: 'Addressed',             icon: ICONS.CHECK,                    color: new vscode.ThemeColor(STATUS_COLORS.addressed.token) },
+  [STATUS.ADDRESSED_NO_CHANGE]: { label: 'Addressed (No Change)', icon: ICONS.COMMENT_DISCUSSION_QUOTE, color: new vscode.ThemeColor(STATUS_COLORS.replied.token) },
+  [STATUS.APPROVED]:            { label: 'Approved',              icon: ICONS.CHECK_ALL,                color: new vscode.ThemeColor(STATUS_COLORS.approved.token) },
+  [STATUS.DISMISSED]:           { label: 'Dismissed',             icon: ICONS.SYNC_IGNORED,             color: new vscode.ThemeColor(STATUS_COLORS.dismissed.token) },
+  [STATUS.OUTDATED]:            { label: 'Outdated',              icon: ICONS.SYNC_IGNORED,             color: new vscode.ThemeColor(STATUS_COLORS.dismissed.token) },
 };
 
 
@@ -50,25 +50,26 @@ export class CommentTreeItem extends vscode.TreeItem {
     this.description = body.length > 80 ? body.slice(0, 77) + '…' : body;
 
     // Icon: status-colored codicon
-    const meta = STATUS_META[comment.status] ?? STATUS_META['open'];
+    const meta = STATUS_META[comment.status] ?? STATUS_META[STATUS.OPEN];
     this.iconPath = new vscode.ThemeIcon(meta.icon, meta.color);
 
     // Tooltip: rich markdown with full details
     this.tooltip = this.buildTooltip(comment, dir);
 
     // TreeItem.command runs when the user clicks the row.
-    // The command must be registered separately (see createTreeView()).
-    this.command = {
-      command: 'commitReview.comments.openDiff',
-      title: 'Open in Diff',
-      arguments: [comment],
-    };
+    // Skip for statuses where no code change was made — there's nothing to diff.
+    if (!NO_CODE_NAV_STATUSES.has(comment.status)) {
+      this.command = {
+        command: 'commitReview.comments.openDiff',
+        title: 'Open in Diff',
+        arguments: [comment],
+      };
+    }
 
     // TreeItem.contextValue is matched against `when` clauses in package.json menus
     // (view/item/context), controlling which right-click menu items appear on each row.
-    const isClosed = CLOSED_STATUSES.has(comment.status);
-    this.contextValue = isClosed ? 'comment-approved'
-      : comment.status === 'addressed' ? 'comment-addressed'
+    this.contextValue = CLOSED_STATUSES.has(comment.status)    ? 'comment-approved'
+      : ADDRESSED_STATUSES.has(comment.status)                 ? 'comment-addressed'
       : 'comment-open';
 
     this.id = comment.id;
@@ -148,9 +149,9 @@ export class ResolvedNoteTreeItem extends vscode.TreeItem {
     public readonly comment: ReviewComment,
   ) {
     const noteLabel =
-      comment.status === 'needs-input'  ? 'Agent Note'
-      : comment.status === 'outdated'   ? 'Outdated'
-      : comment.status === 'addressed'  ? 'Agent Update'
+      comment.status === STATUS.NEEDS_INPUT  ? 'Agent Note'
+      : comment.status === STATUS.OUTDATED   ? 'Outdated'
+      : comment.status === STATUS.ADDRESSED  ? 'Agent Update'
       : 'Agent Note';
 
     super(noteLabel, vscode.TreeItemCollapsibleState.None);
@@ -167,13 +168,17 @@ export class ResolvedNoteTreeItem extends vscode.TreeItem {
     if (comment.addressedAt) md.appendMarkdown(`\n\n*${formatDate(comment.addressedAt)}*`);
     this.tooltip = md;
 
-    // Click → navigate to parent comment in diff
+    // Click → navigate to the comment in the diff
     this.command = {
       command: 'commitReview.comments.openDiff',
       title: 'Open in Diff',
       arguments: [comment],
     };
-    this.contextValue = 'resolvedNote';
+
+    // contextValue drives the "View Fix" inline button (see package.json menus)
+    this.contextValue = comment.status === STATUS.ADDRESSED && comment.addressedByCommit
+      ? 'resolvedNote-fix'
+      : 'resolvedNote';
   }
 }
 
@@ -240,13 +245,13 @@ export class CommentsView implements vscode.TreeDataProvider<vscode.TreeItem>, v
         this.onFocusComment?.(comment.file, comment.line, comment.commitHash, comment.id);
       }),
       vscode.commands.registerCommand('commitReview.comments.resolve', (item: CommentTreeItem) => {
-        this.onUpdateStatus?.(item.comment.id, 'approved');
+        this.onUpdateStatus?.(item.comment.id, STATUS.APPROVED);
       }),
       vscode.commands.registerCommand('commitReview.comments.dismiss', (item: CommentTreeItem) => {
-        this.onUpdateStatus?.(item.comment.id, 'dismissed');
+        this.onUpdateStatus?.(item.comment.id, STATUS.DISMISSED);
       }),
       vscode.commands.registerCommand('commitReview.comments.reopen', (item: CommentTreeItem) => {
-        this.onUpdateStatus?.(item.comment.id, 'open');
+        this.onUpdateStatus?.(item.comment.id, STATUS.OPEN);
       }),
       vscode.commands.registerCommand('commitReview.comments.delete', (item: CommentTreeItem) => {
         this.onDeleteComment?.(item.comment.id);
@@ -260,6 +265,11 @@ export class CommentsView implements vscode.TreeDataProvider<vscode.TreeItem>, v
         this.showClosed = false;
         vscode.commands.executeCommand('setContext', 'commitReview.showClosed', false);
         this.refresh();
+      }),
+      vscode.commands.registerCommand('commitReview.comments.viewFix', (item: ResolvedNoteTreeItem) => {
+        if (item.comment.addressedByCommit) {
+          vscode.commands.executeCommand('commitReview.viewFix', item.comment.addressedByCommit);
+        }
       }),
     );
 
@@ -322,13 +332,26 @@ export class CommentsView implements vscode.TreeDataProvider<vscode.TreeItem>, v
   }
 
   refresh(): void {
-    if (this.treeView) { this.treeView.message = undefined; }
     // Snapshot once for the entire refresh cycle (getChildren + description + badge)
     this._cachedComments = this.comments.load();
     this._onDidChangeTreeData.fire();
     this.updateViewDescription();
     this.updateViewBadge();
+    this.updateEmptyMessage();
     this._cachedComments = null;
+  }
+
+  private updateEmptyMessage(): void {
+    if (!this.treeView) return;
+    const all = this._cachedComments ?? this.comments.load();
+    const filtered = this.getFilteredComments();
+    if (filtered.length > 0) {
+      this.treeView.message = undefined;
+    } else if (all.length === 0) {
+      this.treeView.message = 'No comments yet. Open a diff and add your first comment.';
+    } else {
+      this.treeView.message = 'All comments are closed.';
+    }
   }
 
   private getFilteredComments(): ReviewComment[] {

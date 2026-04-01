@@ -2,11 +2,12 @@
   "name": "vscode-commit-review",
   "displayName": "Commit Review",
   "description": "Review local git commits with GitHub-style comments. Agent-friendly metadata for Claude Code.",
-  "version": "0.0.1",
+  "version": "0.0.2",
   "publisher": "local",
   "engines": {
     "vscode": "^1.85.0"
   },
+  "icon": "media/icon.png",
   "categories": [
     "Other"
   ],
@@ -145,6 +146,23 @@
         "title": "Dismiss Orphaned Comments",
         "icon": "$(close)",
         "category": "Commit Review"
+      },
+      {
+        "command": "commitReview.comments.viewFix",
+        "title": "View Fix",
+        "icon": "$(go-to-file)",
+        "category": "Commit Review"
+      },
+      {
+        "command": "commitReview.setBaseBranch",
+        "title": "Set Base Branch",
+        "category": "Commit Review"
+      },
+      {
+        "command": "commitReview.repoMenu",
+        "title": "Repository Settings",
+        "icon": "$(repo)",
+        "category": "Commit Review"
       }
     ],
     "viewsContainers": {
@@ -152,7 +170,7 @@
         {
           "id": "commitReview",
           "title": "Commit Review",
-          "icon": "$(git-pull-request)"
+          "icon": "media/icon.svg"
         }
       ]
     },
@@ -201,7 +219,7 @@
           "group": "navigation@0"
         },
         {
-          "command": "commitReview.selectRepo",
+          "command": "commitReview.repoMenu",
           "when": "view == commitReview.changesView",
           "group": "navigation@2"
         },
@@ -281,6 +299,16 @@
           "command": "commitReview.comments.delete",
           "when": "view == commitReview.commentsView && (viewItem == comment-open || viewItem == comment-approved || viewItem == comment-addressed)",
           "group": "2_manage@1"
+        },
+        {
+          "command": "commitReview.comments.viewFix",
+          "when": "view == commitReview.commentsView && viewItem == resolvedNote-fix",
+          "group": "inline@1"
+        },
+        {
+          "command": "commitReview.comments.viewFix",
+          "when": "view == commitReview.commentsView && viewItem == resolvedNote-fix",
+          "group": "1_action@1"
         }
       ],
       "comments/commentThread/context": [
@@ -323,11 +351,16 @@
   "scripts": {
     "vscode:prepublish": "npm run compile",
     "compile": "tsc -p ./",
-    "watch": "tsc -watch -p ./"
+    "watch": "tsc -watch -p ./",
+    "lint": "eslint",
+    "package": "npx @vscode/vsce package"
   },
   "devDependencies": {
     "@types/node": "^20.0.0",
     "@types/vscode": "^1.85.0",
+    "@typescript-eslint/eslint-plugin": "^8.57.2",
+    "@typescript-eslint/parser": "^8.57.2",
+    "eslint": "^10.1.0",
     "typescript": "^5.3.0"
   },
   "dependencies": {

@@ -2,8 +2,10 @@ import * as vscode from 'vscode';
 import * as fs from 'fs';
 import * as path from 'path';
 import { GitService } from './GitService';
-import { CommentManager } from './CommentManager';
+import { CommentManager, CommentStatus, STATUS } from './CommentManager';
 import { buildStatusCssVars } from './icons';
+
+const CLOSED_STATUSES = new Set<CommentStatus>([STATUS.APPROVED, STATUS.DISMISSED, STATUS.OUTDATED]);
 
 /**
  * Implements WebviewViewProvider — VS Code calls resolveWebviewView() the first
@@ -32,6 +34,9 @@ export class ChangesView implements vscode.WebviewViewProvider, vscode.Disposabl
 
   /** Called when the user clicks "open all changes" on a commit row. */
   onOpenCommitChanges?: (hash: string) => void;
+
+  /** Called once the first time this panel becomes visible. Use to defer heavy init. */
+  onFirstVisible?: () => void;
 
   private constructor(
     private context: vscode.ExtensionContext,
@@ -92,6 +97,7 @@ export class ChangesView implements vscode.WebviewViewProvider, vscode.Disposabl
     _ctx: vscode.WebviewViewResolveContext,
     _token: vscode.CancellationToken,
   ): void {
+    const firstVisible = !this._view;
     this._view = webviewView;
 
     // localResourceRoots whitelists which directories the iframe can load files from.
@@ -121,9 +127,13 @@ export class ChangesView implements vscode.WebviewViewProvider, vscode.Disposabl
       }
     }, null, this.disposables);
 
-    const data = this.cachedData ?? this.buildData();
-    this.cachedData = null;
-    webviewView.webview.postMessage({ type: 'load', branch: data.branch, files: data.files });
+    if (firstVisible && this.onFirstVisible) {
+      this.onFirstVisible();
+    } else {
+      const data = this.cachedData ?? this.buildData();
+      this.cachedData = null;
+      webviewView.webview.postMessage({ type: 'load', branch: data.branch, files: data.files });
+    }
   }
 
   // ── Data ──────────────────────────────────────────────────────────────────
@@ -139,11 +149,7 @@ export class ChangesView implements vscode.WebviewViewProvider, vscode.Disposabl
   /** Light refresh: re-compute comment counts only, skip git. Used on comment-only mutations. */
   refreshCommentCounts(): void {
     if (!this._view) return;
-    const allComments = this.comments.load();
-    const commentsByFile = new Map<string, number>();
-    for (const c of allComments) {
-      commentsByFile.set(c.file, (commentsByFile.get(c.file) ?? 0) + 1);
-    }
+    const commentsByFile = this.buildCommentsByFile(this.comments.load());
     this._view.webview.postMessage({
       type: 'updateCommentCounts',
       counts: Object.fromEntries(commentsByFile),
@@ -156,10 +162,7 @@ export class ChangesView implements vscode.WebviewViewProvider, vscode.Disposabl
       const rawFiles = this.git.getChangesOnBranch(branch);
       const allComments = this.comments.load();
 
-      const commentsByFile = new Map<string, number>();
-      for (const c of allComments) {
-        commentsByFile.set(c.file, (commentsByFile.get(c.file) ?? 0) + 1);
-      }
+      const commentsByFile = this.buildCommentsByFile(allComments);
 
       const files = rawFiles.map(f => ({
         ...f,
@@ -170,6 +173,16 @@ export class ChangesView implements vscode.WebviewViewProvider, vscode.Disposabl
     } catch {
       return { branch: '', files: [] };
     }
+  }
+
+  private buildCommentsByFile(comments: ReturnType<CommentManager['load']>): Map<string, number> {
+    const map = new Map<string, number>();
+    for (const c of comments) {
+      if (!CLOSED_STATUSES.has(c.status)) {
+        map.set(c.file, (map.get(c.file) ?? 0) + 1);
+      }
+    }
+    return map;
   }
 
   // ── HTML ──────────────────────────────────────────────────────────────────

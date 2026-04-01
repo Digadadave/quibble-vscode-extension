@@ -1,22 +1,25 @@
 import * as vscode from 'vscode';
 import * as path from 'path';
-import { CommentManager, ReviewComment, CommentSnapshot, SnapshotLine } from './CommentManager';
+import { CommentManager, ReviewComment, CommentSnapshot, CommentStatus, SnapshotLine, STATUS, CLOSED_STATUSES } from './CommentManager';
 import { GitContentProvider } from './GitContentProvider';
 import { GitService } from './GitService';
 import { ICON_FILES } from './icons';
 
+// ── Status sets ──────────────────────────────────────────────────────────────
+
+const AGENT_STATUSES = new Set<CommentStatus>([STATUS.ADDRESSED, STATUS.ADDRESSED_NO_CHANGE, STATUS.IN_PROGRESS, STATUS.NEEDS_INPUT]);
+
 // ── Status display labels ────────────────────────────────────────────────────
 
-const STATUS_LABELS: Record<string, string> = {
-  'open':          'Open',
-  'question':      'Question',
-  'agent-replied': 'Agent Replied',
-  'in-progress':   'In Progress',
-  'needs-input':   'Needs Input',
-  'addressed':     'Addressed',
-  'approved':      'Approved',
-  'dismissed':     'Dismissed',
-  'outdated':      'Outdated',
+const STATUS_LABELS: Record<CommentStatus, string> = {
+  [STATUS.OPEN]:                'Open',
+  [STATUS.IN_PROGRESS]:         'In Progress',
+  [STATUS.NEEDS_INPUT]:         'Needs Input',
+  [STATUS.ADDRESSED]:           'Addressed',
+  [STATUS.ADDRESSED_NO_CHANGE]: 'Addressed (No Change)',
+  [STATUS.APPROVED]:            'Approved',
+  [STATUS.DISMISSED]:           'Dismissed',
+  [STATUS.OUTDATED]:            'Outdated',
 };
 
 // ── Extended Comment interface ────────────────────────────────────────────────
@@ -69,13 +72,12 @@ export class ReviewCommentController implements vscode.Disposable {
 
     // commentingRangeProvider controls where the "+" gutter icon appears.
     // Returning [] hides it; returning a Range makes every line in that range
-    // commentable. We only show it on the new (right) side of our diffs so users
-    // can't accidentally comment on the old file content.
+    // commentable. We show it on both sides of our diffs — the right (new) side
+    // for commenting on current code, and the left (old) side for commenting on
+    // code that was removed or changed by the commit.
     this.controller.commentingRangeProvider = {
       provideCommentingRanges: (document) => {
         if (document.uri.scheme !== GitContentProvider.scheme) return [];
-        const params = new URLSearchParams(document.uri.query);
-        if (params.get('side') !== 'new') return [];
         return [new vscode.Range(0, 0, Math.max(0, document.lineCount - 1), 0)];
       },
     };
@@ -154,7 +156,13 @@ export class ReviewCommentController implements vscode.Disposable {
   // ── Private ───────────────────────────────────────────────────────────────
 
   private createThread(rc: ReviewComment): void {
-    const uri  = GitContentProvider.makeUri(this.repoPath, rc.file, rc.commitHash, 'new');
+    let uri: vscode.Uri;
+    if (rc.side === 'left' && this.git) {
+      const parentHash = this.git.getParentHash(rc.commitHash) || '__empty__';
+      uri = GitContentProvider.makeUri(this.repoPath, rc.file, parentHash, 'old', rc.commitHash);
+    } else {
+      uri = GitContentProvider.makeUri(this.repoPath, rc.file, rc.commitHash, 'new');
+    }
     const line = Math.max(0, rc.line - 1);
 
     // A CommentThread is pinned to a URI + Range. Setting .comments populates the messages.
@@ -204,14 +212,27 @@ export class ReviewCommentController implements vscode.Disposable {
 
     // Show the agent's resolvedNote as a pinned note in the thread
     if (rc.resolvedNote) {
-      const noteLabel = rc.status === 'needs-input'    ? '🔔 Agent Note'
-                      : rc.status === 'outdated'        ? '⚠️ Outdated'
-                      : rc.status === 'addressed'       ? '✅ Agent Update'
+      const noteLabel = rc.status === STATUS.NEEDS_INPUT ? '🔔 Agent Note'
+                      : rc.status === STATUS.OUTDATED    ? '⚠️ Outdated'
+                      : rc.status === STATUS.ADDRESSED   ? '✅ Agent Update'
                       : 'Agent Note';
+
+      const hasFixCommit = rc.status === 'addressed' && !!rc.addressedByCommit;
+      const actionArgs = hasFixCommit
+        ? encodeURIComponent(JSON.stringify([rc.addressedByCommit]))
+        : encodeURIComponent(JSON.stringify([rc.file, rc.line]));
+      const actionCmd  = hasFixCommit ? 'commitReview.viewFix' : 'commitReview.goToCode';
+      const actionText = hasFixCommit ? 'View fix →' : 'Go to code →';
+
+      const body = new vscode.MarkdownString(
+        `${rc.resolvedNote}\n\n[${actionText}](command:${actionCmd}?${actionArgs})`,
+      );
+      body.isTrusted = { enabledCommands: ['commitReview.viewFix', 'commitReview.goToCode'] };
+
       items.push({
         reviewId:  rc.id,
         author:    { name: noteLabel, iconPath: this.mediaUri(ICON_FILES.AGENT) },
-        body:      new vscode.MarkdownString(rc.resolvedNote),
+        body,
         mode:      vscode.CommentMode.Preview,
         timestamp: rc.addressedAt ? new Date(rc.addressedAt) : undefined,
       });
@@ -224,23 +245,22 @@ export class ReviewCommentController implements vscode.Disposable {
     return vscode.Uri.joinPath(this.extensionUri, 'media', filename);
   }
 
-  private statusThemeIcon(status: string): vscode.Uri {
+  private statusThemeIcon(status: CommentStatus): vscode.Uri {
     switch (status) {
-      case 'open':          return this.mediaUri(ICON_FILES.STATUS_OPEN);
-      case 'question':
-      case 'needs-input':   return this.mediaUri(ICON_FILES.STATUS_QUESTION);
-      case 'agent-replied':
-      case 'in-progress':   return this.mediaUri(ICON_FILES.STATUS_REPLIED);
-      case 'addressed':     return this.mediaUri(ICON_FILES.STATUS_ADDRESSED);
-      case 'approved':      return this.mediaUri(ICON_FILES.STATUS_APPROVED);
-      case 'dismissed':
-      case 'outdated':      return this.mediaUri(ICON_FILES.STATUS_DISMISSED);
-      default:              return this.mediaUri(ICON_FILES.STATUS_DEFAULT);
+      case STATUS.OPEN:                return this.mediaUri(ICON_FILES.STATUS_OPEN);
+      case STATUS.NEEDS_INPUT:         return this.mediaUri(ICON_FILES.STATUS_QUESTION);
+      case STATUS.IN_PROGRESS:         return this.mediaUri(ICON_FILES.STATUS_REPLIED);
+      case STATUS.ADDRESSED:           return this.mediaUri(ICON_FILES.STATUS_ADDRESSED);
+      case STATUS.ADDRESSED_NO_CHANGE: return this.mediaUri(ICON_FILES.STATUS_REPLIED);
+      case STATUS.APPROVED:            return this.mediaUri(ICON_FILES.STATUS_APPROVED);
+      case STATUS.DISMISSED:
+      case STATUS.OUTDATED:            return this.mediaUri(ICON_FILES.STATUS_DISMISSED);
+      default:                         return this.mediaUri(ICON_FILES.STATUS_DEFAULT);
     }
   }
 
-  private isClosed(status: string): boolean {
-    return ['approved', 'dismissed', 'outdated'].includes(status);
+  private isClosed(status: CommentStatus): boolean {
+    return CLOSED_STATUSES.has(status);
   }
 
   // ── Snapshot capture ─────────────────────────────────────────────────────
@@ -287,22 +307,41 @@ export class ReviewCommentController implements vscode.Disposable {
           if (thread.comments.length === 0) {
             // New comment from the gutter
             const params      = new URLSearchParams(thread.uri.query);
-            const commitHash  = params.get('ref') ?? '';
+            const uriRef      = params.get('ref') ?? '';
+            const uriSide     = params.get('side') ?? 'new';
             const file        = thread.uri.path.startsWith('/') ? thread.uri.path.slice(1) : thread.uri.path;
             const line        = (thread.range?.start.line ?? 0) + 1;
 
-            const snapshot    = this.captureSnapshot(commitHash, file, line);
+            // Left-side comments are about removed/changed code. Use reviewHash as
+            // the stored commitHash (the reviewed commit), while uriRef (the parent)
+            // is only used to capture the snapshot of the old file content.
+            const isLeftSide  = uriSide === 'old';
+            const commitHash  = isLeftSide ? (params.get('reviewHash') ?? uriRef) : uriRef;
+            const snapshotRef = isLeftSide ? uriRef : commitHash;
+            const side        = isLeftSide ? 'left' : 'right';
+
+            const snapshot    = this.captureSnapshot(snapshotRef, file, line);
             const codeSnippet = snapshot?.target.map(l => l.content).join('\n') ?? '';
 
-            const added = this.comments.addComment({ commitHash, file, line, body: text.trim(), codeSnippet, snapshot });
-            thread.dispose();  // Replace the temporary "pending" thread with a real one
-            this.refresh();
+            const added = this.comments.addComment({ commitHash, file, line, side, body: text.trim(), codeSnippet, snapshot });
+            // Reuse the pending thread in-place so VS Code doesn't re-open the reply widget
+            thread.label            = STATUS_LABELS[added.status] ?? added.status;
+            thread.contextValue     = `status:${added.status}`;
+            thread.comments         = this.buildComments(added);
+            thread.collapsibleState = vscode.CommentThreadCollapsibleState.Expanded;
+            thread.canReply         = true;
+            this.threads.set(added.id, thread);
             this.onCommentMutation?.(added.id);
           } else {
             // Reply to existing comment thread
             const first = thread.comments[0] as CRComment | undefined;
             if (first?.reviewId) {
               this.comments.addThreadReply(first.reviewId, 'reviewer', text.trim());
+              // If the agent had set the status, reset to 'open' so it gets attention again
+              const current = this.comments.load().find(c => c.id === first.reviewId);
+              if (current && AGENT_STATUSES.has(current.status)) {
+                this.comments.updateStatus(first.reviewId, STATUS.OPEN);
+              }
               this.refreshComment(first.reviewId);
               this.onCommentMutation?.(first.reviewId);
             }
@@ -338,9 +377,9 @@ export class ReviewCommentController implements vscode.Disposable {
       };
 
     context.subscriptions.push(
-      vscode.commands.registerCommand('commitReview.comment.resolve', makeStatusAction('approved')),
-      vscode.commands.registerCommand('commitReview.comment.dismiss', makeStatusAction('dismissed')),
-      vscode.commands.registerCommand('commitReview.comment.reopen',  makeStatusAction('open')),
+      vscode.commands.registerCommand('commitReview.comment.resolve', makeStatusAction(STATUS.APPROVED)),
+      vscode.commands.registerCommand('commitReview.comment.dismiss', makeStatusAction(STATUS.DISMISSED)),
+      vscode.commands.registerCommand('commitReview.comment.reopen',  makeStatusAction(STATUS.OPEN)),
       vscode.commands.registerCommand('commitReview.comment.gotoFile', (thread: vscode.CommentThread) => {
         const params   = new URLSearchParams(thread.uri.query);
         const repoPath = params.get('repo') ?? '';

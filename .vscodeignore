@@ -2,6 +2,7 @@
 .vscode-test/**
 src/**
 node_modules/**
+!node_modules/@vscode/codicons/**
 .gitignore
 .yarnrc
 webpack.config.js
@@ -10,3 +11,9 @@ vsc-extension-quickstart.md
 **/.eslintrc.json
 **/*.map
 **/*.ts
+.claude/**
+.vault/**
+mockup-*.html
+eslint.config.js
+media/icon.svg
+media/icon.svg.bak

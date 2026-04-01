@@ -3,7 +3,10 @@ import * as path from 'path';
 import * as crypto from 'crypto';
 import * as vscode from 'vscode';
 
-export type CommentStatus = 'open' | 'in-progress' | 'needs-input' | 'addressed' | 'approved' | 'dismissed' | 'outdated';
+import { STATUS, CLOSED_STATUSES } from './constants';
+import type { CommentStatus } from './constants';
+export { STATUS, CLOSED_STATUSES };
+export type { CommentStatus };
 
 export interface ThreadEntry {
   author: string;
@@ -60,6 +63,8 @@ export interface ReviewComment {
 export interface RepoDb {
   branches: Record<string, string[]>;
   comments: Record<string, ReviewComment[]>;
+  /** Custom base branch for merge-base calculation. Undefined = auto-detect. */
+  baseBranch?: string;
 }
 
 // ── Working JSON shape (the file the agent reads/writes) ─────────────────────
@@ -74,6 +79,7 @@ interface ReviewStore {
 
 const SCHEMA_DESCRIPTION = {
   description: 'Local commit review metadata for a VS Code extension. Each entry in \'reviews\' represents a comment left by the user on a specific file and line at the time of a commit. Comments are intended to be addressed by an AI agent. The snapshot field captures surrounding code context at the time the comment was made so the agent can understand the original intent even if the code has since changed. The agent should check this file before starting any task and address all open comments.',
+  update_order: 'When writing a response to a comment, always update fields in this order: (1) thread — append the reply first, (2) resolvedNote — set the summary, (3) addressedAt — set the timestamp, (4) addressedByCommit — set after committing, (5) status — update last, after all other fields are written. This ensures the UI never shows a new status without the supporting context already in place.',
   fields: {
     id: 'Unique identifier for the comment (e.g. \'cr_a1b2c3d4\')',
     uuid: 'Stable identity across copies — same uuid means same logical comment, even if commitHash differs (squash/rebase remap)',
@@ -82,19 +88,20 @@ const SCHEMA_DESCRIPTION = {
     file: 'Relative path to the file from the repo root',
     line: 'First line number of the selection at the time of the commit (1-based)',
     lineEnd: 'Last line number of the selection; equals line for single-line comments',
-    side: '\'right\' = new (post-commit) file side; \'left\' = old (pre-commit) file side',
+    side: '\'right\' = new (post-commit) file side, code that was added or kept; \'left\' = old (pre-commit) file side, code that was removed or changed by this commit',
     body: 'The review comment text written by the user',
     author: 'Who wrote the comment — \'reviewer\' for the user, any string for agent replies',
     status: {
       description: 'Current state of the comment.',
       'user-sets': 'open | approved | dismissed',
-      'agent-sets': 'in-progress | needs-input | addressed | outdated',
+      'agent-sets': 'in-progress | needs-input | addressed | addressed-no-change | outdated',
       'actionable-like-open': 'needs-input — agent should check these alongside open comments',
       values: {
         open: 'User has left a comment or question for the agent to address',
         'in-progress': 'Agent is actively working on this comment',
-        'needs-input': 'Ball is in the user\'s court — either the agent has a question, or the agent answered a user question. Treat as actionable like open.',
+        'needs-input': 'Agent needs more info from the user before making a change. Treat as actionable like open.',
         addressed: 'Agent has finished — user should confirm or reopen',
+        'addressed-no-change': 'Agent replied to the comment but no code change was needed — see thread for response',
         approved: 'User confirmed and approved the agent\'s work',
         dismissed: 'User decided no action is needed',
         outdated: 'Agent detected the code has changed enough that the comment may no longer apply. See resolvedNote for details. User should reopen or dismiss.',
@@ -144,7 +151,6 @@ export class CommentManager implements vscode.Disposable {
   private watcher: vscode.FileSystemWatcher | undefined;
   /** Prevents the file watcher from echoing back our own saves. */
   private suppressNextWatchEvent = false;
-  private cachedSchema: unknown = undefined;
 
   /** Current branch's git commit hashes. */
   private currentHashes: Set<string> = new Set();
@@ -353,6 +359,17 @@ export class CommentManager implements vscode.Disposable {
   /** Start watching the working JSON for external changes (e.g. agent writes). */
   startWatching(): void {
     if (!this.repoPath || !this.workingJsonPath) return;
+
+    // If the JSON already exists from a previous session, patch the schema to the
+    // latest version without touching the reviews.
+    if (fs.existsSync(this.workingJsonPath)) {
+      try {
+        const store: ReviewStore = JSON.parse(fs.readFileSync(this.workingJsonPath, 'utf8'));
+        store._schema = SCHEMA_DESCRIPTION;
+        fs.writeFileSync(this.workingJsonPath, JSON.stringify(store, null, 2), 'utf8');
+      } catch { /* ignore */ }
+    }
+
     const rel = path.relative(this.repoPath, this.workingJsonPath).replace(/\\/g, '/');
     const pattern = new vscode.RelativePattern(this.repoPath, rel);
     this.watcher = vscode.workspace.createFileSystemWatcher(pattern);
@@ -373,7 +390,6 @@ export class CommentManager implements vscode.Disposable {
     if (!this.workingJsonPath || !fs.existsSync(this.workingJsonPath)) return [];
     try {
       const store: ReviewStore = JSON.parse(fs.readFileSync(this.workingJsonPath, 'utf8'));
-      if (store._schema !== undefined) this.cachedSchema = store._schema;
       this._cache = store.reviews ?? [];
       return this._cache;
     } catch {
@@ -387,24 +403,15 @@ export class CommentManager implements vscode.Disposable {
 
   private saveWorkingJson(comments: ReviewComment[]): void {
     if (!this.workingJsonPath) return;
+    // Don't create the file until there's at least one comment to write.
+    if (comments.length === 0 && !fs.existsSync(this.workingJsonPath)) return;
     this._cache = comments; // write-through: update cache immediately
     const dir = path.dirname(this.workingJsonPath);
     if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
     this.suppressNextWatchEvent = true;
 
-    // Preserve existing schema block, or use the default
-    if (this.cachedSchema === undefined && fs.existsSync(this.workingJsonPath)) {
-      try {
-        const existing: ReviewStore = JSON.parse(fs.readFileSync(this.workingJsonPath, 'utf8'));
-        if (existing._schema !== undefined) this.cachedSchema = existing._schema;
-      } catch { /* ignore */ }
-    }
-    if (this.cachedSchema === undefined) {
-      this.cachedSchema = SCHEMA_DESCRIPTION;
-    }
-
     const store: ReviewStore = {
-      _schema: this.cachedSchema,
+      _schema: SCHEMA_DESCRIPTION,
       version: 1,
       reviews: comments,
     };
@@ -472,7 +479,7 @@ export class CommentManager implements vscode.Disposable {
     const comment: ReviewComment = {
       id,
       uuid: id,
-      status: 'open',
+      status: STATUS.OPEN,
       commitHash: params.commitHash,
       branchName: this.currentBranch,
       file: params.file,
@@ -511,7 +518,7 @@ export class CommentManager implements vscode.Disposable {
     if (!wc) return false;
 
     wc.status = status;
-    if (status === 'addressed') wc.addressedAt = new Date().toISOString();
+    if (status === STATUS.ADDRESSED) wc.addressedAt = new Date().toISOString();
     this.saveWorkingJson(working);
 
     // DB — update ALL copies with same uuid (indexed lookup)
@@ -522,7 +529,7 @@ export class CommentManager implements vscode.Disposable {
       for (const c of db.comments[hash] ?? []) {
         if (c.uuid === uuid) {
           c.status = status;
-          if (status === 'addressed') c.addressedAt = new Date().toISOString();
+          if (status === STATUS.ADDRESSED) c.addressedAt = new Date().toISOString();
         }
       }
     }
@@ -581,7 +588,7 @@ export class CommentManager implements vscode.Disposable {
   }
 
   getOpenComments(): ReviewComment[] {
-    return this.load().filter(c => c.status !== 'approved' && c.status !== 'dismissed');
+    return this.load().filter(c => !CLOSED_STATUSES.has(c.status));
   }
 
   getCommentsForCommit(hash: string): ReviewComment[] {
@@ -590,6 +597,20 @@ export class CommentManager implements vscode.Disposable {
 
   getReviewsFilePath(): string {
     return this.workingJsonPath;
+  }
+
+  // ── Base branch ───────────────────────────────────────────────────────────
+
+  /** Returns the stored custom base branch for this repo, or undefined if auto-detect. */
+  getBaseBranch(): string | undefined {
+    return this.dbLoad().baseBranch;
+  }
+
+  /** Persists a custom base branch. Pass undefined to clear (revert to auto-detect). */
+  setBaseBranch(branch: string | undefined): void {
+    const db = this.dbLoad();
+    db.baseBranch = branch;
+    this.dbSave(db);
   }
 
   // ── Migration ─────────────────────────────────────────────────────────────
