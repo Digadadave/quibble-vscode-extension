@@ -15,11 +15,11 @@ Comments are stored locally (in VS Code's `globalState`) and optionally mirrored
 ### How to Use It
 
 1. **Open the sidebar** — Look for the Commit Review icon in the activity bar (left side of VS Code). Click it to open the panel.
-2. **Pick a repo** — If you have multiple repos in your workspace, use the `$(repo)` icon in the Changes panel header to select which one you're reviewing.
+2. **Pick a repo** — If you have multiple repos in your workspace, use the repo icon in the Changes panel header to select which one you're reviewing.
 3. **Set your base branch** — The extension compares your current branch against a base branch (defaults to `main` or `master`). You can change this via **Repository Settings** > **Set Base Branch**.
 4. **Browse commits and files** — The **Changes** panel shows all the commits and changed files on your branch. Click a file to open a diff view.
 5. **Leave comments** — In the diff view, hover over the gutter and click the `+` icon to start a comment thread on any line. Write your comment and hit **Submit Comment**.
-6. **Track your comments** — The **Comments** panel shows all your comments with their current status. You can `$(check-all)` approve, `$(sync-ignored)` dismiss, `$(debug-restart)` reopen, or `$(trash)` delete comments from here.
+6. **Track your comments** — The **Comments** panel shows all your comments with their current status. You can approve, dismiss, reopen, or delete comments from here.
 
 That's really it. Open the sidebar, click through your commits, and comment on whatever catches your eye.
 
@@ -37,43 +37,43 @@ Shows all comments on the current branch. Each comment displays:
 - The current status (with a color-coded icon)
 
 **Header actions:**
-| Icon | Action |
-|------|--------|
-| `$(eye)` / `$(eye-closed)` | Toggle visibility of closed comments |
-| `$(warning)` | Remap orphaned comments (shows when commits have been rebased/squashed) |
+| Action | Description |
+|--------|-------------|
+| **Show/Hide Closed** | Toggle visibility of closed (approved/dismissed) comments |
+| **Remap Orphans** | Remap orphaned comments (shows when commits have been rebased/squashed) |
 
 **Per-comment actions (inline):**
-| Icon | Action |
-|------|--------|
-| `$(check-all)` | Approve — marks the comment as resolved |
-| `$(sync-ignored)` | Dismiss — closes without resolving |
-| `$(debug-restart)` | Reopen — bring a closed comment back |
-| `$(trash)` | Delete the comment |
-| `$(go-to-file)` | View Fix — jump to the commit where the comment was addressed |
+| Action | Description |
+|--------|-------------|
+| **Approve** | Marks the comment as resolved |
+| **Dismiss** | Closes without resolving |
+| **Reopen** | Bring a closed comment back |
+| **Delete** | Delete the comment |
+| **View Fix** | Jump to the commit where the comment was addressed |
 
 ### Changes Panel
 
 Shows the files changed on your branch. Has two viewing modes you can toggle between:
 
-| Icon | View Mode |
-|------|-----------|
-| `$(list-tree)` | **Commits view** — files grouped under each commit |
-| `$(three-bars)` | **Files view** — flat list of all changed files |
+| View Mode | Description |
+|-----------|-------------|
+| **Commits view** | Files grouped under each commit |
+| **Files view** | Flat list of all changed files |
 
 **Other header actions:**
-| Icon | Action |
-|------|--------|
-| `$(diff-multiple)` | Open all changed files as diffs |
-| `$(collapse-all)` | Collapse all groups |
-| `$(repo)` | Repository settings (select repo, set base branch) |
+| Action | Description |
+|--------|-------------|
+| **Open All Changes** | Open all changed files as diffs |
+| **Collapse All** | Collapse all groups |
+| **Repository Settings** | Select repo, set base branch |
 
-**File status icons in the changes list:**
-| Icon | Meaning |
-|------|---------|
-| `$(diff-added)` | File added |
-| `$(diff-removed)` | File deleted |
-| `$(diff-renamed)` | File renamed |
-| `$(diff-modified)` | File modified |
+**File change indicators:**
+| Indicator | Meaning |
+|-----------|---------|
+| **A** (added) | File added |
+| **D** (deleted) | File deleted |
+| **R** (renamed) | File renamed |
+| **M** (modified) | File modified |
 
 ---
 
@@ -81,11 +81,11 @@ Shows the files changed on your branch. Has two viewing modes you can toggle bet
 
 Comments flow through different statuses. When you're using the extension on its own (no agent), you'll mainly interact with these three:
 
-| Status | Icon | Color | Meaning |
-|--------|------|-------|---------|
-| **Open** | `$(comment-unresolved)` | Blue | Active comment, needs attention |
-| **Approved** | `$(check-all)` | Green | You're happy with how it was addressed |
-| **Dismissed** | `$(sync-ignored)` | Grey | Closed — not relevant anymore |
+| Status | Color | Meaning |
+|--------|-------|---------|
+| **Open** | Blue | Active comment, needs attention |
+| **Approved** | Green | You're happy with how it was addressed |
+| **Dismissed** | Grey | Closed — not relevant anymore |
 
 There are additional agent-related statuses covered in the [Working with AI Agents](#working-with-ai-agents--the-real-superpower) section below.
 
@@ -145,19 +145,19 @@ Comments aren't just for corrections. You can use them to **ask the agent what i
 - *"What does this function do? Can you add a comment explaining it?"*
 - *"Is this temporary or part of the final design?"*
 
-The agent can respond by updating the comment status to **Needs Input** `$(feedback)` (if it has a question back for you) or **Addressed (No Change)** `$(comment-discussion-quote)` (if it answered your question without needing to change code). You get a back-and-forth conversation anchored to the actual code.
+The agent can respond by updating the comment status to **Needs Input** (if it has a question back for you) or **Addressed (No Change)** (if it answered your question without needing to change code). You get a back-and-forth conversation anchored to the actual code.
 
 ### Agent Comment Statuses
 
 When an agent is involved, comments can move through additional statuses beyond the basic open/approved/dismissed:
 
-| Status | Icon | Color | Meaning |
-|--------|------|-------|---------|
-| **In Progress** | `$(edit-sparkle)` | Purple | Agent is actively working on it |
-| **Needs Input** | `$(feedback)` | Coral | Agent has a question for you |
-| **Addressed** | `$(check)` | Green | Agent made code changes to address it |
-| **Addressed (No Change)** | `$(comment-discussion-quote)` | Purple | Agent responded but no code change was needed |
-| **Outdated** | `$(sync-ignored)` | Grey | Comment references code that no longer exists |
+| Status | Color | Meaning |
+|--------|-------|---------|
+| **In Progress** | Purple | Agent is actively working on it |
+| **Needs Input** | Coral | Agent has a question for you |
+| **Addressed** | Green | Agent made code changes to address it |
+| **Addressed (No Change)** | Purple | Agent responded but no code change was needed |
+| **Outdated** | Grey | Comment references code that no longer exists |
 
 ### The Bottom Line
 
