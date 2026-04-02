@@ -1,4 +1,4 @@
-# 💬 Commit Review
+# Commit Review
 
 **Review local git commits with inline comments — right inside VS Code.**
 
@@ -15,11 +15,11 @@ Comments are stored locally (in VS Code's `globalState`) and optionally mirrored
 ### How to Use It
 
 1. **Open the sidebar** — Look for the Commit Review icon in the activity bar (left side of VS Code). Click it to open the panel.
-2. **Pick a repo** — If you have multiple repos in your workspace, use the 📦 repo icon in the Changes panel header to select which one you're reviewing.
-3. **Set your base branch** — The extension compares your current branch against a base branch (defaults to `main` or `master`). You can change this via **Repository Settings** → **Set Base Branch**.
+2. **Pick a repo** — If you have multiple repos in your workspace, use the `$(repo)` icon in the Changes panel header to select which one you're reviewing.
+3. **Set your base branch** — The extension compares your current branch against a base branch (defaults to `main` or `master`). You can change this via **Repository Settings** > **Set Base Branch**.
 4. **Browse commits and files** — The **Changes** panel shows all the commits and changed files on your branch. Click a file to open a diff view.
 5. **Leave comments** — In the diff view, hover over the gutter and click the `+` icon to start a comment thread on any line. Write your comment and hit **Submit Comment**.
-6. **Track your comments** — The **Comments** panel shows all your comments with their current status. You can approve ✅, dismiss 🚫, reopen 🔄, or delete 🗑️ comments from here.
+6. **Track your comments** — The **Comments** panel shows all your comments with their current status. You can `$(check-all)` approve, `$(sync-ignored)` dismiss, `$(debug-restart)` reopen, or `$(trash)` delete comments from here.
 
 That's really it. Open the sidebar, click through your commits, and comment on whatever catches your eye.
 
@@ -29,7 +29,7 @@ That's really it. Open the sidebar, click through your commits, and comment on w
 
 The Commit Review sidebar has two main panels:
 
-### 📝 Comments Panel
+### Comments Panel
 
 Shows all comments on the current branch. Each comment displays:
 - The file and line number
@@ -39,19 +39,19 @@ Shows all comments on the current branch. Each comment displays:
 **Header actions:**
 | Icon | Action |
 |------|--------|
-| 👁️ `$(eye)` / `$(eye-closed)` | Toggle visibility of closed comments |
-| ⚠️ `$(warning)` | Remap orphaned comments (shows when commits have been rebased/squashed) |
+| `$(eye)` / `$(eye-closed)` | Toggle visibility of closed comments |
+| `$(warning)` | Remap orphaned comments (shows when commits have been rebased/squashed) |
 
 **Per-comment actions (inline):**
 | Icon | Action |
 |------|--------|
-| ✅ `$(check-all)` | Approve — marks the comment as resolved |
-| 🚫 `$(sync-ignored)` | Dismiss — closes without resolving |
-| 🔄 `$(debug-restart)` | Reopen — bring a closed comment back |
-| 🗑️ `$(trash)` | Delete the comment |
-| 📄 `$(go-to-file)` | View Fix — jump to the commit where the comment was addressed |
+| `$(check-all)` | Approve — marks the comment as resolved |
+| `$(sync-ignored)` | Dismiss — closes without resolving |
+| `$(debug-restart)` | Reopen — bring a closed comment back |
+| `$(trash)` | Delete the comment |
+| `$(go-to-file)` | View Fix — jump to the commit where the comment was addressed |
 
-### 📂 Changes Panel
+### Changes Panel
 
 Shows the files changed on your branch. Has two viewing modes you can toggle between:
 
@@ -79,25 +79,15 @@ Shows the files changed on your branch. Has two viewing modes you can toggle bet
 
 ## Comment Statuses
 
-Comments flow through different statuses. Some are set by you, others by an agent (if you're using one).
-
-### Statuses You Set
+Comments flow through different statuses. When you're using the extension on its own (no agent), you'll mainly interact with these three:
 
 | Status | Icon | Color | Meaning |
 |--------|------|-------|---------|
-| 🔵 **Open** | `$(comment-unresolved)` | Blue | Active comment, needs attention |
-| ✅ **Approved** | `$(check-all)` | Green | You're happy with how it was addressed |
-| 🚫 **Dismissed** | `$(sync-ignored)` | Grey | Closed — not relevant anymore |
+| **Open** | `$(comment-unresolved)` | Blue | Active comment, needs attention |
+| **Approved** | `$(check-all)` | Green | You're happy with how it was addressed |
+| **Dismissed** | `$(sync-ignored)` | Grey | Closed — not relevant anymore |
 
-### Statuses Set by an Agent
-
-| Status | Icon | Color | Meaning |
-|--------|------|-------|---------|
-| 🟣 **In Progress** | `$(edit-sparkle)` | Purple | Agent is actively working on it |
-| 🟠 **Needs Input** | `$(feedback)` | Coral | Agent has a question for you |
-| 🟢 **Addressed** | `$(check)` | Green | Agent made code changes to address it |
-| 🟣 **Addressed (No Change)** | `$(comment-discussion-quote)` | Purple | Agent responded but no code change was needed |
-| ⚪ **Outdated** | `$(sync-ignored)` | Grey | Comment references code that no longer exists |
+There are additional agent-related statuses covered in the [Working with AI Agents](#working-with-ai-agents--the-real-superpower) section below.
 
 ---
 
@@ -109,7 +99,7 @@ Comments flow through different statuses. Some are set by you, others by an agen
 
 ---
 
-## 🤖 Working with AI Agents — The Real Superpower
+## Working with AI Agents — The Real Superpower
 
 Alright, here's where things get really interesting.
 
@@ -133,9 +123,19 @@ With Commit Review, the flow becomes:
 1. Ask the agent to do something
 2. **While it's working**, review the commits as they come in
 3. See something going in the wrong direction? **Leave a comment directly on that line of code**
-4. The agent picks up your comment (via the `.vscode/commit-reviews.json` file) and course-corrects
+4. Prompt the agent to check your comments — it reads the `.vscode/commit-reviews.json` file and course-corrects
 
 This is a huge deal. You're catching issues early — when they're small and easy to fix — instead of after the agent has gone down the wrong path for 20 commits. Your feedback is specific and contextual because it's attached to the exact line of code you're talking about.
+
+### How the Agent Picks Up Your Comments
+
+One important thing to understand: the extension itself doesn't tell the agent to go look at your comments. It's a passive bridge — it writes your comments to the `.vscode/commit-reviews.json` file, and it's up to you to get the agent to check that file. There are two main ways to do this:
+
+1. **Prompt or skill** — You can directly ask the agent to check for review comments, or use a slash command / skill (like `/address-comments`) that reads the JSON file and addresses open comments. This is the most straightforward approach — you leave your comments, then tell the agent to go look.
+
+2. **Workflow hook** — If you want it to be more automatic, you can set up a hook in your agent's execution flow that checks for open comments at certain points (e.g., before starting a new task, or after completing a set of changes). This way the agent naturally picks up your feedback as part of its workflow without you having to prompt it each time.
+
+Either way, the comments are just sitting in a JSON file — the agent reads them, does its thing, and writes back status updates. The extension watches the file and syncs everything to the UI.
 
 ### Asking Questions
 
@@ -145,17 +145,19 @@ Comments aren't just for corrections. You can use them to **ask the agent what i
 - *"What does this function do? Can you add a comment explaining it?"*
 - *"Is this temporary or part of the final design?"*
 
-The agent can respond by updating the comment status to **Needs Input** (if it has a question back for you) or **Addressed** (if it made a change based on your feedback). You get a back-and-forth conversation anchored to the actual code.
+The agent can respond by updating the comment status to **Needs Input** `$(feedback)` (if it has a question back for you) or **Addressed (No Change)** `$(comment-discussion-quote)` (if it answered your question without needing to change code). You get a back-and-forth conversation anchored to the actual code.
 
-### How It Works Under the Hood
+### Agent Comment Statuses
 
-The extension mirrors your comments to a `.vscode/commit-reviews.json` file in your repo. This is the bridge between you and the agent:
+When an agent is involved, comments can move through additional statuses beyond the basic open/approved/dismissed:
 
-- **You** leave comments through the VS Code UI → they get written to the JSON file
-- **The agent** reads the JSON file, sees your comments, and can update statuses or add responses
-- **The extension** watches the file for changes and syncs everything back to the UI
-
-It's a simple handshake — you both read and write the same file, and the extension keeps everything in sync.
+| Status | Icon | Color | Meaning |
+|--------|------|-------|---------|
+| **In Progress** | `$(edit-sparkle)` | Purple | Agent is actively working on it |
+| **Needs Input** | `$(feedback)` | Coral | Agent has a question for you |
+| **Addressed** | `$(check)` | Green | Agent made code changes to address it |
+| **Addressed (No Change)** | `$(comment-discussion-quote)` | Purple | Agent responded but no code change was needed |
+| **Outdated** | `$(sync-ignored)` | Grey | Comment references code that no longer exists |
 
 ### The Bottom Line
 
@@ -170,4 +172,4 @@ If you're using AI agents to write code, Commit Review gives you a way to stay i
 3. Click the Commit Review icon in the activity bar
 4. Start reviewing your commits and leaving comments
 
-Happy reviewing! 🎉
+Happy reviewing!
