@@ -170,7 +170,7 @@
         {
           "id": "commitReview",
           "title": "Commit Review",
-          "icon": "media/icon.svg"
+          "icon": "media/icon.min.svg"
         }
       ]
     },
