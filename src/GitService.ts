@@ -472,13 +472,22 @@ export class GitService {
         const statusMap = new Map(statusFiles.map(f => [f.path, f.status]));
 
         const result: BranchFileChange[] = [];
+        const seen = new Set<string>();
         for (const [filePath, fileCommitList] of fileCommits) {
             // Skip files with no net change base→HEAD (added then deleted/renamed within the branch).
             // They appear in per-commit data but not in the cumulative diff.
             if (!statusMap.has(filePath)) continue;
+            seen.add(filePath);
             const stats = statsMap.get(filePath) ?? { insertions: 0, deletions: 0 };
             const status = statusMap.get(filePath) ?? 'M';
             result.push({ path: filePath, status, commits: fileCommitList, ...stats });
+        }
+        // Pure renames / mode-only changes produce zero numstat lines, so they never
+        // enter fileCommits. Pick them up from the cumulative status instead.
+        for (const [filePath, status] of statusMap) {
+            if (seen.has(filePath)) continue;
+            const stats = statsMap.get(filePath) ?? { insertions: 0, deletions: 0 };
+            result.push({ path: filePath, status, commits: [], ...stats });
         }
         return result;
     }
