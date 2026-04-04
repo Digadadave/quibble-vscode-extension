@@ -91,9 +91,14 @@ export class GitService {
     set defaultBranch(value: string) {
         if (this._defaultBranch !== value) {
             this._defaultBranch = value;
-            this._defaultRefCache = null;
-            this._mergeBaseCache.clear();
+            this.clearCaches();
         }
+    }
+
+    /** Force-clear all cached git state (default ref, merge-base). */
+    clearCaches(): void {
+        this._defaultRefCache = null;
+        this._mergeBaseCache.clear();
     }
 
     constructor(private repoPath: string) {}
@@ -480,6 +485,33 @@ export class GitService {
 
     getUserName(): string {
         return exec('git config user.name', this.repoPath) || 'reviewer';
+    }
+
+    /** Returns diagnostic info for debugging remote environment issues. */
+    getDiagnostics(): Record<string, string> {
+        const branch = this.getCurrentBranch();
+        const defaultRef = this.findDefaultRef();
+        const mergeBase = this.getMergeBase(branch);
+        const headHash = exec('git rev-parse HEAD', this.repoPath);
+        const commitCount = mergeBase
+            ? exec(`git rev-list --count "${mergeBase}..${branch}"`, this.repoPath)
+            : '(no merge-base)';
+        const fileCount = mergeBase
+            ? exec(`git diff --name-only "${mergeBase}" "${branch}" | wc -l`, this.repoPath)
+            : '(no merge-base)';
+        const gitVersion = exec('git --version', this.repoPath);
+        return {
+            repoPath: this.repoPath,
+            branch,
+            defaultBranch: this._defaultBranch || '(auto-detect)',
+            defaultRef: defaultRef || '(none found)',
+            mergeBase: mergeBase || '(empty)',
+            headHash,
+            commitCount,
+            fileCount,
+            gitVersion,
+            cacheState: `defaultRefCache=${this._defaultRefCache ?? 'null'}, mergeBaseCacheSize=${this._mergeBaseCache.size}`,
+        };
     }
 
     /** Returns the 1-based line number of the first change for `file` on the current branch. */

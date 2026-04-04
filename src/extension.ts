@@ -506,6 +506,60 @@ export function activate(context: vscode.ExtensionContext): void {
         })
     );
 
+    // ── Manual refresh command ──────────────────────────────────────────────
+    context.subscriptions.push(
+        vscode.commands.registerCommand('commitReview.refresh', () => {
+            if (!activeGit || !activeComments) {
+                vscode.window.showWarningMessage('Commit Review: no active repo.');
+                return;
+            }
+            // Clear caches so we get completely fresh git data.
+            activeGit.clearCaches();
+            const branch = activeGit.getCurrentBranch();
+            const hashes = activeGit.getBranchCommitHashes(branch);
+            activeComments.switchBranch(branch, hashes);
+            refreshAll();
+            vscode.window.showInformationMessage('Commit Review: refreshed.');
+        })
+    );
+
+    // ── Diagnostic command ───────────────────────────────────────────────────
+    context.subscriptions.push(
+        vscode.commands.registerCommand('commitReview.diagnostics', () => {
+            if (!activeGit) {
+                vscode.window.showWarningMessage('Commit Review: no active repo.');
+                return;
+            }
+            const ch = vscode.window.createOutputChannel('Commit Review Diagnostics');
+            ch.clear();
+            ch.appendLine(`=== Commit Review Diagnostics ===`);
+            ch.appendLine(`Timestamp: ${new Date().toISOString()}`);
+            ch.appendLine(`Remote: ${vscode.env.remoteName ?? '(local)'}`);
+            ch.appendLine(`VS Code version: ${vscode.version}`);
+            ch.appendLine('');
+
+            const diag = activeGit.getDiagnostics();
+            for (const [key, value] of Object.entries(diag)) {
+                ch.appendLine(`${key}: ${value}`);
+            }
+
+            ch.appendLine('');
+            try {
+                const branch = activeGit.getCurrentBranch();
+                const files = activeGit.getChangesOnBranch(branch);
+                ch.appendLine(`getChangesOnBranch("${branch}"): ${files.length} file(s)`);
+                for (const f of files.slice(0, 10)) {
+                    ch.appendLine(`  ${f.status} ${f.path}`);
+                }
+                if (files.length > 10) ch.appendLine(`  ... and ${files.length - 10} more`);
+            } catch (err) {
+                ch.appendLine(`getChangesOnBranch ERROR: ${err}`);
+            }
+
+            ch.show(true);
+        })
+    );
+
     // ── Defer repo init until the sidebar is first opened ────────────────────
     // Repo discovery and switchToRepo are deferred until the user first opens
     // the extension's sidebar panel. This avoids git work on every VS Code launch.
