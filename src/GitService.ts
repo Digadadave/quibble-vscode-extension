@@ -91,9 +91,14 @@ export class GitService {
     set defaultBranch(value: string) {
         if (this._defaultBranch !== value) {
             this._defaultBranch = value;
-            this._defaultRefCache = null;
-            this._mergeBaseCache.clear();
+            this.clearCaches();
         }
+    }
+
+    /** Force-clear all cached git state (default ref, merge-base). */
+    clearCaches(): void {
+        this._defaultRefCache = null;
+        this._mergeBaseCache.clear();
     }
 
     constructor(private repoPath: string) {}
@@ -467,19 +472,55 @@ export class GitService {
         const statusMap = new Map(statusFiles.map(f => [f.path, f.status]));
 
         const result: BranchFileChange[] = [];
+        const seen = new Set<string>();
         for (const [filePath, fileCommitList] of fileCommits) {
             // Skip files with no net change base→HEAD (added then deleted/renamed within the branch).
             // They appear in per-commit data but not in the cumulative diff.
             if (!statusMap.has(filePath)) continue;
+            seen.add(filePath);
             const stats = statsMap.get(filePath) ?? { insertions: 0, deletions: 0 };
             const status = statusMap.get(filePath) ?? 'M';
             result.push({ path: filePath, status, commits: fileCommitList, ...stats });
+        }
+        // Pure renames / mode-only changes produce zero numstat lines, so they never
+        // enter fileCommits. Pick them up from the cumulative status instead.
+        for (const [filePath, status] of statusMap) {
+            if (seen.has(filePath)) continue;
+            const stats = statsMap.get(filePath) ?? { insertions: 0, deletions: 0 };
+            result.push({ path: filePath, status, commits: [], ...stats });
         }
         return result;
     }
 
     getUserName(): string {
         return exec('git config user.name', this.repoPath) || 'reviewer';
+    }
+
+    /** Returns diagnostic info for debugging remote environment issues. */
+    getDiagnostics(): Record<string, string> {
+        const branch = this.getCurrentBranch();
+        const defaultRef = this.findDefaultRef();
+        const mergeBase = this.getMergeBase(branch);
+        const headHash = exec('git rev-parse HEAD', this.repoPath);
+        const commitCount = mergeBase
+            ? exec(`git rev-list --count "${mergeBase}..${branch}"`, this.repoPath)
+            : '(no merge-base)';
+        const fileCount = mergeBase
+            ? exec(`git diff --name-only "${mergeBase}" "${branch}" | wc -l`, this.repoPath)
+            : '(no merge-base)';
+        const gitVersion = exec('git --version', this.repoPath);
+        return {
+            repoPath: this.repoPath,
+            branch,
+            defaultBranch: this._defaultBranch || '(auto-detect)',
+            defaultRef: defaultRef || '(none found)',
+            mergeBase: mergeBase || '(empty)',
+            headHash,
+            commitCount,
+            fileCount,
+            gitVersion,
+            cacheState: `defaultRefCache=${this._defaultRefCache ?? 'null'}, mergeBaseCacheSize=${this._mergeBaseCache.size}`,
+        };
     }
 
     /** Returns the 1-based line number of the first change for `file` on the current branch. */

@@ -17,3 +17,4 @@ mockup-*.html
 eslint.config.js
 media/icon.svg
 media/icon.svg.bak
+settings.local.json
