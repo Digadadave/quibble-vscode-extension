@@ -64,7 +64,7 @@ export class ChangesView implements vscode.WebviewViewProvider, vscode.Disposabl
   updateServices(git: GitService, comments: CommentManager): void {
     this.git = git;
     this.comments = comments;
-    this.refresh();
+    void this.refresh();
   }
 
   /** Register the view-mode toggle commands. Call once after register(). */
@@ -129,18 +129,21 @@ export class ChangesView implements vscode.WebviewViewProvider, vscode.Disposabl
 
     if (firstVisible && this.onFirstVisible) {
       this.onFirstVisible();
-    } else {
-      const data = this.cachedData ?? this.buildData();
+    } else if (this.cachedData) {
+      const data = this.cachedData;
       this.cachedData = null;
       webviewView.webview.postMessage({ type: 'load', branch: data.branch, files: data.files });
+    } else {
+      void this.refresh();
     }
   }
 
   // ── Data ──────────────────────────────────────────────────────────────────
 
-  /** Full refresh: re-fetch file list from git + comment counts. */
-  refresh(): void {
-    const data = this.buildData();
+  /** Full refresh: re-fetch file list from git + comment counts. Shows loading spinner while fetching. */
+  async refresh(): Promise<void> {
+    this.showLoading();
+    const data = await this.buildData();
     this.cachedData = data;
     if (!this._view) return;
     this._view.webview.postMessage({ type: 'load', branch: data.branch, files: data.files });
@@ -156,10 +159,10 @@ export class ChangesView implements vscode.WebviewViewProvider, vscode.Disposabl
     });
   }
 
-  private buildData(): { branch: string; files: object[] } {
+  private async buildData(): Promise<{ branch: string; files: object[] }> {
     try {
       const branch = this.git.getCurrentBranch();
-      const rawFiles = this.git.getChangesOnBranch(branch);
+      const rawFiles = await this.git.getChangesOnBranchAsync(branch);
       const allComments = this.comments.load();
 
       const commentsByFile = this.buildCommentsByFile(allComments);
@@ -174,6 +177,7 @@ export class ChangesView implements vscode.WebviewViewProvider, vscode.Disposabl
       return { branch: '', files: [] };
     }
   }
+
 
   private buildCommentsByFile(comments: ReturnType<CommentManager['load']>): Map<string, number> {
     const map = new Map<string, number>();

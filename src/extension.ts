@@ -240,17 +240,23 @@ export function activate(context: vscode.ExtensionContext): void {
         } catch {
             /* ignore */
         }
-        try {
-            activeChangesView?.refresh();
-        } catch {
-            /* ignore */
-        }
+        void activeChangesView?.refresh();
         try {
             activeCommentController?.refresh();
         } catch {
             /* ignore */
         }
         updateStatusBar();
+    }
+
+    /** Debounce timer for refreshAll() triggered by FS watchers. */
+    let refreshAllTimer: ReturnType<typeof setTimeout> | undefined;
+    function debouncedRefreshAll(): void {
+        if (refreshAllTimer) clearTimeout(refreshAllTimer);
+        refreshAllTimer = setTimeout(() => {
+            refreshAllTimer = undefined;
+            refreshAll();
+        }, 300);
     }
 
     /** Light refresh: comment counts + tree only, no git exec. Used on comment-only mutations. */
@@ -286,7 +292,7 @@ export function activate(context: vscode.ExtensionContext): void {
         const hashes = activeGit.getBranchCommitHashes(branch);
 
         activeComments.switchBranch(branch, hashes);
-        refreshAll();
+        debouncedRefreshAll();
     }
 
     // ── Switch to a repo ──────────────────────────────────────────────────────
@@ -351,6 +357,13 @@ export function activate(context: vscode.ExtensionContext): void {
 
     context.subscriptions.push(
         vscode.commands.registerCommand('commitReview.selectRepo', async () => {
+            // Fast path: if we're already on the only workspace folder's repo, skip discovery.
+            const folders = vscode.workspace.workspaceFolders;
+            if (activeGit && folders?.length === 1 && activeGit.getRepoPath().startsWith(folders[0].uri.fsPath)) {
+                vscode.commands.executeCommand('commitReview.setBaseBranch');
+                return;
+            }
+
             const allRepos = discoverAllRepos();
             if (allRepos.length === 0) {
                 vscode.window.showWarningMessage('No git repositories found in workspace.');
@@ -554,6 +567,17 @@ export function activate(context: vscode.ExtensionContext): void {
                 if (files.length > 10) ch.appendLine(`  ... and ${files.length - 10} more`);
             } catch (err) {
                 ch.appendLine(`getChangesOnBranch ERROR: ${err}`);
+            }
+
+            ch.appendLine('');
+            ch.appendLine('=== Timing (cold, uncached) ===');
+            try {
+                const timings = activeGit.getTimings();
+                for (const [key, ms] of Object.entries(timings)) {
+                    ch.appendLine(`${key}: ${ms}ms`);
+                }
+            } catch (err) {
+                ch.appendLine(`getTimings ERROR: ${err}`);
             }
 
             ch.show(true);

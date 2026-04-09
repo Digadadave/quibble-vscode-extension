@@ -1,6 +1,9 @@
-import { execSync } from 'child_process';
+import { execSync, exec as childExec } from 'child_process';
+import { promisify } from 'util';
 import * as fs from 'fs';
 import * as path from 'path';
+
+const execPRaw = promisify(childExec);
 
 export interface GitCommit {
     hash: string;
@@ -68,6 +71,18 @@ export interface DiffLine {
 // operations on local repos are fast and the extension host is single-threaded,
 // so async overhead isn't worth the complexity. Failures (non-zero exit, no repo,
 // etc.) return '' rather than throwing; callers treat '' as "nothing found".
+//
+// For the expensive getChangesOnBranchAsync() path, execAsync is used instead so
+// two independent git calls can run in parallel without blocking the extension host.
+async function execAsync(cmd: string, cwd: string): Promise<string> {
+    try {
+        const { stdout } = await execPRaw(cmd, { cwd, encoding: 'utf8', maxBuffer: 10 * 1024 * 1024 });
+        return (stdout as string).trim();
+    } catch {
+        return '';
+    }
+}
+
 function exec(cmd: string, cwd: string): string {
     try {
         return execSync(cmd, {
@@ -85,6 +100,7 @@ export class GitService {
     private _defaultBranch = '';
     private _defaultRefCache: string | null = null;
     private _mergeBaseCache = new Map<string, { head: string; base: string }>();
+    private _branchChangesCache = new Map<string, { head: string; base: string; result: BranchFileChange[] }>();
 
     /** Custom base branch for merge-base calculation. Empty string = auto-detect. */
     get defaultBranch(): string { return this._defaultBranch; }
@@ -95,10 +111,11 @@ export class GitService {
         }
     }
 
-    /** Force-clear all cached git state (default ref, merge-base). */
+    /** Force-clear all cached git state (default ref, merge-base, branch changes). */
     clearCaches(): void {
         this._defaultRefCache = null;
         this._mergeBaseCache.clear();
+        this._branchChangesCache.clear();
     }
 
     constructor(private repoPath: string) {}
@@ -426,6 +443,10 @@ export class GitService {
         const base = this.getMergeBase(branch);
         if (!base) return [];
 
+        const head = exec('git rev-parse HEAD', this.repoPath);
+        const cached = this._branchChangesCache.get(branch);
+        if (cached && cached.head === head && cached.base === base) return cached.result;
+
         const sep = '\x1f';
         // Single git log call with --numstat to get per-commit file stats without N+1 spawns.
         // Output alternates between a commit header line and numstat lines for that commit.
@@ -489,7 +510,86 @@ export class GitService {
             const stats = statsMap.get(filePath) ?? { insertions: 0, deletions: 0 };
             result.push({ path: filePath, status, commits: [], ...stats });
         }
+        this._branchChangesCache.set(branch, { head, base, result });
         return result;
+    }
+
+    /**
+     * Async variant of getChangesOnBranch — runs the two heaviest git calls in parallel
+     * so the extension host is not blocked while the results load. The ChangesView uses
+     * this so the sidebar can show a loading spinner while data arrives in the background.
+     */
+    async getChangesOnBranchAsync(branch: string): Promise<BranchFileChange[]> {
+        const base = this.getMergeBase(branch);
+        if (!base) return [];
+
+        const head = exec('git rev-parse HEAD', this.repoPath);
+        const cached = this._branchChangesCache.get(branch);
+        if (cached && cached.head === head && cached.base === base) return cached.result;
+
+        const sep = '\x1f';
+        try {
+            const [numstatRaw, statsRaw] = await Promise.all([
+                execAsync(
+                    `git log --first-parent "${base}..${branch}" --format="commit:%H${sep}%h${sep}%s" --numstat`,
+                    this.repoPath
+                ),
+                execAsync(`git diff "${base}" "${branch}" --numstat`, this.repoPath),
+            ]);
+
+            type CommitMeta = { hash: string; shortHash: string; message: string };
+            type CommitEntry = CommitMeta & { insertions: number; deletions: number };
+            const fileCommits = new Map<string, CommitEntry[]>();
+
+            let currentCommit: CommitMeta | null = null;
+            for (const line of numstatRaw.split('\n')) {
+                if (line.startsWith('commit:')) {
+                    const parts = line.slice('commit:'.length).split(sep);
+                    currentCommit = { hash: parts[0] ?? '', shortHash: parts[1] ?? '', message: parts[2] ?? '' };
+                    continue;
+                }
+                if (!currentCommit || !line.trim()) continue;
+                const parts = line.split('\t');
+                if (parts.length < 3) continue;
+                const insertions = parseInt(parts[0]) || 0;
+                const deletions = parseInt(parts[1]) || 0;
+                const filePath = parts[2] ?? '';
+                if (!filePath) continue;
+                if (!fileCommits.has(filePath)) fileCommits.set(filePath, []);
+                fileCommits.get(filePath)!.push({ ...currentCommit, insertions, deletions });
+            }
+
+            const statsMap = new Map<string, { insertions: number; deletions: number }>();
+            for (const line of statsRaw.split('\n').filter(Boolean)) {
+                const parts = line.split('\t');
+                const ins = parseInt(parts[0]) || 0;
+                const del = parseInt(parts[1]) || 0;
+                const file = parts[2] ?? '';
+                if (file) statsMap.set(file, { insertions: ins, deletions: del });
+            }
+
+            const statusFiles = this.getDirectChangedFiles(base, branch);
+            const statusMap = new Map(statusFiles.map(f => [f.path, f.status]));
+
+            const result: BranchFileChange[] = [];
+            const seen = new Set<string>();
+            for (const [filePath, fileCommitList] of fileCommits) {
+                if (!statusMap.has(filePath)) continue;
+                seen.add(filePath);
+                const stats = statsMap.get(filePath) ?? { insertions: 0, deletions: 0 };
+                const status = statusMap.get(filePath) ?? 'M';
+                result.push({ path: filePath, status, commits: fileCommitList, ...stats });
+            }
+            for (const [filePath, status] of statusMap) {
+                if (seen.has(filePath)) continue;
+                const stats = statsMap.get(filePath) ?? { insertions: 0, deletions: 0 };
+                result.push({ path: filePath, status, commits: [], ...stats });
+            }
+            this._branchChangesCache.set(branch, { head, base, result });
+            return result;
+        } catch {
+            return [];
+        }
     }
 
     getUserName(): string {
@@ -521,6 +621,24 @@ export class GitService {
             gitVersion,
             cacheState: `defaultRefCache=${this._defaultRefCache ?? 'null'}, mergeBaseCacheSize=${this._mergeBaseCache.size}`,
         };
+    }
+
+    /**
+     * Times each major git operation cold (caches cleared before each call).
+     * Useful for diagnosing which operation is the bottleneck on large repos.
+     */
+    getTimings(): Record<string, number> {
+        const time = (fn: () => unknown): number => { const s = Date.now(); fn(); return Date.now() - s; };
+        const branch = this.getCurrentBranch();
+        this.clearCaches();
+        const findDefaultRef_ms = time(() => this.findDefaultRef());
+        this.clearCaches();
+        const getMergeBase_ms = time(() => this.getMergeBase(branch));
+        this.clearCaches();
+        const getChangesOnBranch_ms = time(() => this.getChangesOnBranch(branch));
+        this.clearCaches();
+        const getBranchCommitHashes_ms = time(() => this.getBranchCommitHashes(branch));
+        return { findDefaultRef_ms, getMergeBase_ms, getChangesOnBranch_ms, getBranchCommitHashes_ms };
     }
 
     /** Returns the 1-based line number of the first change for `file` on the current branch. */
