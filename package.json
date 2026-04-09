@@ -2,7 +2,7 @@
   "name": "vscode-commit-review",
   "displayName": "Commit Review",
   "description": "Review local git commits with GitHub-style comments. Agent-friendly metadata for Claude Code.",
-  "version": "0.0.3",
+  "version": "0.0.4",
   "publisher": "local",
   "engines": {
     "vscode": "^1.85.0"
