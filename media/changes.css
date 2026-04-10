@@ -1,5 +1,20 @@
 /* ── Changes panel (.ch-*) ──────────────────────────────────────────────── */
 
+/* Guaranteed-opaque row background colors per theme class.
+   VS Code's --vscode-sideBar-background and --vscode-list-hoverBackground
+   are semi-transparent in many themes, so we cannot use them for icon
+   backgrounds that need to fully mask text behind them. */
+body.vscode-dark,
+body.vscode-high-contrast:not(.vscode-high-contrast-light) {
+  --ch-row-bg: #1e1e1e;
+  --ch-row-hover-bg: #2a2d2e;
+}
+body.vscode-light,
+body.vscode-high-contrast-light {
+  --ch-row-bg: #f3f3f3;
+  --ch-row-hover-bg: #e8e8e8;
+}
+
 .ch-branch-label {
   font-size: 10px;
   color: var(--vscode-descriptionForeground, #888);
@@ -267,14 +282,10 @@
   line-height: 1;
   padding: 0 2px;
   margin-left: -20px;
-  background: var(--vscode-sideBar-background, #252526);
+  background: var(--ch-row-bg);
 }
 .ch-jump-source i { opacity: 0; transition: opacity 0.2s; }
-.ch-row:hover .ch-jump-source {
-  background:
-    linear-gradient(var(--vscode-list-hoverBackground, #2a2d2e), var(--vscode-list-hoverBackground, #2a2d2e)),
-    var(--vscode-sideBar-background, #252526);
-}
+.ch-row:hover .ch-jump-source { background: var(--ch-row-hover-bg); }
 .ch-row:hover .ch-jump-source i { opacity: 1; }
 .ch-jump-source:hover { color: var(--vscode-textLink-foreground, #4ea6ea); }
 
@@ -302,14 +313,10 @@
   padding: 0 2px;
   line-height: 1;
   margin-left: -20px;
-  background: var(--vscode-sideBar-background, #252526);
+  background: var(--ch-row-bg);
 }
 .ch-open-changes i { opacity: 0; transition: opacity 0.2s; }
-.ch-commit-row:hover .ch-open-changes {
-  background:
-    linear-gradient(var(--vscode-list-hoverBackground, #2a2d2e), var(--vscode-list-hoverBackground, #2a2d2e)),
-    var(--vscode-sideBar-background, #252526);
-}
+.ch-commit-row:hover .ch-open-changes { background: var(--ch-row-hover-bg); }
 .ch-commit-row:hover .ch-open-changes i { opacity: 1; }
 .ch-open-changes:hover { color: var(--vscode-textLink-foreground, #4ea6ea); }
 
@@ -340,13 +347,9 @@
   line-height: 1;
   padding: 0 2px;
   margin-left: -20px;
-  background: var(--vscode-sideBar-background, #252526);
+  background: var(--ch-row-bg);
 }
 .ch-jump-file i { opacity: 0; transition: opacity 0.2s; }
-.ch-file-item:hover .ch-jump-file {
-  background:
-    linear-gradient(var(--vscode-list-hoverBackground, rgba(255,255,255,0.04)), var(--vscode-list-hoverBackground, rgba(255,255,255,0.04))),
-    var(--vscode-sideBar-background, #252526);
-}
+.ch-file-item:hover .ch-jump-file { background: var(--ch-row-hover-bg); }
 .ch-file-item:hover .ch-jump-file i { opacity: 1; }
 .ch-jump-file:hover { color: var(--vscode-textLink-foreground, #4ea6ea); }
