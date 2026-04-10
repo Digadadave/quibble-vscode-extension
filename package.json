@@ -49,7 +49,7 @@
       {
         "command": "commitReview.comment.dismiss",
         "title": "Dismiss",
-        "icon": "$(circle-slash)",
+        "icon": "$(sync-ignored)",
         "category": "Commit Review"
       },
       {
