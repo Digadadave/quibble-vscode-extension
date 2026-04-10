@@ -336,13 +336,23 @@ export function activate(context: vscode.ExtensionContext): void {
 
         // FileSystemWatcher fires onChange/onCreate events when matching paths change on disk.
         // RelativePattern(repoPath, glob) scopes the watcher to that specific directory.
-        // .git/HEAD changes on every branch switch; .git/refs/heads/** changes on every commit.
-        const headWatcher = vscode.workspace.createFileSystemWatcher(new vscode.RelativePattern(repoPath, '.git/HEAD'));
-        const refsWatcher = vscode.workspace.createFileSystemWatcher(new vscode.RelativePattern(repoPath, '.git/refs/heads/**'));
+        //
+        // .git/HEAD          — branch switches
+        // .git/refs/heads/** — new commits on loose refs (small/new repos)
+        // .git/COMMIT_EDITMSG — updated on every commit regardless of ref storage format;
+        //                       reliable on large repos that use packed refs
+        // .git/packed-refs   — updated when git packs loose refs (git gc, pack-refs, etc.)
+        const headWatcher       = vscode.workspace.createFileSystemWatcher(new vscode.RelativePattern(repoPath, '.git/HEAD'));
+        const refsWatcher       = vscode.workspace.createFileSystemWatcher(new vscode.RelativePattern(repoPath, '.git/refs/heads/**'));
+        const commitMsgWatcher  = vscode.workspace.createFileSystemWatcher(new vscode.RelativePattern(repoPath, '.git/COMMIT_EDITMSG'));
+        const packedRefsWatcher = vscode.workspace.createFileSystemWatcher(new vscode.RelativePattern(repoPath, '.git/packed-refs'));
         headWatcher.onDidChange(onGitChange);
         refsWatcher.onDidChange(onGitChange);
         refsWatcher.onDidCreate(onGitChange);
-        gitFsWatchers.push(headWatcher, refsWatcher);
+        commitMsgWatcher.onDidChange(onGitChange);
+        commitMsgWatcher.onDidCreate(onGitChange);
+        packedRefsWatcher.onDidChange(onGitChange);
+        gitFsWatchers.push(headWatcher, refsWatcher, commitMsgWatcher, packedRefsWatcher);
 
         refreshAll();
 
