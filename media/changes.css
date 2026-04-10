@@ -88,8 +88,8 @@
   display: flex;
   align-items: center;
   gap: 4px;
-  -webkit-mask-image: linear-gradient(to right, black calc(100% - 10px), transparent 100%);
-  mask-image: linear-gradient(to right, black calc(100% - 10px), transparent 100%);
+  -webkit-mask-image: linear-gradient(to right, black calc(100% - 7px), transparent 100%);
+  mask-image: linear-gradient(to right, black calc(100% - 7px), transparent 100%);
 }
 
 .ch-filename {
@@ -206,8 +206,8 @@
 /* Fade right edge: commit rows (for icon overlay) and expanded commit items */
 .ch-commit-row .ch-commit-msg,
 .ch-commit-item .ch-commit-msg {
-  -webkit-mask-image: linear-gradient(to right, black calc(100% - 10px), transparent 100%);
-  mask-image: linear-gradient(to right, black calc(100% - 10px), transparent 100%);
+  -webkit-mask-image: linear-gradient(to right, black calc(100% - 7px), transparent 100%);
+  mask-image: linear-gradient(to right, black calc(100% - 7px), transparent 100%);
 }
 
 /* Stats: auto width, no fixed column */
