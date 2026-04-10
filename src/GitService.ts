@@ -101,6 +101,7 @@ export class GitService {
     private _defaultRefCache: string | null = null;
     private _mergeBaseCache = new Map<string, { head: string; base: string }>();
     private _branchChangesCache = new Map<string, { head: string; base: string; result: BranchFileChange[] }>();
+    private _remapCache = new Map<string, number | null>();
 
     /** Custom base branch for merge-base calculation. Empty string = auto-detect. */
     get defaultBranch(): string { return this._defaultBranch; }
@@ -116,6 +117,7 @@ export class GitService {
         this._defaultRefCache = null;
         this._mergeBaseCache.clear();
         this._branchChangesCache.clear();
+        this._remapCache.clear();
     }
 
     constructor(private repoPath: string) {}
@@ -511,6 +513,35 @@ export class GitService {
             result.push({ path: filePath, status, commits: [], ...stats });
         }
         this._branchChangesCache.set(branch, { head, base, result });
+        return result;
+    }
+
+    /**
+     * Maps `line` (1-based) in the `fromRef` version of `file` to its position
+     * in the `toRef` version. Returns null if the line was deleted between refs.
+     * Results are cached by {fromRef, toRef, file, line} — invalidated by clearCaches().
+     */
+    remapLine(fromRef: string, toRef: string, file: string, line: number): number | null {
+        if (fromRef === '__empty__' || toRef === '__empty__') return null;
+        if (fromRef === toRef) return line;
+        const cacheKey = `${fromRef}:${toRef}:${file}:${line}`;
+        if (this._remapCache.has(cacheKey)) return this._remapCache.get(cacheKey)!;
+
+        const raw = exec(`git diff -U0 "${fromRef}" "${toRef}" -- "${file}"`, this.repoPath);
+        let result: number | null = line;
+        if (raw) {
+            let offset = 0;
+            for (const match of raw.matchAll(/^@@ -(\d+)(?:,(\d+))? \+(\d+)(?:,(\d+))? @@/gm)) {
+                const oldStart = parseInt(match[1]);
+                const oldCount = match[2] !== undefined ? parseInt(match[2]) : 1;
+                const newCount = match[4] !== undefined ? parseInt(match[4]) : 1;
+                if (line < oldStart) { result = line + offset; break; }
+                if (line < oldStart + oldCount) { result = null; break; }
+                offset += newCount - oldCount;
+                result = line + offset;
+            }
+        }
+        this._remapCache.set(cacheKey, result);
         return result;
     }
 

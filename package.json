@@ -326,12 +326,12 @@
         {
           "command": "commitReview.comment.cancelThread",
           "group": "inline@2",
-          "when": "commentController == commit-review"
+          "when": "commentController == commit-review && !(commentThread =~ /shadow/)"
         },
         {
           "command": "commitReview.comment.reply",
           "group": "inline@1",
-          "when": "commentController == commit-review"
+          "when": "commentController == commit-review && !(commentThread =~ /shadow/)"
         }
       ],
       "comments/comment/title": [],
