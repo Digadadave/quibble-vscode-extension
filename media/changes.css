@@ -82,6 +82,7 @@
 
 /* Label group: filename + folder + comment badge truncate together as one unit */
 .ch-file-label {
+  position: relative;
   flex: 1;
   min-width: 0;
   overflow: hidden;
@@ -116,9 +117,6 @@
   white-space: nowrap;
   flex-shrink: 0;
 }
-
-/* Spacer: zero-width placeholder for jump-icon overlay; never grows */
-.ch-spacer { flex: 0 10 0; min-width: 0; }
 
 /* Badge (shared by row and expanded commit items) */
 .ch-badge {
@@ -261,15 +259,18 @@
 }
 .ch-load-more:hover { text-decoration: underline; }
 
-/* Jump-to-source icon — floats over filename/folder area, appears on hover */
+/* Jump-to-source icon — absolutely positioned at right edge of label, appears on hover */
 .ch-jump-source {
-  flex-shrink: 0;
+  position: absolute;
+  right: 0;
+  top: 0;
+  bottom: 0;
+  display: flex;
+  align-items: center;
+  padding: 0 2px;
   font-size: 14px;
   color: var(--vscode-descriptionForeground, #888);
   cursor: pointer;
-  line-height: 1;
-  padding: 0 2px 0 28px;
-  margin-left: -46px;
   background: var(--vscode-sideBar-background, #252526);
 }
 .ch-jump-source i { opacity: 0; transition: opacity 0.2s; }
