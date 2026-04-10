@@ -82,13 +82,14 @@
 
 /* Label group: filename + folder + comment badge truncate together as one unit */
 .ch-file-label {
-  position: relative;
   flex: 1;
   min-width: 0;
   overflow: hidden;
   display: flex;
   align-items: center;
   gap: 4px;
+  -webkit-mask-image: linear-gradient(to right, black calc(100% - 20px), transparent 100%);
+  mask-image: linear-gradient(to right, black calc(100% - 20px), transparent 100%);
 }
 
 .ch-filename {
@@ -259,25 +260,18 @@
 }
 .ch-load-more:hover { text-decoration: underline; }
 
-/* Jump-to-source icon — absolutely positioned at right edge of label, appears on hover */
+/* Jump-to-source icon — sits just outside the label's faded zone, appears on hover */
 .ch-jump-source {
-  position: absolute;
-  right: 0;
-  top: 0;
-  bottom: 0;
-  display: flex;
-  align-items: center;
-  padding: 0 2px;
+  flex-shrink: 0;
   font-size: 14px;
   color: var(--vscode-descriptionForeground, #888);
   cursor: pointer;
-  background: var(--vscode-sideBar-background, #252526);
+  line-height: 1;
+  padding: 0 2px;
+  opacity: 0;
+  transition: opacity 0.2s;
 }
-.ch-jump-source i { opacity: 0; transition: opacity 0.2s; }
-.ch-row:hover .ch-jump-source {
-  background: var(--vscode-list-hoverBackground, #2a2d2e);
-}
-.ch-row:hover .ch-jump-source i { opacity: 1; }
+.ch-row:hover .ch-jump-source { opacity: 1; }
 .ch-jump-source:hover { color: var(--vscode-textLink-foreground, #4ea6ea); }
 
 /* ── Commits view (.ch-commit-block / .ch-commit-row / .ch-file-list) ────── */

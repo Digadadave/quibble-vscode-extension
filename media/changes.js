@@ -512,7 +512,8 @@
       `<div class="ch-file-block${isExpanded ? " ch-expanded" : ""}" data-file="${esc(file.path)}">` +
       `<div class="ch-row" data-file="${esc(file.path)}" title="${esc(file.path)}">` +
       iconHtml +
-      `<span class="ch-file-label">${nameHtml}${folderHtml}${commentHtml}${jumpHtml}</span>` +
+      `<span class="ch-file-label">${nameHtml}${folderHtml}${commentHtml}</span>` +
+      jumpHtml +
       statsHtml +
       rowBadgesHtml +
       statusHtml +
