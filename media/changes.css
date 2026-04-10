@@ -270,7 +270,11 @@
   background: var(--vscode-sideBar-background, #252526);
 }
 .ch-jump-source i { opacity: 0; transition: opacity 0.2s; }
-.ch-row:hover .ch-jump-source { background: var(--vscode-list-hoverBackground, #2a2d2e); }
+.ch-row:hover .ch-jump-source {
+  background:
+    linear-gradient(var(--vscode-list-hoverBackground, #2a2d2e), var(--vscode-list-hoverBackground, #2a2d2e)),
+    var(--vscode-sideBar-background, #252526);
+}
 .ch-row:hover .ch-jump-source i { opacity: 1; }
 .ch-jump-source:hover { color: var(--vscode-textLink-foreground, #4ea6ea); }
 
@@ -301,7 +305,11 @@
   background: var(--vscode-sideBar-background, #252526);
 }
 .ch-open-changes i { opacity: 0; transition: opacity 0.2s; }
-.ch-commit-row:hover .ch-open-changes { background: var(--vscode-list-hoverBackground, #2a2d2e); }
+.ch-commit-row:hover .ch-open-changes {
+  background:
+    linear-gradient(var(--vscode-list-hoverBackground, #2a2d2e), var(--vscode-list-hoverBackground, #2a2d2e)),
+    var(--vscode-sideBar-background, #252526);
+}
 .ch-commit-row:hover .ch-open-changes i { opacity: 1; }
 .ch-open-changes:hover { color: var(--vscode-textLink-foreground, #4ea6ea); }
 
@@ -335,6 +343,10 @@
   background: var(--vscode-sideBar-background, #252526);
 }
 .ch-jump-file i { opacity: 0; transition: opacity 0.2s; }
-.ch-file-item:hover .ch-jump-file { background: var(--vscode-list-hoverBackground, rgba(255,255,255,0.04)); }
+.ch-file-item:hover .ch-jump-file {
+  background:
+    linear-gradient(var(--vscode-list-hoverBackground, rgba(255,255,255,0.04)), var(--vscode-list-hoverBackground, rgba(255,255,255,0.04))),
+    var(--vscode-sideBar-background, #252526);
+}
 .ch-file-item:hover .ch-jump-file i { opacity: 1; }
 .ch-jump-file:hover { color: var(--vscode-textLink-foreground, #4ea6ea); }
