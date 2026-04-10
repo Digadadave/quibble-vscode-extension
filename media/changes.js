@@ -412,7 +412,6 @@
       `<div class="ch-file-item" data-hash="${esc(commitHash)}" data-file="${esc(file.path)}">` +
       iconHtml +
       `<span class="ch-file-label">${nameHtml}${folderHtml}</span>` +
-      `<span class="ch-spacer"></span>` +
       jumpHtml +
       statsHtml +
       statusHtml +

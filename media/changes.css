@@ -198,10 +198,11 @@
   font-size: 11px;
   color: var(--vscode-foreground, #ccc);
   overflow: hidden;
-  text-overflow: ellipsis;
   white-space: nowrap;
   flex: 1;
   min-width: 0;
+  -webkit-mask-image: linear-gradient(to right, black calc(100% - 20px), transparent 100%);
+  mask-image: linear-gradient(to right, black calc(100% - 20px), transparent 100%);
 }
 
 /* In the commits view header row, truncate to a single line */
@@ -292,21 +293,18 @@
 }
 .ch-commit-row:hover { background: var(--vscode-list-hoverBackground, #2a2d2e); }
 
-/* Open-all-changes icon on commit rows — overlays message, appears on hover */
+/* Open-all-changes icon on commit rows — overlaps message's faded zone */
 .ch-open-changes {
   flex-shrink: 0;
   color: var(--vscode-descriptionForeground, #888);
   cursor: pointer;
-  padding: 0 4px;
+  padding: 0 2px;
   line-height: 1;
-  margin-right: -4px;
   margin-left: -20px;
   background: var(--vscode-sideBar-background, #252526);
 }
 .ch-open-changes i { opacity: 0; transition: opacity 0.2s; }
-.ch-commit-row:hover .ch-open-changes {
-  background: var(--vscode-list-hoverBackground, #2a2d2e);
-}
+.ch-commit-row:hover .ch-open-changes { background: var(--vscode-list-hoverBackground, #2a2d2e); }
 .ch-commit-row:hover .ch-open-changes i { opacity: 1; }
 .ch-open-changes:hover { color: var(--vscode-textLink-foreground, #4ea6ea); }
 
@@ -328,7 +326,7 @@
 }
 .ch-file-item:hover { background: var(--vscode-list-hoverBackground, rgba(255,255,255,0.04)); }
 
-/* Open-file icon on file items — overlays stats area, appears on hover */
+/* Open-file icon on file items — overlaps label's faded zone */
 .ch-jump-file {
   flex-shrink: 0;
   font-size: 14px;
@@ -336,12 +334,10 @@
   cursor: pointer;
   line-height: 1;
   padding: 0 2px;
-  margin-right: -18px;
+  margin-left: -20px;
   background: var(--vscode-sideBar-background, #252526);
 }
 .ch-jump-file i { opacity: 0; transition: opacity 0.2s; }
-.ch-file-item:hover .ch-jump-file {
-  background: var(--vscode-list-hoverBackground, rgba(255,255,255,0.04));
-}
+.ch-file-item:hover .ch-jump-file { background: var(--vscode-list-hoverBackground, rgba(255,255,255,0.04)); }
 .ch-file-item:hover .ch-jump-file i { opacity: 1; }
 .ch-jump-file:hover { color: var(--vscode-textLink-foreground, #4ea6ea); }
