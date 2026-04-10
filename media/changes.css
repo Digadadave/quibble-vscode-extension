@@ -154,13 +154,13 @@
   flex-shrink: 1;
 }
 
-/* +/- stats: fixed width so hash badges align across all rows */
+/* +/- stats: auto width — only takes the space it needs */
 .ch-stats {
   font-size: 11px;
   font-family: var(--vscode-editor-font-family, monospace);
   white-space: nowrap;
   overflow: hidden;
-  flex: 0 0 7ch;
+  flex-shrink: 0;
   text-align: right;
 }
 .ch-ins { color: var(--vscode-gitDecoration-addedResourceForeground, #2ea043); }
@@ -265,17 +265,16 @@
 .ch-jump-source {
   flex-shrink: 0;
   font-size: 14px;
-  color: var(--vscode-descriptionForeground, #888);
-  opacity: 0;
+  color: transparent;
   cursor: pointer;
   line-height: 1;
   padding: 0 2px;
-  transition: opacity 0.1s;
+  transition: color 0.2s;
   margin-left: -18px;
   background: var(--vscode-sideBar-background, #252526);
 }
 .ch-row:hover .ch-jump-source {
-  opacity: 1;
+  color: var(--vscode-descriptionForeground, #888);
   background: var(--vscode-list-hoverBackground, #2a2d2e);
 }
 .ch-jump-source:hover { color: var(--vscode-textLink-foreground, #4ea6ea); }
@@ -299,18 +298,17 @@
 /* Open-all-changes icon on commit rows — overlays message, appears on hover */
 .ch-open-changes {
   flex-shrink: 0;
-  opacity: 0;
+  color: transparent;
   cursor: pointer;
-  color: var(--vscode-descriptionForeground, #888);
   padding: 0 4px;
   line-height: 1;
-  transition: opacity 0.1s;
+  transition: color 0.2s;
   margin-right: -4px;
   margin-left: -20px;
   background: var(--vscode-sideBar-background, #252526);
 }
 .ch-commit-row:hover .ch-open-changes {
-  opacity: 1;
+  color: var(--vscode-descriptionForeground, #888);
   background: var(--vscode-list-hoverBackground, #2a2d2e);
 }
 .ch-open-changes:hover { color: var(--vscode-textLink-foreground, #4ea6ea); }
@@ -337,17 +335,16 @@
 .ch-jump-file {
   flex-shrink: 0;
   font-size: 14px;
-  color: var(--vscode-descriptionForeground, #888);
-  opacity: 0;
+  color: transparent;
   cursor: pointer;
   line-height: 1;
   padding: 0 2px;
-  transition: opacity 0.1s;
+  transition: color 0.2s;
   margin-right: -18px;
   background: var(--vscode-sideBar-background, #252526);
 }
 .ch-file-item:hover .ch-jump-file {
-  opacity: 1;
+  color: var(--vscode-descriptionForeground, #888);
   background: var(--vscode-list-hoverBackground, rgba(255,255,255,0.04));
 }
 .ch-jump-file:hover { color: var(--vscode-textLink-foreground, #4ea6ea); }
