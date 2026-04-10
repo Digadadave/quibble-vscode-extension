@@ -201,24 +201,20 @@
   white-space: nowrap;
   flex: 1;
   min-width: 0;
+}
+
+/* Commit row header: fade right edge for the open-changes icon overlay */
+.ch-commit-row .ch-commit-msg {
   -webkit-mask-image: linear-gradient(to right, black calc(100% - 20px), transparent 100%);
   mask-image: linear-gradient(to right, black calc(100% - 20px), transparent 100%);
 }
 
-/* In the commits view header row, truncate to a single line */
-.ch-commit-row .ch-commit-msg {
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-/* Stats are right-aligned at a fixed width so all rows line up */
+/* Stats: auto width, no fixed column */
 .ch-commit-stats {
   font-size: 10px;
   font-family: var(--vscode-editor-font-family, monospace);
   white-space: nowrap;
   flex-shrink: 0;
-  min-width: 56px;
   text-align: right;
 }
 
