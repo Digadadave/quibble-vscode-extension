@@ -1,19 +1,8 @@
 /* ── Changes panel (.ch-*) ──────────────────────────────────────────────── */
 
-/* Guaranteed-opaque row background colors per theme class.
-   VS Code's --vscode-sideBar-background and --vscode-list-hoverBackground
-   are semi-transparent in many themes, so we cannot use them for icon
-   backgrounds that need to fully mask text behind them. */
-body.vscode-dark,
-body.vscode-high-contrast:not(.vscode-high-contrast-light) {
-  --ch-row-bg: #1e1e1e;
-  --ch-row-hover-bg: #2a2d2e;
-}
-body.vscode-light,
-body.vscode-high-contrast-light {
-  --ch-row-bg: #f3f3f3;
-  --ch-row-hover-bg: #e8e8e8;
-}
+/* --ch-row-bg and --ch-row-hover-bg are set at runtime by changes.js
+   by reading and compositing the actual resolved theme colors from the body,
+   ensuring they are always fully opaque regardless of theme. */
 
 .ch-branch-label {
   font-size: 10px;
