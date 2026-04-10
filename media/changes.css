@@ -269,10 +269,11 @@
   line-height: 1;
   padding: 0 2px;
   margin-left: -20px;
-  opacity: 0;
-  transition: opacity 0.2s;
+  background: var(--vscode-sideBar-background, #252526);
 }
-.ch-row:hover .ch-jump-source { opacity: 1; }
+.ch-jump-source i { opacity: 0; transition: opacity 0.2s; }
+.ch-row:hover .ch-jump-source { background: var(--vscode-list-hoverBackground, #2a2d2e); }
+.ch-row:hover .ch-jump-source i { opacity: 1; }
 .ch-jump-source:hover { color: var(--vscode-textLink-foreground, #4ea6ea); }
 
 /* ── Commits view (.ch-commit-block / .ch-commit-row / .ch-file-list) ────── */
