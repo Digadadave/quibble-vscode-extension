@@ -721,7 +721,8 @@ export class GitService {
 
     /**
      * Discover git repos within a directory (one level deep).
-     * Checks each immediate subdirectory for a .git folder.
+     * Checks the root dir via git (handles workspaces that are subdirs of a repo),
+     * then checks immediate subdirectories via filesystem only (no subprocess per dir).
      */
     static discoverRepos(rootDir: string): string[] {
         const repos: string[] = [];
@@ -733,15 +734,16 @@ export class GitService {
             repos.push(rootRepoRoot);
         }
 
-        // Check immediate subdirectories
+        // Check immediate subdirectories for their own .git entry (file or dir).
+        // Avoids spawning a git process per subdir — pure filesystem check.
+        // A subdir that is inside the parent repo but not its own root is already covered above.
         try {
             const entries = fs.readdirSync(rootDir, { withFileTypes: true });
             for (const entry of entries) {
                 if (!entry.isDirectory() || entry.name.startsWith('.')) continue;
                 const sub = path.join(rootDir, entry.name);
-                const repoRoot = GitService.getRepoRoot(sub);
-                if (repoRoot && !repos.includes(repoRoot)) {
-                    repos.push(repoRoot);
+                if (fs.existsSync(path.join(sub, '.git')) && !repos.includes(sub)) {
+                    repos.push(sub);
                 }
             }
         } catch {

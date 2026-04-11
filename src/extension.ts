@@ -374,24 +374,47 @@ export function activate(context: vscode.ExtensionContext): void {
                 return;
             }
 
-            const allRepos = discoverAllRepos();
+            // Open the picker immediately so the user sees feedback right away,
+            // then run discovery asynchronously so the UI isn't blocked.
+            type RepoItem = vscode.QuickPickItem & { repoPath: string };
+            const qp = vscode.window.createQuickPick<RepoItem>();
+            qp.placeholder = 'Searching for git repositories…';
+            qp.busy = true;
+            qp.show();
+
+            const allRepos = await new Promise<string[]>(resolve => {
+                setImmediate(() => resolve(discoverAllRepos()));
+            });
+
+            qp.busy = false;
+
             if (allRepos.length === 0) {
+                qp.dispose();
                 vscode.window.showWarningMessage('No git repositories found in workspace.');
                 return;
             }
             if (allRepos.length === 1) {
+                qp.dispose();
                 switchToRepo(allRepos[0]);
                 vscode.commands.executeCommand('commitReview.setBaseBranch');
                 return;
             }
-            const items = allRepos.map(r => ({ label: path.basename(r), description: r, repoPath: r }));
-            const picked = await vscode.window.showQuickPick(items, {
-                placeHolder: 'Select a repository to review',
+
+            qp.placeholder = 'Select a repository to review';
+            qp.items = allRepos.map(r => ({ label: path.basename(r), description: r, repoPath: r }));
+
+            await new Promise<void>(resolve => {
+                qp.onDidAccept(() => {
+                    const picked = qp.selectedItems[0];
+                    qp.dispose();
+                    if (picked) {
+                        switchToRepo(picked.repoPath);
+                        vscode.commands.executeCommand('commitReview.setBaseBranch');
+                    }
+                    resolve();
+                });
+                qp.onDidHide(() => { qp.dispose(); resolve(); });
             });
-            if (picked) {
-                switchToRepo(picked.repoPath);
-                vscode.commands.executeCommand('commitReview.setBaseBranch');
-            }
         })
     );
 
