@@ -7,6 +7,30 @@
   // This script has no Node.js access — no file system, no require(), no VS Code API.
   const vscode = acquireVsCodeApi();
 
+  // ── Theme background detection ─────────────────────────────────────────────
+  // VS Code resolves --vscode-sideBar-background to a concrete rgb() on the
+  // body element. Read it once at startup so icon backgrounds are always the
+  // exact opaque color of the sidebar, regardless of theme.
+  (function applyRowBg() {
+    const bg = getComputedStyle(document.body).backgroundColor;
+    document.documentElement.style.setProperty('--ch-row-bg', bg);
+    // Hover: read the CSS var and composite it over the opaque base via canvas
+    const hoverRaw = getComputedStyle(document.documentElement)
+      .getPropertyValue('--vscode-list-hoverBackground').trim();
+    // Parse rgba?(r,g,b,a?) from the hover color
+    const m = hoverRaw.match(/rgba?\((\d+),\s*(\d+),\s*(\d+)(?:,\s*([\d.]+))?\)/);
+    if (m && bg) {
+      const bgM = bg.match(/rgba?\((\d+),\s*(\d+),\s*(\d+)/);
+      if (bgM) {
+        const a = m[4] !== undefined ? parseFloat(m[4]) : 1;
+        const r = Math.round(parseInt(m[1]) * a + parseInt(bgM[1]) * (1 - a));
+        const g = Math.round(parseInt(m[2]) * a + parseInt(bgM[2]) * (1 - a));
+        const b = Math.round(parseInt(m[3]) * a + parseInt(bgM[3]) * (1 - a));
+        document.documentElement.style.setProperty('--ch-row-hover-bg', `rgb(${r},${g},${b})`);
+      }
+    }
+  })();
+
   // 20-color muted palette for commit hash badges (consistent order, index 0 first)
   const BADGE_COLORS = [
     "#5b8dd9", // 01 blue
@@ -412,7 +436,6 @@
       `<div class="ch-file-item" data-hash="${esc(commitHash)}" data-file="${esc(file.path)}">` +
       iconHtml +
       `<span class="ch-file-label">${nameHtml}${folderHtml}</span>` +
-      `<span class="ch-spacer"></span>` +
       jumpHtml +
       statsHtml +
       statusHtml +
@@ -513,7 +536,6 @@
       `<div class="ch-row" data-file="${esc(file.path)}" title="${esc(file.path)}">` +
       iconHtml +
       `<span class="ch-file-label">${nameHtml}${folderHtml}${commentHtml}</span>` +
-      `<span class="ch-spacer"></span>` +
       jumpHtml +
       statsHtml +
       rowBadgesHtml +

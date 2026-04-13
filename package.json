@@ -2,7 +2,7 @@
   "name": "vscode-commit-review",
   "displayName": "Commit Review",
   "description": "Review local git commits with GitHub-style comments. Agent-friendly metadata for Claude Code.",
-  "version": "0.0.4",
+  "version": "0.0.5",
   "publisher": "local",
   "engines": {
     "vscode": "^1.85.0"
@@ -49,7 +49,7 @@
       {
         "command": "commitReview.comment.dismiss",
         "title": "Dismiss",
-        "icon": "$(circle-slash)",
+        "icon": "$(sync-ignored)",
         "category": "Commit Review"
       },
       {
@@ -326,12 +326,12 @@
         {
           "command": "commitReview.comment.cancelThread",
           "group": "inline@2",
-          "when": "commentController == commit-review"
+          "when": "commentController == commit-review && !(commentThread =~ /shadow/)"
         },
         {
           "command": "commitReview.comment.reply",
           "group": "inline@1",
-          "when": "commentController == commit-review"
+          "when": "commentController == commit-review && !(commentThread =~ /shadow/)"
         }
       ],
       "comments/comment/title": [],

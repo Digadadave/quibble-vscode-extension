@@ -240,17 +240,23 @@ export function activate(context: vscode.ExtensionContext): void {
         } catch {
             /* ignore */
         }
-        try {
-            activeChangesView?.refresh();
-        } catch {
-            /* ignore */
-        }
+        void activeChangesView?.refresh();
         try {
             activeCommentController?.refresh();
         } catch {
             /* ignore */
         }
         updateStatusBar();
+    }
+
+    /** Debounce timer for refreshAll() triggered by FS watchers. */
+    let refreshAllTimer: ReturnType<typeof setTimeout> | undefined;
+    function debouncedRefreshAll(): void {
+        if (refreshAllTimer) clearTimeout(refreshAllTimer);
+        refreshAllTimer = setTimeout(() => {
+            refreshAllTimer = undefined;
+            refreshAll();
+        }, 300);
     }
 
     /** Light refresh: comment counts + tree only, no git exec. Used on comment-only mutations. */
@@ -286,7 +292,7 @@ export function activate(context: vscode.ExtensionContext): void {
         const hashes = activeGit.getBranchCommitHashes(branch);
 
         activeComments.switchBranch(branch, hashes);
-        refreshAll();
+        debouncedRefreshAll();
     }
 
     // ── Switch to a repo ──────────────────────────────────────────────────────
@@ -330,13 +336,23 @@ export function activate(context: vscode.ExtensionContext): void {
 
         // FileSystemWatcher fires onChange/onCreate events when matching paths change on disk.
         // RelativePattern(repoPath, glob) scopes the watcher to that specific directory.
-        // .git/HEAD changes on every branch switch; .git/refs/heads/** changes on every commit.
-        const headWatcher = vscode.workspace.createFileSystemWatcher(new vscode.RelativePattern(repoPath, '.git/HEAD'));
-        const refsWatcher = vscode.workspace.createFileSystemWatcher(new vscode.RelativePattern(repoPath, '.git/refs/heads/**'));
+        //
+        // .git/HEAD          — branch switches
+        // .git/refs/heads/** — new commits on loose refs (small/new repos)
+        // .git/COMMIT_EDITMSG — updated on every commit regardless of ref storage format;
+        //                       reliable on large repos that use packed refs
+        // .git/packed-refs   — updated when git packs loose refs (git gc, pack-refs, etc.)
+        const headWatcher       = vscode.workspace.createFileSystemWatcher(new vscode.RelativePattern(repoPath, '.git/HEAD'));
+        const refsWatcher       = vscode.workspace.createFileSystemWatcher(new vscode.RelativePattern(repoPath, '.git/refs/heads/**'));
+        const commitMsgWatcher  = vscode.workspace.createFileSystemWatcher(new vscode.RelativePattern(repoPath, '.git/COMMIT_EDITMSG'));
+        const packedRefsWatcher = vscode.workspace.createFileSystemWatcher(new vscode.RelativePattern(repoPath, '.git/packed-refs'));
         headWatcher.onDidChange(onGitChange);
         refsWatcher.onDidChange(onGitChange);
         refsWatcher.onDidCreate(onGitChange);
-        gitFsWatchers.push(headWatcher, refsWatcher);
+        commitMsgWatcher.onDidChange(onGitChange);
+        commitMsgWatcher.onDidCreate(onGitChange);
+        packedRefsWatcher.onDidChange(onGitChange);
+        gitFsWatchers.push(headWatcher, refsWatcher, commitMsgWatcher, packedRefsWatcher);
 
         refreshAll();
 
@@ -351,24 +367,54 @@ export function activate(context: vscode.ExtensionContext): void {
 
     context.subscriptions.push(
         vscode.commands.registerCommand('commitReview.selectRepo', async () => {
-            const allRepos = discoverAllRepos();
+            // Fast path: if we're already on the only workspace folder's repo, skip discovery.
+            const folders = vscode.workspace.workspaceFolders;
+            if (activeGit && folders?.length === 1 && activeGit.getRepoPath().startsWith(folders[0].uri.fsPath)) {
+                vscode.commands.executeCommand('commitReview.setBaseBranch');
+                return;
+            }
+
+            // Open the picker immediately so the user sees feedback right away,
+            // then run discovery asynchronously so the UI isn't blocked.
+            type RepoItem = vscode.QuickPickItem & { repoPath: string };
+            const qp = vscode.window.createQuickPick<RepoItem>();
+            qp.placeholder = 'Searching for git repositories…';
+            qp.busy = true;
+            qp.show();
+
+            const allRepos = await new Promise<string[]>(resolve => {
+                setImmediate(() => resolve(discoverAllRepos()));
+            });
+
+            qp.busy = false;
+
             if (allRepos.length === 0) {
+                qp.dispose();
                 vscode.window.showWarningMessage('No git repositories found in workspace.');
                 return;
             }
             if (allRepos.length === 1) {
+                qp.dispose();
                 switchToRepo(allRepos[0]);
                 vscode.commands.executeCommand('commitReview.setBaseBranch');
                 return;
             }
-            const items = allRepos.map(r => ({ label: path.basename(r), description: r, repoPath: r }));
-            const picked = await vscode.window.showQuickPick(items, {
-                placeHolder: 'Select a repository to review',
+
+            qp.placeholder = 'Select a repository to review';
+            qp.items = allRepos.map(r => ({ label: path.basename(r), description: r, repoPath: r }));
+
+            await new Promise<void>(resolve => {
+                qp.onDidAccept(() => {
+                    const picked = qp.selectedItems[0];
+                    qp.dispose();
+                    if (picked) {
+                        switchToRepo(picked.repoPath);
+                        vscode.commands.executeCommand('commitReview.setBaseBranch');
+                    }
+                    resolve();
+                });
+                qp.onDidHide(() => { qp.dispose(); resolve(); });
             });
-            if (picked) {
-                switchToRepo(picked.repoPath);
-                vscode.commands.executeCommand('commitReview.setBaseBranch');
-            }
         })
     );
 
@@ -554,6 +600,17 @@ export function activate(context: vscode.ExtensionContext): void {
                 if (files.length > 10) ch.appendLine(`  ... and ${files.length - 10} more`);
             } catch (err) {
                 ch.appendLine(`getChangesOnBranch ERROR: ${err}`);
+            }
+
+            ch.appendLine('');
+            ch.appendLine('=== Timing (cold, uncached) ===');
+            try {
+                const timings = activeGit.getTimings();
+                for (const [key, ms] of Object.entries(timings)) {
+                    ch.appendLine(`${key}: ${ms}ms`);
+                }
+            } catch (err) {
+                ch.appendLine(`getTimings ERROR: ${err}`);
             }
 
             ch.show(true);

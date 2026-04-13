@@ -46,6 +46,7 @@ export class ReviewCommentController implements vscode.Disposable {
   private controller: vscode.CommentController;
   /** Map from ReviewComment.id → the live VS Code thread. */
   private threads = new Map<string, vscode.CommentThread>();
+  private shadowThreads = new Map<string, vscode.CommentThread>();
   private disposables: vscode.Disposable[] = [];
   private repoPath = '';
 
@@ -109,6 +110,7 @@ export class ReviewCommentController implements vscode.Disposable {
       // Deleted — remove thread
       this.threads.get(id)?.dispose();
       this.threads.delete(id);
+      this.refreshShadowThreads(all);
       return;
     }
     const existing = this.threads.get(rc.id);
@@ -122,6 +124,7 @@ export class ReviewCommentController implements vscode.Disposable {
     } else {
       this.createThread(rc);
     }
+    this.refreshShadowThreads(all);
   }
 
   /**
@@ -151,9 +154,69 @@ export class ReviewCommentController implements vscode.Disposable {
         this.createThread(rc);
       }
     }
+    this.refreshShadowThreads(all);
   }
 
   // ── Private ───────────────────────────────────────────────────────────────
+
+  private isCumulativeDiffOpen(headHash: string): boolean {
+    return vscode.window.visibleTextEditors.some(editor => {
+      if (editor.document.uri.scheme !== GitContentProvider.scheme) return false;
+      const params = new URLSearchParams(editor.document.uri.query);
+      return params.get('ref') === headHash && params.get('side') === 'new';
+    });
+  }
+
+  private refreshShadowThreads(all: ReviewComment[]): void {
+    for (const t of this.shadowThreads.values()) t.dispose();
+    this.shadowThreads.clear();
+    if (!this.git) return;
+
+    const headHash = this.git.getHeadHash();
+    if (!headHash) return;
+    if (!this.isCumulativeDiffOpen(headHash)) return;
+
+    const branch = this.git.getCurrentBranch();
+    const mergeBase = this.git.getMergeBase(branch);
+    if (!mergeBase) return;
+
+    const candidates = all.filter(rc => rc.commitHash !== headHash);
+    if (candidates.length === 0) return;
+
+    const groups = new Map<string, ReviewComment[]>();
+    for (const rc of candidates) {
+      const key = `${rc.commitHash}:${rc.file}`;
+      if (!groups.has(key)) groups.set(key, []);
+      groups.get(key)!.push(rc);
+    }
+
+    for (const rcs of groups.values()) {
+      const { commitHash, file } = rcs[0];
+      const parentHash = this.git.getParentHash(commitHash) || '__empty__';
+
+      for (const rc of rcs) {
+        const mappedLine = rc.side === 'right'
+          ? this.git.remapLine(commitHash, headHash, file, rc.line)
+          : (parentHash === '__empty__' ? null : this.git.remapLine(parentHash, mergeBase, file, rc.line));
+        if (mappedLine === null) continue;
+
+        const uri = rc.side === 'right'
+          ? GitContentProvider.makeUri(this.repoPath, rc.file, headHash, 'new')
+          : GitContentProvider.makeUri(this.repoPath, rc.file, mergeBase, 'old', headHash);
+
+        const line0 = Math.max(0, mappedLine - 1);
+        const thread = this.controller.createCommentThread(uri, new vscode.Range(line0, 0, line0, 0), []);
+        thread.label            = `${STATUS_LABELS[rc.status] ?? rc.status} · ${rc.commitHash.slice(0, 7)}`;
+        thread.collapsibleState = this.isClosed(rc.status)
+          ? vscode.CommentThreadCollapsibleState.Collapsed
+          : vscode.CommentThreadCollapsibleState.Expanded;
+        thread.contextValue     = `status:${rc.status};shadow`;
+        thread.canReply         = false;
+        thread.comments         = this.buildComments(rc);
+        this.shadowThreads.set(`shadow:${rc.id}`, thread);
+      }
+    }
+  }
 
   private createThread(rc: ReviewComment): void {
     let uri: vscode.Uri;
@@ -425,6 +488,8 @@ export class ReviewCommentController implements vscode.Disposable {
   dispose(): void {
     for (const thread of this.threads.values()) thread.dispose();
     this.threads.clear();
+    for (const t of this.shadowThreads.values()) t.dispose();
+    this.shadowThreads.clear();
     for (const d of this.disposables) d.dispose();
     this.disposables = [];
   }
