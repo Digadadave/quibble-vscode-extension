@@ -36,14 +36,14 @@
   const searchInput = /** @type {HTMLInputElement} */ (document.getElementById("ch-search"));
   const searchClear = /** @type {HTMLButtonElement} */ (document.getElementById("ch-search-clear"));
 
-  searchInput?.addEventListener("input", () => {
+  searchInput.addEventListener("input", () => {
     filterText = searchInput.value.trim().toLowerCase();
     searchClear.hidden = filterText === "";
     visibleCount = PAGE_SIZE;
     render();
   });
 
-  searchClear?.addEventListener("click", () => {
+  searchClear.addEventListener("click", () => {
     searchInput.value = "";
     filterText = "";
     searchClear.hidden = true;
@@ -354,9 +354,13 @@
 
   // ── Render ─────────────────────────────────────────────────────────────────
 
+  function pathMatchesFilter(path) {
+    return path.toLowerCase().includes(filterText);
+  }
+
   function getFilteredFiles() {
     if (!filterText) return files;
-    return files.filter(f => f.path.toLowerCase().includes(filterText));
+    return files.filter(f => pathMatchesFilter(f.path));
   }
 
   function render() {
@@ -421,7 +425,7 @@
     let commits = buildCommitData();
     if (filterText) {
       commits = commits
-        .map(c => ({ ...c, files: c.files.filter(f => f.path.toLowerCase().includes(filterText)) }))
+        .map(c => ({ ...c, files: c.files.filter(f => pathMatchesFilter(f.path)) }))
         .filter(c => c.files.length > 0);
     }
     if (filterText && !commits.length) {
