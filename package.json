@@ -24,6 +24,12 @@
         "category": "Quibble"
       },
       {
+        "command": "quibble.openQuibbles",
+        "title": "Open Quibbles",
+        "icon": "$(file-code)",
+        "category": "Quibble"
+      },
+      {
         "command": "quibble.selectRepo",
         "title": "Select Repository",
         "icon": "$(repo)",

@@ -427,14 +427,7 @@ export function activate(context: vscode.ExtensionContext): void {
             ], { placeHolder: 'Quibble' });
             if (picked?.id === 'repo') vscode.commands.executeCommand('quibble.selectRepo');
             if (picked?.id === 'branch') vscode.commands.executeCommand('quibble.setBaseBranch');
-            if (picked?.id === 'openQuibbles') {
-                const filePath = activeComments?.getReviewsFilePath();
-                if (filePath) {
-                    vscode.window.showTextDocument(vscode.Uri.file(filePath));
-                } else {
-                    vscode.window.showWarningMessage('Quibble: No quibbles file found.');
-                }
-            }
+            if (picked?.id === 'openQuibbles') vscode.commands.executeCommand('quibble.openQuibbles');
         })
     );
 
@@ -478,6 +471,17 @@ export function activate(context: vscode.ExtensionContext): void {
         vscode.commands.registerCommand('quibble.copyAgentPrompt', () => {
             if (!activeComments || !activeGit) return;
             copyAgentPrompt(activeGit, activeComments);
+        })
+    );
+
+    context.subscriptions.push(
+        vscode.commands.registerCommand('quibble.openQuibbles', () => {
+            const filePath = activeComments?.getReviewsFilePath();
+            if (filePath) {
+                vscode.window.showTextDocument(vscode.Uri.file(filePath));
+            } else {
+                vscode.window.showWarningMessage('Quibble: No quibbles file found.');
+            }
         })
     );
 
