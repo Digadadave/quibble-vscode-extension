@@ -179,14 +179,14 @@
     "viewsContainers": {
       "activitybar": [
         {
-          "id": "commitReview",
+          "id": "quibble",
           "title": "Quibble",
           "icon": "media/icon.min.svg"
         }
       ]
     },
     "views": {
-      "commitReview": [
+      "quibble": [
         {
           "type": "tree",
           "id": "quibble.commentsView",
@@ -326,12 +326,12 @@
         {
           "command": "quibble.comment.cancelThread",
           "group": "inline@2",
-          "when": "commentController == commit-review && !(commentThread =~ /shadow/)"
+          "when": "commentController == quibble && !(commentThread =~ /shadow/)"
         },
         {
           "command": "quibble.comment.reply",
           "group": "inline@1",
-          "when": "commentController == commit-review && !(commentThread =~ /shadow/)"
+          "when": "commentController == quibble && !(commentThread =~ /shadow/)"
         }
       ],
       "comments/comment/title": [],
@@ -339,22 +339,22 @@
         {
           "command": "quibble.comment.resolve",
           "group": "inline@1",
-          "when": "commentController == commit-review && commentThread =~ /status:(open|question|agent-replied|in-progress|needs-input)/"
+          "when": "commentController == quibble && commentThread =~ /status:(open|question|agent-replied|in-progress|needs-input)/"
         },
         {
           "command": "quibble.comment.dismiss",
           "group": "inline@2",
-          "when": "commentController == commit-review && commentThread =~ /status:(open|question|agent-replied|in-progress|needs-input|addressed|approved)/"
+          "when": "commentController == quibble && commentThread =~ /status:(open|question|agent-replied|in-progress|needs-input|addressed|approved)/"
         },
         {
           "command": "quibble.comment.gotoFile",
           "group": "inline@3",
-          "when": "commentController == commit-review"
+          "when": "commentController == quibble"
         },
         {
           "command": "quibble.comment.reopen",
           "group": "inline@4",
-          "when": "commentController == commit-review && commentThread =~ /status:(approved|dismissed|outdated)/"
+          "when": "commentController == quibble && commentThread =~ /status:(approved|dismissed|outdated)/"
         }
       ]
     }

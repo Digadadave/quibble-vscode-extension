@@ -32,7 +32,7 @@ let gitFsWatchers: vscode.Disposable[] = [];
 export function activate(context: vscode.ExtensionContext): void {
 
     // ── Git content provider (serves file content at specific commits) ─────────
-    // Registers the custom 'commit-review-git://' URI scheme. VS Code calls
+    // Registers the custom 'quibble-git://' URI scheme. VS Code calls
     // provideTextDocumentContent() whenever it needs to open a file at that scheme,
     // which is how vscode.diff shows historical file versions side-by-side.
     const gitContentProvider = new GitContentProvider();

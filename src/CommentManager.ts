@@ -180,7 +180,7 @@ export class CommentManager implements vscode.Disposable {
     globalState: vscode.Memento,
   ) {
     const configPath = vscode.workspace
-      .getConfiguration('commitReview')
+      .getConfiguration('quibble')
       .get<string>('reviewsPath', '.vscode/commit-reviews.json');
     this.workingJsonPath = repoPath ? path.join(repoPath, configPath) : '';
     this.globalState = globalState;

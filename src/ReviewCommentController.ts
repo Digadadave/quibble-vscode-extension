@@ -41,7 +41,7 @@ interface CRComment extends vscode.Comment {
  * Threads appear both inline in the editor and in the COMMENTS sidebar panel.
  */
 export class ReviewCommentController implements vscode.Disposable {
-  static readonly id = 'commit-review';
+  static readonly id = 'quibble';
 
   private controller: vscode.CommentController;
   /** Map from ReviewComment.id → the live VS Code thread. */
