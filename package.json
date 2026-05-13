@@ -380,7 +380,7 @@
         {
           "command": "quibble.comment.dismiss",
           "group": "inline@2",
-          "when": "commentController == quibble && commentThread =~ /status:(open|question|agent-replied|in-progress|needs-input|addressed|approved)/"
+          "when": "commentController == quibble && commentThread =~ /status:(open|question|agent-replied|in-progress|needs-input|addressed)/"
         },
         {
           "command": "quibble.comment.gotoFile",
