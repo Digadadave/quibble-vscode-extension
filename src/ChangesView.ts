@@ -80,8 +80,17 @@ export class ChangesView implements vscode.WebviewViewProvider, vscode.Disposabl
       vscode.commands.registerCommand('quibble.changes.collapseAll',   () => {
         this._view?.webview.postMessage({ type: 'collapseAll' });
       }),
+      vscode.commands.registerCommand('quibble.changes.showSearch', () => {
+        vscode.commands.executeCommand('setContext', 'quibble.changesSearchVisible', true);
+        this._view?.webview.postMessage({ type: 'setSearchVisible', visible: true });
+      }),
+      vscode.commands.registerCommand('quibble.changes.hideSearch', () => {
+        vscode.commands.executeCommand('setContext', 'quibble.changesSearchVisible', false);
+        this._view?.webview.postMessage({ type: 'setSearchVisible', visible: false });
+      }),
     );
     vscode.commands.executeCommand('setContext', 'quibble.changesViewMode', this.viewMode);
+    vscode.commands.executeCommand('setContext', 'quibble.changesSearchVisible', false);
   }
 
   /** Show loading state immediately (call before slow work begins). */

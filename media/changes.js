@@ -191,6 +191,20 @@
       render();
       return;
     }
+    if (msg.type === "setSearchVisible") {
+      const box = /** @type {HTMLElement} */ (document.querySelector(".ch-search-box"));
+      if (msg.visible) {
+        box?.removeAttribute("hidden");
+        searchInput?.focus();
+      } else {
+        box?.setAttribute("hidden", "");
+        if (searchInput) searchInput.value = "";
+        filterText = "";
+        visibleCount = PAGE_SIZE;
+        render();
+      }
+      return;
+    }
     if (msg.type !== "load") return;
 
     branch = msg.branch || "";
