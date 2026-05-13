@@ -228,7 +228,10 @@
         { "command": "quibble.comments.openDiff", "when": "false" },
         { "command": "quibble.comments.viewFix", "when": "false" },
         { "command": "quibble.comments.showAll", "when": "false" },
-        { "command": "quibble.comments.hideClosed", "when": "false" }
+        { "command": "quibble.comments.hideClosed", "when": "false" },
+        { "command": "quibble.changes.collapseAll", "when": "false" },
+        { "command": "quibble.changes.toCommitsView", "when": "false" },
+        { "command": "quibble.changes.toFilesView", "when": "false" }
       ],
       "view/title": [
         {
