@@ -10,7 +10,7 @@ Ever wished you could do a proper code review on your own branch before pushing?
 
 Commit Review adds a dedicated sidebar to VS Code where you can see all the commits on your current branch (compared to a base branch like `main` or `master`). Click any commit to open a native VS Code diff view, and from there you can leave comments on specific lines — just like you would in a pull request.
 
-Comments are stored locally (in VS Code's `globalState`) and optionally mirrored to a `.vscode/commit-reviews.json` file for external tools to read and write (more on that later).
+Comments are stored locally (in VS Code's `globalState`) and optionally mirrored to a `.vscode/quibbles.json` file for external tools to read and write (more on that later).
 
 ### How to Use It
 
@@ -95,7 +95,7 @@ There are additional agent-related statuses covered in the [Working with AI Agen
 
 | Setting | Default | Description |
 |---------|---------|-------------|
-| `commitReview.reviewsPath` | `.vscode/commit-reviews.json` | Path (relative to repo root) for the working review JSON file. This is the file that external tools and agents read/write. The persistent database lives in VS Code's `globalStorage`. |
+| `quibble.reviewsPath` | `.vscode/quibbles.json` | Path (relative to repo root) for the working review JSON file. This is the file that external tools and agents read/write. The persistent database lives in VS Code's `globalStorage`. |
 
 ---
 
@@ -123,13 +123,13 @@ With Commit Review, the flow becomes:
 1. Ask the agent to do something
 2. **While it's working**, review the commits as they come in
 3. See something going in the wrong direction? **Leave a comment directly on that line of code**
-4. Prompt the agent to check your comments — it reads the `.vscode/commit-reviews.json` file and course-corrects
+4. Prompt the agent to check your comments — it reads the `.vscode/quibbles.json` file and course-corrects
 
 This is a huge deal. You're catching issues early — when they're small and easy to fix — instead of after the agent has gone down the wrong path for 20 commits. Your feedback is specific and contextual because it's attached to the exact line of code you're talking about.
 
 ### How the Agent Picks Up Your Comments
 
-One important thing to understand: the extension itself doesn't tell the agent to go look at your comments. It's a passive bridge — it writes your comments to the `.vscode/commit-reviews.json` file, and it's up to you to get the agent to check that file. There are two main ways to do this:
+One important thing to understand: the extension itself doesn't tell the agent to go look at your comments. It's a passive bridge — it writes your comments to the `.vscode/quibbles.json` file, and it's up to you to get the agent to check that file. There are two main ways to do this:
 
 1. **Prompt or skill** — You can directly ask the agent to check for review comments, or use a slash command / skill (like `/address-comments`) that reads the JSON file and addresses open comments. This is the most straightforward approach — you leave your comments, then tell the agent to go look.
 

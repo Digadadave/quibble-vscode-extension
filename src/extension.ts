@@ -673,7 +673,7 @@ function copyAgentPrompt(git: GitService, comments: CommentManager): void {
 
     let prompt = '## Code Review Comments to Address\n\n';
     prompt += 'Please address the following review comments. After fixing each issue, ';
-    prompt += 'update `.vscode/commit-reviews.json` — set `"status": "addressed"` and ';
+    prompt += 'update `.vscode/quibbles.json` — set `"status": "addressed"` and ';
     prompt += '`"addressedByCommit"` to the new commit hash.\n\n---\n\n';
 
     for (const [hash, cs] of byCommit) {

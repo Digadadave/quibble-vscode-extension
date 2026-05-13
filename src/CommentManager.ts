@@ -135,7 +135,7 @@ const SCHEMA_DESCRIPTION = {
 //   1. globalState (primary DB) — VS Code's built-in Memento key-value store,
 //      persisted per-user across sessions. Key: "repo:<absoluteRepoPath>".
 //      Comments are never deleted here; orphaned records survive squash/rebase.
-//   2. Working JSON file (.vscode/commit-reviews.json) — human- and agent-readable
+//   2. Working JSON file (.vscode/quibbles.json) — human- and agent-readable
 //      snapshot of the current branch. The extension writes it; an AI agent may
 //      edit it. A FileSystemWatcher detects external writes and syncs them back.
 //
@@ -181,7 +181,7 @@ export class CommentManager implements vscode.Disposable {
   ) {
     const configPath = vscode.workspace
       .getConfiguration('quibble')
-      .get<string>('reviewsPath', '.vscode/commit-reviews.json');
+      .get<string>('reviewsPath', '.vscode/quibbles.json');
     this.workingJsonPath = repoPath ? path.join(repoPath, configPath) : '';
     this.globalState = globalState;
     this.dbKey = repoPath ? `repo:${repoPath}` : '';

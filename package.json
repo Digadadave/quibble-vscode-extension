@@ -206,8 +206,8 @@
       "properties": {
         "quibble.reviewsPath": {
           "type": "string",
-          "default": ".vscode/commit-reviews.json",
-          "description": "Path (relative to the repo root) for the working review JSON. This file is populated with comments for the current branch and is the file agents should read/write. The persistent DB lives in VS Code's globalStorage.",
+          "default": ".vscode/quibbles.json",
+          "description": "Path (relative to the repo root) for the working comments JSON. This file is populated with comments for the current branch and is the file agents should read/write. The persistent DB lives in VS Code's globalStorage.",
           "scope": "resource"
         }
       }
