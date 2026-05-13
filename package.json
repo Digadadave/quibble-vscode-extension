@@ -220,7 +220,15 @@
         { "command": "quibble.comment.dismiss", "when": "false" },
         { "command": "quibble.comment.cancelThread", "when": "false" },
         { "command": "quibble.comment.reopen", "when": "false" },
-        { "command": "quibble.comment.delete", "when": "false" }
+        { "command": "quibble.comment.delete", "when": "false" },
+        { "command": "quibble.comments.resolve", "when": "false" },
+        { "command": "quibble.comments.dismiss", "when": "false" },
+        { "command": "quibble.comments.reopen", "when": "false" },
+        { "command": "quibble.comments.delete", "when": "false" },
+        { "command": "quibble.comments.openDiff", "when": "false" },
+        { "command": "quibble.comments.viewFix", "when": "false" },
+        { "command": "quibble.comments.showAll", "when": "false" },
+        { "command": "quibble.comments.hideClosed", "when": "false" }
       ],
       "view/title": [
         {
