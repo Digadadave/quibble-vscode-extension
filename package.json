@@ -255,6 +255,11 @@
           "group": "navigation@2"
         },
         {
+          "command": "quibble.refresh",
+          "when": "view == quibble.changesView",
+          "group": "navigation@3"
+        },
+        {
           "command": "quibble.remapOrphans",
           "when": "view == quibble.commentsView && quibble.hasOrphans",
           "group": "navigation@0"
