@@ -363,6 +363,11 @@
           "command": "quibble.comment.reply",
           "group": "inline@1",
           "when": "commentController == quibble && !(commentThread =~ /shadow/)"
+        },
+        {
+          "command": "quibble.comment.reopen",
+          "group": "inline@3",
+          "when": "commentController == quibble && commentThread =~ /status:(approved|dismissed|outdated)/"
         }
       ],
       "comments/comment/title": [],
@@ -370,7 +375,7 @@
         {
           "command": "quibble.comment.resolve",
           "group": "inline@1",
-          "when": "commentController == quibble && commentThread =~ /status:(open|question|agent-replied|in-progress|needs-input)/"
+          "when": "commentController == quibble && commentThread =~ /status:(open|question|agent-replied|in-progress|needs-input|addressed)/"
         },
         {
           "command": "quibble.comment.dismiss",
