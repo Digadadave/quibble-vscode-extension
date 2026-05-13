@@ -423,9 +423,18 @@ export function activate(context: vscode.ExtensionContext): void {
             const picked = await vscode.window.showQuickPick([
                 { label: `$(repo) Select Repository`, id: 'repo' },
                 { label: `$(git-branch) Set Base Branch`, id: 'branch' },
+                { label: `$(file-code) Open Quibbles`, id: 'openQuibbles' },
             ], { placeHolder: 'Quibble' });
             if (picked?.id === 'repo') vscode.commands.executeCommand('quibble.selectRepo');
             if (picked?.id === 'branch') vscode.commands.executeCommand('quibble.setBaseBranch');
+            if (picked?.id === 'openQuibbles') {
+                const filePath = activeComments?.getReviewsFilePath();
+                if (filePath) {
+                    vscode.window.showTextDocument(vscode.Uri.file(filePath));
+                } else {
+                    vscode.window.showWarningMessage('Quibble: No quibbles file found.');
+                }
+            }
         })
     );
 
