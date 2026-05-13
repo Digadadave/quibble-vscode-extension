@@ -182,15 +182,9 @@
         "category": "Quibble"
       },
       {
-        "command": "quibble.changes.showSearch",
-        "title": "Search Files",
+        "command": "quibble.changes.toggleSearch",
+        "title": "Toggle File Search",
         "icon": "$(search)",
-        "category": "Quibble"
-      },
-      {
-        "command": "quibble.changes.hideSearch",
-        "title": "Hide Search",
-        "icon": "$(search-stop)",
         "category": "Quibble"
       }
     ],
@@ -250,8 +244,7 @@
         { "command": "quibble.changes.collapseAll", "when": "false" },
         { "command": "quibble.changes.toCommitsView", "when": "false" },
         { "command": "quibble.changes.toFilesView", "when": "false" },
-        { "command": "quibble.changes.showSearch", "when": "false" },
-        { "command": "quibble.changes.hideSearch", "when": "false" }
+        { "command": "quibble.changes.toggleSearch", "when": "false" }
       ],
       "view/title": [
         {
@@ -270,13 +263,8 @@
           "group": "navigation@0"
         },
         {
-          "command": "quibble.changes.showSearch",
-          "when": "view == quibble.changesView && !quibble.changesSearchVisible",
-          "group": "navigation@1"
-        },
-        {
-          "command": "quibble.changes.hideSearch",
-          "when": "view == quibble.changesView && quibble.changesSearchVisible",
+          "command": "quibble.changes.toggleSearch",
+          "when": "view == quibble.changesView",
           "group": "navigation@1"
         },
         {

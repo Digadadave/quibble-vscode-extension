@@ -21,6 +21,7 @@ export class ChangesView implements vscode.WebviewViewProvider, vscode.Disposabl
   private disposables: vscode.Disposable[] = [];
   private cachedData: { branch: string; files: object[] } | null = null;
   private viewMode: 'files' | 'commits' = 'files';
+  private _searchVisible = false;
 
   /** Called when the user clicks a file row — open single-file diff in VS Code native diff editor. */
   onJumpToFileNative?: (file: string) => void;
@@ -80,17 +81,12 @@ export class ChangesView implements vscode.WebviewViewProvider, vscode.Disposabl
       vscode.commands.registerCommand('quibble.changes.collapseAll',   () => {
         this._view?.webview.postMessage({ type: 'collapseAll' });
       }),
-      vscode.commands.registerCommand('quibble.changes.showSearch', () => {
-        vscode.commands.executeCommand('setContext', 'quibble.changesSearchVisible', true);
-        this._view?.webview.postMessage({ type: 'setSearchVisible', visible: true });
-      }),
-      vscode.commands.registerCommand('quibble.changes.hideSearch', () => {
-        vscode.commands.executeCommand('setContext', 'quibble.changesSearchVisible', false);
-        this._view?.webview.postMessage({ type: 'setSearchVisible', visible: false });
+      vscode.commands.registerCommand('quibble.changes.toggleSearch', () => {
+        this._searchVisible = !this._searchVisible;
+        this._view?.webview.postMessage({ type: 'setSearchVisible', visible: this._searchVisible });
       }),
     );
     vscode.commands.executeCommand('setContext', 'quibble.changesViewMode', this.viewMode);
-    vscode.commands.executeCommand('setContext', 'quibble.changesSearchVisible', false);
   }
 
   /** Show loading state immediately (call before slow work begins). */
