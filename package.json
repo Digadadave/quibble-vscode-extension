@@ -237,12 +237,12 @@
         {
           "command": "quibble.changes.toCommitsView",
           "when": "view == quibble.changesView && quibble.changesViewMode != 'commits'",
-          "group": "navigation@1"
+          "group": "navigation@2"
         },
         {
           "command": "quibble.changes.toFilesView",
           "when": "view == quibble.changesView && quibble.changesViewMode == 'commits'",
-          "group": "navigation@1"
+          "group": "navigation@2"
         },
         {
           "command": "quibble.changes.collapseAll",
@@ -250,12 +250,12 @@
           "group": "navigation@0"
         },
         {
-          "command": "quibble.repoMenu",
+          "command": "quibble.refresh",
           "when": "view == quibble.changesView",
-          "group": "navigation@2"
+          "group": "navigation@1"
         },
         {
-          "command": "quibble.refresh",
+          "command": "quibble.repoMenu",
           "when": "view == quibble.changesView",
           "group": "navigation@3"
         },
