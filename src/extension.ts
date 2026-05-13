@@ -367,13 +367,6 @@ export function activate(context: vscode.ExtensionContext): void {
 
     context.subscriptions.push(
         vscode.commands.registerCommand('quibble.selectRepo', async () => {
-            // Fast path: if we're already on the only workspace folder's repo, skip discovery.
-            const folders = vscode.workspace.workspaceFolders;
-            if (activeGit && folders?.length === 1 && activeGit.getRepoPath().startsWith(folders[0].uri.fsPath)) {
-                vscode.commands.executeCommand('quibble.setBaseBranch');
-                return;
-            }
-
             // Open the picker immediately so the user sees feedback right away,
             // then run discovery asynchronously so the UI isn't blocked.
             type RepoItem = vscode.QuickPickItem & { repoPath: string };
