@@ -1,6 +1,7 @@
 /* ── Changes panel (.ch-*) ──────────────────────────────────────────────── */
 
 /* ── Search box ────────────────────────────────────────── */
+.ch-search-box[hidden] { display: none; }
 .ch-search-box {
   display: flex;
   align-items: center;
