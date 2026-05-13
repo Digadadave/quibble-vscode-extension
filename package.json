@@ -2,7 +2,7 @@
   "name": "quibble",
   "displayName": "Quibble",
   "description": "Review local git commits with GitHub-style comments. Agent-friendly metadata for Claude Code.",
-  "version": "0.0.6",
+  "version": "0.0.7",
   "publisher": "local",
   "engines": {
     "vscode": "^1.85.0"
