@@ -60,7 +60,7 @@ export class CommentTreeItem extends vscode.TreeItem {
     // Skip for statuses where no code change was made — there's nothing to diff.
     if (!NO_CODE_NAV_STATUSES.has(comment.status)) {
       this.command = {
-        command: 'commitReview.comments.openDiff',
+        command: 'quibble.comments.openDiff',
         title: 'Open in Diff',
         arguments: [comment],
       };
@@ -136,7 +136,7 @@ export class ThreadTreeItem extends vscode.TreeItem {
 
     // Click → navigate to parent comment in diff
     this.command = {
-      command: 'commitReview.comments.openDiff',
+      command: 'quibble.comments.openDiff',
       title: 'Open in Diff',
       arguments: [parentComment],
     };
@@ -170,7 +170,7 @@ export class ResolvedNoteTreeItem extends vscode.TreeItem {
 
     // Click → navigate to the comment in the diff
     this.command = {
-      command: 'commitReview.comments.openDiff',
+      command: 'quibble.comments.openDiff',
       title: 'Open in Diff',
       arguments: [comment],
     };
@@ -190,7 +190,7 @@ export class ResolvedNoteTreeItem extends vscode.TreeItem {
 // getTreeItem(element) converts a data element into a display-ready TreeItem.
 
 export class CommentsView implements vscode.TreeDataProvider<vscode.TreeItem>, vscode.Disposable {
-  static readonly viewType = 'commitReview.commentsView';
+  static readonly viewType = 'quibble.commentsView';
   private static instance: CommentsView | undefined;
 
   // Firing this event tells VS Code to call getChildren() again and re-render the tree.
@@ -241,39 +241,39 @@ export class CommentsView implements vscode.TreeDataProvider<vscode.TreeItem>, v
 
     // Register commands
     this.disposables.push(
-      vscode.commands.registerCommand('commitReview.comments.openDiff', (comment: ReviewComment) => {
+      vscode.commands.registerCommand('quibble.comments.openDiff', (comment: ReviewComment) => {
         this.onFocusComment?.(comment.file, comment.line, comment.commitHash, comment.id);
       }),
-      vscode.commands.registerCommand('commitReview.comments.resolve', (item: CommentTreeItem) => {
+      vscode.commands.registerCommand('quibble.comments.resolve', (item: CommentTreeItem) => {
         this.onUpdateStatus?.(item.comment.id, STATUS.APPROVED);
       }),
-      vscode.commands.registerCommand('commitReview.comments.dismiss', (item: CommentTreeItem) => {
+      vscode.commands.registerCommand('quibble.comments.dismiss', (item: CommentTreeItem) => {
         this.onUpdateStatus?.(item.comment.id, STATUS.DISMISSED);
       }),
-      vscode.commands.registerCommand('commitReview.comments.reopen', (item: CommentTreeItem) => {
+      vscode.commands.registerCommand('quibble.comments.reopen', (item: CommentTreeItem) => {
         this.onUpdateStatus?.(item.comment.id, STATUS.OPEN);
       }),
-      vscode.commands.registerCommand('commitReview.comments.delete', (item: CommentTreeItem) => {
+      vscode.commands.registerCommand('quibble.comments.delete', (item: CommentTreeItem) => {
         this.onDeleteComment?.(item.comment.id);
       }),
-      vscode.commands.registerCommand('commitReview.comments.showAll', () => {
+      vscode.commands.registerCommand('quibble.comments.showAll', () => {
         this.showClosed = true;
-        vscode.commands.executeCommand('setContext', 'commitReview.showClosed', true);
+        vscode.commands.executeCommand('setContext', 'quibble.showClosed', true);
         this.refresh();
       }),
-      vscode.commands.registerCommand('commitReview.comments.hideClosed', () => {
+      vscode.commands.registerCommand('quibble.comments.hideClosed', () => {
         this.showClosed = false;
-        vscode.commands.executeCommand('setContext', 'commitReview.showClosed', false);
+        vscode.commands.executeCommand('setContext', 'quibble.showClosed', false);
         this.refresh();
       }),
-      vscode.commands.registerCommand('commitReview.comments.viewFix', (item: ResolvedNoteTreeItem) => {
+      vscode.commands.registerCommand('quibble.comments.viewFix', (item: ResolvedNoteTreeItem) => {
         if (item.comment.addressedByCommit) {
-          vscode.commands.executeCommand('commitReview.viewFix', item.comment.addressedByCommit);
+          vscode.commands.executeCommand('quibble.viewFix', item.comment.addressedByCommit);
         }
       }),
     );
 
-    vscode.commands.executeCommand('setContext', 'commitReview.showClosed', false);
+    vscode.commands.executeCommand('setContext', 'quibble.showClosed', false);
     this.updateViewDescription();
     return this.treeView;
   }

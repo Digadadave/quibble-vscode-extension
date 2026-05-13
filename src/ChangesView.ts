@@ -14,7 +14,7 @@ const CLOSED_STATUSES = new Set<CommentStatus>([STATUS.APPROVED, STATUS.DISMISSE
  * to the webview via postMessage.
  */
 export class ChangesView implements vscode.WebviewViewProvider, vscode.Disposable {
-  static readonly viewType = 'commitReview.changesView';
+  static readonly viewType = 'quibble.changesView';
   private static instance: ChangesView | undefined;
 
   private _view?: vscode.WebviewView;
@@ -71,17 +71,17 @@ export class ChangesView implements vscode.WebviewViewProvider, vscode.Disposabl
   registerCommands(context: vscode.ExtensionContext): void {
     const setMode = (mode: 'files' | 'commits') => {
       this.viewMode = mode;
-      vscode.commands.executeCommand('setContext', 'commitReview.changesViewMode', mode);
+      vscode.commands.executeCommand('setContext', 'quibble.changesViewMode', mode);
       this._view?.webview.postMessage({ type: 'setViewMode', mode });
     };
     context.subscriptions.push(
-      vscode.commands.registerCommand('commitReview.changes.toCommitsView', () => setMode('commits')),
-      vscode.commands.registerCommand('commitReview.changes.toFilesView',   () => setMode('files')),
-      vscode.commands.registerCommand('commitReview.changes.collapseAll',   () => {
+      vscode.commands.registerCommand('quibble.changes.toCommitsView', () => setMode('commits')),
+      vscode.commands.registerCommand('quibble.changes.toFilesView',   () => setMode('files')),
+      vscode.commands.registerCommand('quibble.changes.collapseAll',   () => {
         this._view?.webview.postMessage({ type: 'collapseAll' });
       }),
     );
-    vscode.commands.executeCommand('setContext', 'commitReview.changesViewMode', this.viewMode);
+    vscode.commands.executeCommand('setContext', 'quibble.changesViewMode', this.viewMode);
   }
 
   /** Show loading state immediately (call before slow work begins). */

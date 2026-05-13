@@ -88,7 +88,7 @@ export class ReviewTreeProvider implements vscode.TreeDataProvider<ReviewTreeIte
       );
       node.tooltip = `${commit.hash}\n${commit.author}\n${commit.date}`;
       node.command = {
-        command: 'commitReview.openPanel',
+        command: 'quibble.openPanel',
         title: 'Open Review',
         arguments: [commit.hash],
       };
@@ -117,7 +117,7 @@ export class ReviewTreeProvider implements vscode.TreeDataProvider<ReviewTreeIte
       );
       node.tooltip = `${file.status === 'A' ? 'Added' : file.status === 'D' ? 'Deleted' : 'Modified'}: ${file.path}`;
       node.command = {
-        command: 'commitReview.openPanel',
+        command: 'quibble.openPanel',
         title: 'Open Review',
         arguments: [commit.hash, file.path],
       };
@@ -142,7 +142,7 @@ export class ReviewTreeProvider implements vscode.TreeDataProvider<ReviewTreeIte
       node.tooltip = `${comment.file} line ${comment.line}\nStatus: ${comment.status}\n\n${comment.body}`;
       node.description = comment.status;
       node.command = {
-        command: 'commitReview.openPanel',
+        command: 'quibble.openPanel',
         title: 'Open Review',
         arguments: [comment.commitHash, comment.file],
       };
