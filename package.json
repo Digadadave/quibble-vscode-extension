@@ -1,8 +1,8 @@
 {
-  "name": "vscode-commit-review",
-  "displayName": "Commit Review",
+  "name": "quibble",
+  "displayName": "Quibble",
   "description": "Review local git commits with GitHub-style comments. Agent-friendly metadata for Claude Code.",
-  "version": "0.0.5",
+  "version": "0.0.6",
   "publisher": "local",
   "engines": {
     "vscode": "^1.85.0"
@@ -18,169 +18,169 @@
   "contributes": {
     "commands": [
       {
-        "command": "commitReview.copyAgentPrompt",
+        "command": "quibble.copyAgentPrompt",
         "title": "Copy Agent Prompt",
         "icon": "$(copy)",
-        "category": "Commit Review"
+        "category": "Quibble"
       },
       {
-        "command": "commitReview.selectRepo",
+        "command": "quibble.selectRepo",
         "title": "Select Repository",
         "icon": "$(repo)",
-        "category": "Commit Review"
+        "category": "Quibble"
       },
       {
-        "command": "commitReview.comment.reply",
+        "command": "quibble.comment.reply",
         "title": "Submit Comment",
-        "category": "Commit Review"
+        "category": "Quibble"
       },
       {
-        "command": "commitReview.comment.resolve",
+        "command": "quibble.comment.resolve",
         "title": "Approve",
         "icon": "$(check-all)",
-        "category": "Commit Review"
+        "category": "Quibble"
       },
       {
-        "command": "commitReview.comment.gotoFile",
+        "command": "quibble.comment.gotoFile",
         "title": "Go to Source",
         "icon": "$(go-to-file)",
-        "category": "Commit Review"
+        "category": "Quibble"
       },
       {
-        "command": "commitReview.comment.dismiss",
+        "command": "quibble.comment.dismiss",
         "title": "Dismiss",
         "icon": "$(sync-ignored)",
-        "category": "Commit Review"
+        "category": "Quibble"
       },
       {
-        "command": "commitReview.comment.cancelThread",
+        "command": "quibble.comment.cancelThread",
         "title": "Cancel",
-        "category": "Commit Review"
+        "category": "Quibble"
       },
       {
-        "command": "commitReview.comment.reopen",
+        "command": "quibble.comment.reopen",
         "title": "Reopen",
         "icon": "$(debug-restart)",
-        "category": "Commit Review"
+        "category": "Quibble"
       },
       {
-        "command": "commitReview.comment.delete",
+        "command": "quibble.comment.delete",
         "title": "Delete Comment",
         "icon": "$(trash)",
-        "category": "Commit Review"
+        "category": "Quibble"
       },
       {
-        "command": "commitReview.comments.resolve",
+        "command": "quibble.comments.resolve",
         "title": "Approve",
         "icon": "$(check-all)",
-        "category": "Commit Review"
+        "category": "Quibble"
       },
       {
-        "command": "commitReview.comments.dismiss",
+        "command": "quibble.comments.dismiss",
         "title": "Dismiss",
         "icon": "$(sync-ignored)",
-        "category": "Commit Review"
+        "category": "Quibble"
       },
       {
-        "command": "commitReview.comments.reopen",
+        "command": "quibble.comments.reopen",
         "title": "Reopen",
         "icon": "$(debug-restart)",
-        "category": "Commit Review"
+        "category": "Quibble"
       },
       {
-        "command": "commitReview.comments.delete",
+        "command": "quibble.comments.delete",
         "title": "Delete",
         "icon": "$(trash)",
-        "category": "Commit Review"
+        "category": "Quibble"
       },
       {
-        "command": "commitReview.comments.openDiff",
+        "command": "quibble.comments.openDiff",
         "title": "Open in Diff",
         "icon": "$(diff)",
-        "category": "Commit Review"
+        "category": "Quibble"
       },
       {
-        "command": "commitReview.changes.openAllChanges",
+        "command": "quibble.changes.openAllChanges",
         "title": "Open All Changes",
         "icon": "$(diff-multiple)",
-        "category": "Commit Review"
+        "category": "Quibble"
       },
       {
-        "command": "commitReview.changes.toCommitsView",
+        "command": "quibble.changes.toCommitsView",
         "title": "Switch to Commits View",
         "icon": "$(list-tree)",
-        "category": "Commit Review"
+        "category": "Quibble"
       },
       {
-        "command": "commitReview.changes.toFilesView",
+        "command": "quibble.changes.toFilesView",
         "title": "Switch to Files View",
         "icon": "$(three-bars)",
-        "category": "Commit Review"
+        "category": "Quibble"
       },
       {
-        "command": "commitReview.changes.collapseAll",
+        "command": "quibble.changes.collapseAll",
         "title": "Collapse All",
         "icon": "$(collapse-all)",
-        "category": "Commit Review"
+        "category": "Quibble"
       },
       {
-        "command": "commitReview.comments.showAll",
+        "command": "quibble.comments.showAll",
         "title": "Show All Comments",
         "icon": "$(eye-closed)",
-        "category": "Commit Review"
+        "category": "Quibble"
       },
       {
-        "command": "commitReview.comments.hideClosed",
+        "command": "quibble.comments.hideClosed",
         "title": "Hide Closed Comments",
         "icon": "$(eye)",
-        "category": "Commit Review"
+        "category": "Quibble"
       },
       {
-        "command": "commitReview.remapOrphans",
+        "command": "quibble.remapOrphans",
         "title": "Remap Orphaned Comments",
         "icon": "$(warning)",
-        "category": "Commit Review"
+        "category": "Quibble"
       },
       {
-        "command": "commitReview.dismissOrphans",
+        "command": "quibble.dismissOrphans",
         "title": "Dismiss Orphaned Comments",
         "icon": "$(close)",
-        "category": "Commit Review"
+        "category": "Quibble"
       },
       {
-        "command": "commitReview.comments.viewFix",
+        "command": "quibble.comments.viewFix",
         "title": "View Fix",
         "icon": "$(go-to-file)",
-        "category": "Commit Review"
+        "category": "Quibble"
       },
       {
-        "command": "commitReview.setBaseBranch",
+        "command": "quibble.setBaseBranch",
         "title": "Set Base Branch",
-        "category": "Commit Review"
+        "category": "Quibble"
       },
       {
-        "command": "commitReview.repoMenu",
+        "command": "quibble.repoMenu",
         "title": "Repository Settings",
         "icon": "$(repo)",
-        "category": "Commit Review"
+        "category": "Quibble"
       },
       {
-        "command": "commitReview.refresh",
+        "command": "quibble.refresh",
         "title": "Refresh",
         "icon": "$(refresh)",
-        "category": "Commit Review"
+        "category": "Quibble"
       },
       {
-        "command": "commitReview.diagnostics",
+        "command": "quibble.diagnostics",
         "title": "Show Diagnostics",
-        "category": "Commit Review"
+        "category": "Quibble"
       }
     ],
     "viewsContainers": {
       "activitybar": [
         {
           "id": "commitReview",
-          "title": "Commit Review",
+          "title": "Quibble",
           "icon": "media/icon.min.svg"
         }
       ]
@@ -189,22 +189,22 @@
       "commitReview": [
         {
           "type": "tree",
-          "id": "commitReview.commentsView",
+          "id": "quibble.commentsView",
           "name": "Comments",
-          "contextualTitle": "Commit Review"
+          "contextualTitle": "Quibble"
         },
         {
           "type": "webview",
-          "id": "commitReview.changesView",
+          "id": "quibble.changesView",
           "name": "Changes",
-          "contextualTitle": "Commit Review"
+          "contextualTitle": "Quibble"
         }
       ]
     },
     "configuration": {
-      "title": "Commit Review",
+      "title": "Quibble",
       "properties": {
-        "commitReview.reviewsPath": {
+        "quibble.reviewsPath": {
           "type": "string",
           "default": ".vscode/commit-reviews.json",
           "description": "Path (relative to the repo root) for the working review JSON. This file is populated with comments for the current branch and is the file agents should read/write. The persistent DB lives in VS Code's globalStorage.",
@@ -215,121 +215,121 @@
     "menus": {
       "view/title": [
         {
-          "command": "commitReview.changes.toCommitsView",
-          "when": "view == commitReview.changesView && commitReview.changesViewMode != 'commits'",
+          "command": "quibble.changes.toCommitsView",
+          "when": "view == quibble.changesView && quibble.changesViewMode != 'commits'",
           "group": "navigation@1"
         },
         {
-          "command": "commitReview.changes.toFilesView",
-          "when": "view == commitReview.changesView && commitReview.changesViewMode == 'commits'",
+          "command": "quibble.changes.toFilesView",
+          "when": "view == quibble.changesView && quibble.changesViewMode == 'commits'",
           "group": "navigation@1"
         },
         {
-          "command": "commitReview.changes.collapseAll",
-          "when": "view == commitReview.changesView",
+          "command": "quibble.changes.collapseAll",
+          "when": "view == quibble.changesView",
           "group": "navigation@0"
         },
         {
-          "command": "commitReview.repoMenu",
-          "when": "view == commitReview.changesView",
+          "command": "quibble.repoMenu",
+          "when": "view == quibble.changesView",
           "group": "navigation@2"
         },
         {
-          "command": "commitReview.remapOrphans",
-          "when": "view == commitReview.commentsView && commitReview.hasOrphans",
+          "command": "quibble.remapOrphans",
+          "when": "view == quibble.commentsView && quibble.hasOrphans",
           "group": "navigation@0"
         },
         {
-          "command": "commitReview.comments.showAll",
-          "when": "view == commitReview.commentsView && !commitReview.showClosed",
+          "command": "quibble.comments.showAll",
+          "when": "view == quibble.commentsView && !quibble.showClosed",
           "group": "navigation@1"
         },
         {
-          "command": "commitReview.comments.hideClosed",
-          "when": "view == commitReview.commentsView && commitReview.showClosed",
+          "command": "quibble.comments.hideClosed",
+          "when": "view == quibble.commentsView && quibble.showClosed",
           "group": "navigation@1"
         }
       ],
       "view/item/context": [
         {
-          "command": "commitReview.comments.resolve",
-          "when": "view == commitReview.commentsView && viewItem == comment-open",
+          "command": "quibble.comments.resolve",
+          "when": "view == quibble.commentsView && viewItem == comment-open",
           "group": "inline@1"
         },
         {
-          "command": "commitReview.comments.dismiss",
-          "when": "view == commitReview.commentsView && viewItem == comment-open",
+          "command": "quibble.comments.dismiss",
+          "when": "view == quibble.commentsView && viewItem == comment-open",
           "group": "inline@2"
         },
         {
-          "command": "commitReview.comments.resolve",
-          "when": "view == commitReview.commentsView && viewItem == comment-addressed",
+          "command": "quibble.comments.resolve",
+          "when": "view == quibble.commentsView && viewItem == comment-addressed",
           "group": "inline@1"
         },
         {
-          "command": "commitReview.comments.dismiss",
-          "when": "view == commitReview.commentsView && viewItem == comment-addressed",
+          "command": "quibble.comments.dismiss",
+          "when": "view == quibble.commentsView && viewItem == comment-addressed",
           "group": "inline@2"
         },
         {
-          "command": "commitReview.comments.reopen",
-          "when": "view == commitReview.commentsView && viewItem == comment-approved",
+          "command": "quibble.comments.reopen",
+          "when": "view == quibble.commentsView && viewItem == comment-approved",
           "group": "inline@1"
         },
         {
-          "command": "commitReview.comments.delete",
-          "when": "view == commitReview.commentsView && (viewItem == comment-open || viewItem == comment-approved || viewItem == comment-addressed)",
+          "command": "quibble.comments.delete",
+          "when": "view == quibble.commentsView && (viewItem == comment-open || viewItem == comment-approved || viewItem == comment-addressed)",
           "group": "inline@3"
         },
         {
-          "command": "commitReview.comments.resolve",
-          "when": "view == commitReview.commentsView && viewItem == comment-open",
+          "command": "quibble.comments.resolve",
+          "when": "view == quibble.commentsView && viewItem == comment-open",
           "group": "1_status@1"
         },
         {
-          "command": "commitReview.comments.dismiss",
-          "when": "view == commitReview.commentsView && viewItem == comment-open",
+          "command": "quibble.comments.dismiss",
+          "when": "view == quibble.commentsView && viewItem == comment-open",
           "group": "1_status@2"
         },
         {
-          "command": "commitReview.comments.resolve",
-          "when": "view == commitReview.commentsView && viewItem == comment-addressed",
+          "command": "quibble.comments.resolve",
+          "when": "view == quibble.commentsView && viewItem == comment-addressed",
           "group": "1_status@1"
         },
         {
-          "command": "commitReview.comments.dismiss",
-          "when": "view == commitReview.commentsView && viewItem == comment-addressed",
+          "command": "quibble.comments.dismiss",
+          "when": "view == quibble.commentsView && viewItem == comment-addressed",
           "group": "1_status@2"
         },
         {
-          "command": "commitReview.comments.reopen",
-          "when": "view == commitReview.commentsView && viewItem == comment-approved",
+          "command": "quibble.comments.reopen",
+          "when": "view == quibble.commentsView && viewItem == comment-approved",
           "group": "1_status@1"
         },
         {
-          "command": "commitReview.comments.delete",
-          "when": "view == commitReview.commentsView && (viewItem == comment-open || viewItem == comment-approved || viewItem == comment-addressed)",
+          "command": "quibble.comments.delete",
+          "when": "view == quibble.commentsView && (viewItem == comment-open || viewItem == comment-approved || viewItem == comment-addressed)",
           "group": "2_manage@1"
         },
         {
-          "command": "commitReview.comments.viewFix",
-          "when": "view == commitReview.commentsView && viewItem == resolvedNote-fix",
+          "command": "quibble.comments.viewFix",
+          "when": "view == quibble.commentsView && viewItem == resolvedNote-fix",
           "group": "inline@1"
         },
         {
-          "command": "commitReview.comments.viewFix",
-          "when": "view == commitReview.commentsView && viewItem == resolvedNote-fix",
+          "command": "quibble.comments.viewFix",
+          "when": "view == quibble.commentsView && viewItem == resolvedNote-fix",
           "group": "1_action@1"
         }
       ],
       "comments/commentThread/context": [
         {
-          "command": "commitReview.comment.cancelThread",
+          "command": "quibble.comment.cancelThread",
           "group": "inline@2",
           "when": "commentController == commit-review && !(commentThread =~ /shadow/)"
         },
         {
-          "command": "commitReview.comment.reply",
+          "command": "quibble.comment.reply",
           "group": "inline@1",
           "when": "commentController == commit-review && !(commentThread =~ /shadow/)"
         }
@@ -337,22 +337,22 @@
       "comments/comment/title": [],
       "comments/commentThread/title": [
         {
-          "command": "commitReview.comment.resolve",
+          "command": "quibble.comment.resolve",
           "group": "inline@1",
           "when": "commentController == commit-review && commentThread =~ /status:(open|question|agent-replied|in-progress|needs-input)/"
         },
         {
-          "command": "commitReview.comment.dismiss",
+          "command": "quibble.comment.dismiss",
           "group": "inline@2",
           "when": "commentController == commit-review && commentThread =~ /status:(open|question|agent-replied|in-progress|needs-input|addressed|approved)/"
         },
         {
-          "command": "commitReview.comment.gotoFile",
+          "command": "quibble.comment.gotoFile",
           "group": "inline@3",
           "when": "commentController == commit-review"
         },
         {
-          "command": "commitReview.comment.reopen",
+          "command": "quibble.comment.reopen",
           "group": "inline@4",
           "when": "commentController == commit-review && commentThread =~ /status:(approved|dismissed|outdated)/"
         }

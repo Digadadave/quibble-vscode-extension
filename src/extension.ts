@@ -77,7 +77,7 @@ export function activate(context: vscode.ExtensionContext): void {
     activeChangesView.registerCommands(context);
 
     context.subscriptions.push(
-        vscode.commands.registerCommand('commitReview.changes.openAllChanges', () => {
+        vscode.commands.registerCommand('quibble.changes.openAllChanges', () => {
             if (!activeGit) return;
             const branch = activeGit.getCurrentBranch();
             const base = activeGit.getMergeBase(branch);
@@ -227,8 +227,8 @@ export function activate(context: vscode.ExtensionContext): void {
     // StatusBarItem is the clickable text/icon in the bottom-left status bar.
     // Setting .command means clicking it runs that registered command.
     statusBar = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Left, 10);
-    statusBar.command = 'commitReview.selectRepo';
-    statusBar.tooltip = 'Select repo for Commit Review';
+    statusBar.command = 'quibble.selectRepo';
+    statusBar.tooltip = 'Select repo for Quibble';
     context.subscriptions.push(statusBar);
 
     // ── Shared refresh ────────────────────────────────────────────────────────
@@ -357,7 +357,7 @@ export function activate(context: vscode.ExtensionContext): void {
         refreshAll();
 
         const repoName = path.basename(repoPath);
-        vscode.window.showInformationMessage(`Commit Review: switched to ${repoName}`);
+        vscode.window.showInformationMessage(`Quibble: switched to ${repoName}`);
     }
 
     // ── Commands ──────────────────────────────────────────────────────────────
@@ -366,11 +366,11 @@ export function activate(context: vscode.ExtensionContext): void {
     // Push each registration to context.subscriptions so it is unregistered on deactivate.
 
     context.subscriptions.push(
-        vscode.commands.registerCommand('commitReview.selectRepo', async () => {
+        vscode.commands.registerCommand('quibble.selectRepo', async () => {
             // Fast path: if we're already on the only workspace folder's repo, skip discovery.
             const folders = vscode.workspace.workspaceFolders;
             if (activeGit && folders?.length === 1 && activeGit.getRepoPath().startsWith(folders[0].uri.fsPath)) {
-                vscode.commands.executeCommand('commitReview.setBaseBranch');
+                vscode.commands.executeCommand('quibble.setBaseBranch');
                 return;
             }
 
@@ -396,7 +396,7 @@ export function activate(context: vscode.ExtensionContext): void {
             if (allRepos.length === 1) {
                 qp.dispose();
                 switchToRepo(allRepos[0]);
-                vscode.commands.executeCommand('commitReview.setBaseBranch');
+                vscode.commands.executeCommand('quibble.setBaseBranch');
                 return;
             }
 
@@ -409,7 +409,7 @@ export function activate(context: vscode.ExtensionContext): void {
                     qp.dispose();
                     if (picked) {
                         switchToRepo(picked.repoPath);
-                        vscode.commands.executeCommand('commitReview.setBaseBranch');
+                        vscode.commands.executeCommand('quibble.setBaseBranch');
                     }
                     resolve();
                 });
@@ -419,18 +419,18 @@ export function activate(context: vscode.ExtensionContext): void {
     );
 
     context.subscriptions.push(
-        vscode.commands.registerCommand('commitReview.repoMenu', async () => {
+        vscode.commands.registerCommand('quibble.repoMenu', async () => {
             const picked = await vscode.window.showQuickPick([
                 { label: `$(repo) Select Repository`, id: 'repo' },
                 { label: `$(git-branch) Set Base Branch`, id: 'branch' },
-            ], { placeHolder: 'Commit Review' });
-            if (picked?.id === 'repo') vscode.commands.executeCommand('commitReview.selectRepo');
-            if (picked?.id === 'branch') vscode.commands.executeCommand('commitReview.setBaseBranch');
+            ], { placeHolder: 'Quibble' });
+            if (picked?.id === 'repo') vscode.commands.executeCommand('quibble.selectRepo');
+            if (picked?.id === 'branch') vscode.commands.executeCommand('quibble.setBaseBranch');
         })
     );
 
     context.subscriptions.push(
-        vscode.commands.registerCommand('commitReview.setBaseBranch', async () => {
+        vscode.commands.registerCommand('quibble.setBaseBranch', async () => {
             if (!activeGit || !activeComments) return;
             const branches = activeGit.getBranches();
             const current = activeComments.getBaseBranch();
@@ -461,12 +461,12 @@ export function activate(context: vscode.ExtensionContext): void {
             refreshAll();
 
             const msg = branch ? `Base branch set to "${branch}"` : 'Base branch reset to auto-detect';
-            vscode.window.showInformationMessage(`Commit Review: ${msg}`);
+            vscode.window.showInformationMessage(`Quibble: ${msg}`);
         })
     );
 
     context.subscriptions.push(
-        vscode.commands.registerCommand('commitReview.copyAgentPrompt', () => {
+        vscode.commands.registerCommand('quibble.copyAgentPrompt', () => {
             if (!activeComments || !activeGit) return;
             copyAgentPrompt(activeGit, activeComments);
         })
@@ -474,7 +474,7 @@ export function activate(context: vscode.ExtensionContext): void {
 
     // ── Orphan remap command ────────────────────────────────────────────────
     context.subscriptions.push(
-        vscode.commands.registerCommand('commitReview.remapOrphans', async () => {
+        vscode.commands.registerCommand('quibble.remapOrphans', async () => {
             if (!activeComments || !activeGit) return;
             if (!activeComments.hasOrphans) {
                 vscode.window.showInformationMessage('No orphaned comments to remap.');
@@ -507,7 +507,7 @@ export function activate(context: vscode.ExtensionContext): void {
 
     // ── Orphan dismiss command ──────────────────────────────────────────────
     context.subscriptions.push(
-        vscode.commands.registerCommand('commitReview.dismissOrphans', () => {
+        vscode.commands.registerCommand('quibble.dismissOrphans', () => {
             if (!activeComments) return;
             activeComments.dismissOrphans();
             refreshAll();
@@ -517,7 +517,7 @@ export function activate(context: vscode.ExtensionContext): void {
     // ── View fix / go to code ──────────────────────────────────────────────────
     // viewFix: open the multi-file diff for the commit where the agent made the fix.
     context.subscriptions.push(
-        vscode.commands.registerCommand('commitReview.viewFix', async (hash: string) => {
+        vscode.commands.registerCommand('quibble.viewFix', async (hash: string) => {
             if (!activeGit) return;
             const repoPath = activeGit.getRepoPath();
             const parentHash = activeGit.getParentHash(hash) || '__empty__';
@@ -536,7 +536,7 @@ export function activate(context: vscode.ExtensionContext): void {
 
     // goToCode: open the current file on disk at the commented line (fallback when no fix commit).
     context.subscriptions.push(
-        vscode.commands.registerCommand('commitReview.goToCode', async (file: string, line: number) => {
+        vscode.commands.registerCommand('quibble.goToCode', async (file: string, line: number) => {
             if (!activeGit) return;
             const repoPath = activeGit.getRepoPath();
             const absPath = path.join(repoPath, file);
@@ -554,9 +554,9 @@ export function activate(context: vscode.ExtensionContext): void {
 
     // ── Manual refresh command ──────────────────────────────────────────────
     context.subscriptions.push(
-        vscode.commands.registerCommand('commitReview.refresh', () => {
+        vscode.commands.registerCommand('quibble.refresh', () => {
             if (!activeGit || !activeComments) {
-                vscode.window.showWarningMessage('Commit Review: no active repo.');
+                vscode.window.showWarningMessage('Quibble: no active repo.');
                 return;
             }
             // Clear caches so we get completely fresh git data.
@@ -565,20 +565,20 @@ export function activate(context: vscode.ExtensionContext): void {
             const hashes = activeGit.getBranchCommitHashes(branch);
             activeComments.switchBranch(branch, hashes);
             refreshAll();
-            vscode.window.showInformationMessage('Commit Review: refreshed.');
+            vscode.window.showInformationMessage('Quibble: refreshed.');
         })
     );
 
     // ── Diagnostic command ───────────────────────────────────────────────────
     context.subscriptions.push(
-        vscode.commands.registerCommand('commitReview.diagnostics', () => {
+        vscode.commands.registerCommand('quibble.diagnostics', () => {
             if (!activeGit) {
-                vscode.window.showWarningMessage('Commit Review: no active repo.');
+                vscode.window.showWarningMessage('Quibble: no active repo.');
                 return;
             }
-            const ch = vscode.window.createOutputChannel('Commit Review Diagnostics');
+            const ch = vscode.window.createOutputChannel('Quibble Diagnostics');
             ch.clear();
-            ch.appendLine(`=== Commit Review Diagnostics ===`);
+            ch.appendLine(`=== Quibble Diagnostics ===`);
             ch.appendLine(`Timestamp: ${new Date().toISOString()}`);
             ch.appendLine(`Remote: ${vscode.env.remoteName ?? '(local)'}`);
             ch.appendLine(`VS Code version: ${vscode.version}`);
@@ -626,7 +626,7 @@ export function activate(context: vscode.ExtensionContext): void {
             switchToRepo(repos[0]);
         } else if (repos.length > 1) {
             updateStatusBar();
-            vscode.commands.executeCommand('commitReview.selectRepo');
+            vscode.commands.executeCommand('quibble.selectRepo');
         } else {
             updateStatusBar();
         }

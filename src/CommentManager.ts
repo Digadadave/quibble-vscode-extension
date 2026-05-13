@@ -262,7 +262,7 @@ export class CommentManager implements vscode.Disposable {
     // Set context key for orphan indicator in the UI
     vscode.commands.executeCommand(
       'setContext',
-      'commitReview.hasOrphans',
+      'quibble.hasOrphans',
       this._orphanedComments.length > 0,
     );
   }
@@ -338,7 +338,7 @@ export class CommentManager implements vscode.Disposable {
     // Clear orphan state for this session (they've been handled)
     this._orphanedHashes = [];
     this._orphanedComments = [];
-    vscode.commands.executeCommand('setContext', 'commitReview.hasOrphans', false);
+    vscode.commands.executeCommand('setContext', 'quibble.hasOrphans', false);
 
     // Repopulate working JSON (target hash is in currentHashes)
     this.populateWorkingJson();
@@ -351,7 +351,7 @@ export class CommentManager implements vscode.Disposable {
   dismissOrphans(): void {
     this._orphanedHashes = [];
     this._orphanedComments = [];
-    vscode.commands.executeCommand('setContext', 'commitReview.hasOrphans', false);
+    vscode.commands.executeCommand('setContext', 'quibble.hasOrphans', false);
   }
 
   // ── Working JSON (active branch view, read by the agent) ───────────────
@@ -686,7 +686,7 @@ export class CommentManager implements vscode.Disposable {
     if (imported > 0) {
       this.dbSave(db);
       vscode.window.showInformationMessage(
-        `Commit Review: migrated ${imported} comment(s) to new storage.`,
+        `Quibble: migrated ${imported} comment(s) to new storage.`,
       );
     }
   }
