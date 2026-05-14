@@ -93,11 +93,11 @@ If you're letting AI agents write code, you want to keep an eye on the herd — 
 
 ## The Sidebar
 
-The Quibble sidebar has two main panels:
+Here's what you're working with. The Quibble sidebar has two panels:
 
 ### Comments Panel
 
-Shows all comments on the current branch. Each comment displays:
+Your running list of everything you've had to say. Shows all comments on the current branch, each displaying:
 - The file and line number
 - A preview of the comment text
 - The current status (with a color-coded icon)
@@ -120,7 +120,7 @@ Shows all comments on the current branch. Each comment displays:
 
 ### Changes Panel
 
-Shows the files changed on your branch. Has two viewing modes you can toggle between:
+Where the action is. Shows every file changed on your branch, with two viewing modes:
 
 | View Mode | Description |
 |-----------|-------------|
@@ -148,7 +148,7 @@ Shows the files changed on your branch. Has two viewing modes you can toggle bet
 
 ## Comment Statuses
 
-Comments flow through different statuses. When you're using Quibble on its own (no agent), you'll mainly interact with these three:
+Every comment has a status so you know where things stand. When you're using Quibble on its own (no agent), you'll mainly use these three:
 
 | Status | Color | Meaning |
 |--------|-------|---------|
@@ -160,13 +160,15 @@ Comments flow through different statuses. When you're using Quibble on its own (
 
 ## Settings
 
+Not much to configure — Quibble mostly just works. But if you need to tweak things:
+
 | Setting | Default | Description |
 |---------|---------|-------------|
 | `quibble.commentsPath` | `.vscode/quibbles.json` | Path (relative to repo root) for the working review JSON file. This is the file that external tools and agents read/write. The persistent database lives in VS Code's `globalStorage`. |
 
 ### Command Palette
 
-These commands are available from the command palette (`Cmd+Shift+P` / `Ctrl+Shift+P`):
+For the keyboard-first crowd — hit `Cmd+Shift+P` / `Ctrl+Shift+P` and type "Quibble":
 
 | Command | Description |
 |---------|-------------|
