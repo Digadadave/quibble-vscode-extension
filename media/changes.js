@@ -451,8 +451,8 @@
       `<div class="ch-commit-row${isExpanded ? " ch-expanded" : ""}" data-hash="${esc(commit.hash)}">` +
       `<span class="ch-badge ch-badge-hash" style="background:${color};color:${tColor}">${esc(commit.shortHash)}</span>` +
       `<span class="ch-commit-msg" title="${esc(commit.message)}">${esc(commit.message)}</span>` +
-      statsHtml +
       `<span class="ch-open-changes" data-hash="${esc(commit.hash)}" title="Open Changes">${ICON_OPEN_CHANGES}</span>` +
+      statsHtml +
       `</div>`;
 
     let fileListHtml = "";
