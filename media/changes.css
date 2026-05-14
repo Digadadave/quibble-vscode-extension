@@ -1,5 +1,48 @@
 /* ── Changes panel (.ch-*) ──────────────────────────────────────────────── */
 
+/* ── Search box ────────────────────────────────────────── */
+.ch-search-box[hidden] { display: none; }
+.ch-search-box {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 8px;
+  border-bottom: 1px solid var(--vscode-sideBarSectionHeader-border, rgba(128,128,128,0.2));
+}
+.ch-search-icon {
+  font-size: 12px;
+  color: var(--vscode-input-placeholderForeground, #888);
+  flex-shrink: 0;
+}
+#ch-search {
+  flex: 1;
+  min-width: 0;
+  background: transparent;
+  border: none;
+  outline: none;
+  color: var(--vscode-input-foreground, #ccc);
+  font-size: 11px;
+  font-family: inherit;
+  padding: 0;
+}
+#ch-search::placeholder {
+  color: var(--vscode-input-placeholderForeground, #888);
+}
+.ch-search-clear {
+  display: flex;
+  align-items: center;
+  background: none;
+  border: none;
+  padding: 0;
+  cursor: pointer;
+  color: var(--vscode-input-placeholderForeground, #888);
+  font-size: 12px;
+  flex-shrink: 0;
+}
+.ch-search-clear:hover {
+  color: var(--vscode-foreground, #ccc);
+}
+
 /* --ch-row-bg and --ch-row-hover-bg are set at runtime by changes.js
    by reading and compositing the actual resolved theme colors from the body,
    ensuring they are always fully opaque regardless of theme. */

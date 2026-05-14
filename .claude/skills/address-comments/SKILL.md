@@ -1,14 +1,14 @@
 ---
 name: address-comments
-description: Address open reviewer comments in .vscode/commit-reviews.json
+description: Address open reviewer comments in .vscode/quibbles.json
 allowed-tools: Read, Edit, Write, Bash, Glob, Grep
 ---
 
-Address all open reviewer comments in `.vscode/commit-reviews.json`.
+Address all open reviewer comments in `.vscode/quibbles.json`.
 
 ## Steps
 
-1. **Read** `.vscode/commit-reviews.json` and collect every entry where `status` is `"open"` or `"needs-input"`. Skip `approved`, `dismissed`, `addressed`, `outdated`, `in-progress`.
+1. **Read** `.vscode/quibbles.json` and collect every entry where `status` is `"open"` or `"needs-input"`. Skip `approved`, `dismissed`, `addressed`, `outdated`, `in-progress`.
 
 2. **For each actionable comment**, in order:
 
@@ -21,7 +21,7 @@ Address all open reviewer comments in `.vscode/commit-reviews.json`.
     - **Bug / improvement** (code change needed) → make the fix, reply in `thread` describing what you changed, set status to `"addressed"`, set `addressedAt` (current ISO timestamp), set `addressedByCommit` to `null` (filled after commit), write `resolvedNote` summarizing the change.
     - **Agent has a follow-up question** → reply in `thread` with the question, set status to `"needs-input"`, write `resolvedNote` with the question. Use this only when you genuinely cannot proceed without user input.
 
-3. **Update** `.vscode/commit-reviews.json` in place. For each comment you handled, write fields in this exact order:
+3. **Update** `.vscode/quibbles.json` in place. For each comment you handled, write fields in this exact order:
     1. `thread` — append `{ "author": "claude", "body": "...", "createdAt": "<ISO timestamp>" }`
     2. `resolvedNote` — short plain-text summary (1–2 sentences)
     3. `addressedAt` — current ISO timestamp (for `addressed` and `addressed-no-change`; null otherwise)
@@ -32,13 +32,13 @@ Address all open reviewer comments in `.vscode/commit-reviews.json`.
 
 4. **If any code files were changed**, run `npm run compile` and fix all TypeScript errors before continuing.
 
-5. **Commit**: stage changed files (code files + `.vscode/commit-reviews.json`) and create a git commit. Message format:
+5. **Commit**: stage changed files (code files + `.vscode/quibbles.json`) and create a git commit. Message format:
 
     ```
-    review: address N comment(s) from commit-reviews
+    review: address N comment(s) from quibbles
     ```
 
-6. **After committing**, update `addressedByCommit` in `.vscode/commit-reviews.json` for any comments you just marked `"addressed"` — set it to the full hash of the commit just created. Write the file again (no second commit needed for this update).
+6. **After committing**, update `addressedByCommit` in `.vscode/quibbles.json` for any comments you just marked `"addressed"` — set it to the full hash of the commit just created. Write the file again (no second commit needed for this update).
 
 ## Rules
 

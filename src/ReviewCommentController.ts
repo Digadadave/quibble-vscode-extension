@@ -41,7 +41,7 @@ interface CRComment extends vscode.Comment {
  * Threads appear both inline in the editor and in the COMMENTS sidebar panel.
  */
 export class ReviewCommentController implements vscode.Disposable {
-  static readonly id = 'commit-review';
+  static readonly id = 'quibble';
 
   private controller: vscode.CommentController;
   /** Map from ReviewComment.id → the live VS Code thread. */
@@ -64,7 +64,7 @@ export class ReviewCommentController implements vscode.Disposable {
     this.extensionUri = context.extensionUri;
     this.controller = vscode.comments.createCommentController(
       ReviewCommentController.id,
-      'Commit Review',
+      'Quibble',
     );
     this.controller.options = {
       prompt:      'Leave a review comment…',
@@ -284,13 +284,13 @@ export class ReviewCommentController implements vscode.Disposable {
       const actionArgs = hasFixCommit
         ? encodeURIComponent(JSON.stringify([rc.addressedByCommit]))
         : encodeURIComponent(JSON.stringify([rc.file, rc.line]));
-      const actionCmd  = hasFixCommit ? 'commitReview.viewFix' : 'commitReview.goToCode';
+      const actionCmd  = hasFixCommit ? 'quibble.viewFix' : 'quibble.goToCode';
       const actionText = hasFixCommit ? 'View fix →' : 'Go to code →';
 
       const body = new vscode.MarkdownString(
         `${rc.resolvedNote}\n\n[${actionText}](command:${actionCmd}?${actionArgs})`,
       );
-      body.isTrusted = { enabledCommands: ['commitReview.viewFix', 'commitReview.goToCode'] };
+      body.isTrusted = { enabledCommands: ['quibble.viewFix', 'quibble.goToCode'] };
 
       items.push({
         reviewId:  rc.id,
@@ -362,7 +362,7 @@ export class ReviewCommentController implements vscode.Disposable {
     // ── Submit / reply ──────────────────────────────────────────────────────
     context.subscriptions.push(
       vscode.commands.registerCommand(
-        'commitReview.comment.reply',
+        'quibble.comment.reply',
         (reply: vscode.CommentReply) => {
           const { thread, text } = reply;
           if (!text.trim()) return;
@@ -440,10 +440,10 @@ export class ReviewCommentController implements vscode.Disposable {
       };
 
     context.subscriptions.push(
-      vscode.commands.registerCommand('commitReview.comment.resolve', makeStatusAction(STATUS.APPROVED)),
-      vscode.commands.registerCommand('commitReview.comment.dismiss', makeStatusAction(STATUS.DISMISSED)),
-      vscode.commands.registerCommand('commitReview.comment.reopen',  makeStatusAction(STATUS.OPEN)),
-      vscode.commands.registerCommand('commitReview.comment.gotoFile', (thread: vscode.CommentThread) => {
+      vscode.commands.registerCommand('quibble.comment.resolve', makeStatusAction(STATUS.APPROVED)),
+      vscode.commands.registerCommand('quibble.comment.dismiss', makeStatusAction(STATUS.DISMISSED)),
+      vscode.commands.registerCommand('quibble.comment.reopen',  makeStatusAction(STATUS.OPEN)),
+      vscode.commands.registerCommand('quibble.comment.gotoFile', (thread: vscode.CommentThread) => {
         const params   = new URLSearchParams(thread.uri.query);
         const repoPath = params.get('repo') ?? '';
         const filePath = thread.uri.path.startsWith('/') ? thread.uri.path.slice(1) : thread.uri.path;
@@ -462,7 +462,7 @@ export class ReviewCommentController implements vscode.Disposable {
 
     // Cancel — only disposes new (unsaved) threads; for existing threads VS Code closes the reply box automatically
     context.subscriptions.push(
-      vscode.commands.registerCommand('commitReview.comment.cancelThread', (reply: vscode.CommentReply) => {
+      vscode.commands.registerCommand('quibble.comment.cancelThread', (reply: vscode.CommentReply) => {
         if (reply.thread.comments.length === 0) {
           reply.thread.dispose();
         }
@@ -471,7 +471,7 @@ export class ReviewCommentController implements vscode.Disposable {
 
     // ── Delete ──────────────────────────────────────────────────────────────
     context.subscriptions.push(
-      vscode.commands.registerCommand('commitReview.comment.delete', (thread: vscode.CommentThread) => {
+      vscode.commands.registerCommand('quibble.comment.delete', (thread: vscode.CommentThread) => {
         const first = thread?.comments?.[0] as CRComment | undefined;
         if (!first?.reviewId) return;
         const deletedId = first.reviewId;

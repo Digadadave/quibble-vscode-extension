@@ -31,6 +31,26 @@
     }
   })();
 
+  // ── Search box ─────────────────────────────────────────────────────────────
+
+  const searchInput = /** @type {HTMLInputElement} */ (document.getElementById("ch-search"));
+  const searchClear = /** @type {HTMLButtonElement} */ (document.getElementById("ch-search-clear"));
+
+  searchInput.addEventListener("input", () => {
+    filterText = searchInput.value.trim().toLowerCase();
+    searchClear.hidden = filterText === "";
+    visibleCount = PAGE_SIZE;
+    render();
+  });
+
+  searchClear.addEventListener("click", () => {
+    searchInput.value = "";
+    filterText = "";
+    searchClear.hidden = true;
+    visibleCount = PAGE_SIZE;
+    render();
+  });
+
   // 20-color muted palette for commit hash badges (consistent order, index 0 first)
   const BADGE_COLORS = [
     "#5b8dd9", // 01 blue
@@ -97,6 +117,7 @@
   let branch = "";
   /** @type {'files'|'commits'} */
   let viewMode = "files";
+  let filterText = "";
   /** @type {Map<string,string>}  hash → color */
   const commitColorMap = new Map();
   let colorIndex = 0;
@@ -168,6 +189,20 @@
       expandedFiles.clear();
       expandedCommits.clear();
       render();
+      return;
+    }
+    if (msg.type === "setSearchVisible") {
+      const box = /** @type {HTMLElement} */ (document.querySelector(".ch-search-box"));
+      if (msg.visible) {
+        box?.removeAttribute("hidden");
+        searchInput?.focus();
+      } else {
+        box?.setAttribute("hidden", "");
+        if (searchInput) searchInput.value = "";
+        filterText = "";
+        visibleCount = PAGE_SIZE;
+        render();
+      }
       return;
     }
     if (msg.type !== "load") return;
@@ -319,6 +354,15 @@
 
   // ── Render ─────────────────────────────────────────────────────────────────
 
+  function pathMatchesFilter(path) {
+    return path.toLowerCase().includes(filterText);
+  }
+
+  function getFilteredFiles() {
+    if (!filterText) return files;
+    return files.filter(f => pathMatchesFilter(f.path));
+  }
+
   function render() {
     const list = document.getElementById("changes-list");
     if (!list) return;
@@ -333,8 +377,14 @@
       return;
     }
 
-    const visible = files.slice(0, visibleCount);
-    const remaining = files.length - visibleCount;
+    const filteredFiles = getFilteredFiles();
+    if (filterText && !filteredFiles.length) {
+      list.innerHTML = '<div class="ch-empty">No matching files</div>';
+      return;
+    }
+
+    const visible = filteredFiles.slice(0, visibleCount);
+    const remaining = filteredFiles.length - visibleCount;
     const moreHtml =
       remaining > 0
         ? `<div class="ch-load-more" id="ch-load-more">Load ${Math.min(remaining, PAGE_SIZE)} more of ${remaining} remaining</div>`
@@ -372,14 +422,23 @@
   }
 
   function renderCommitView(list) {
-    const commits = buildCommitData();
-    list.innerHTML = commits.map(renderCommitBlock).join("");
+    let commits = buildCommitData();
+    if (filterText) {
+      commits = commits
+        .map(c => ({ ...c, files: c.files.filter(f => pathMatchesFilter(f.path)) }))
+        .filter(c => c.files.length > 0);
+    }
+    if (filterText && !commits.length) {
+      list.innerHTML = '<div class="ch-empty">No matching files</div>';
+      return;
+    }
+    list.innerHTML = commits.map(c => renderCommitBlock(c, !!filterText)).join("");
   }
 
-  function renderCommitBlock(commit) {
+  function renderCommitBlock(commit, forceExpand = false) {
     const color = getCommitColor(commit.hash);
     const tColor = badgeTextColor(color);
-    const isExpanded = expandedCommits.has(commit.hash);
+    const isExpanded = forceExpand || expandedCommits.has(commit.hash);
 
     const totalIns = commit.files.reduce((s, f) => s + f.insertions, 0);
     const totalDel = commit.files.reduce((s, f) => s + f.deletions, 0);

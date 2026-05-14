@@ -2,7 +2,7 @@ import * as vscode from 'vscode';
 import { GitService } from './GitService';
 
 /**
- * TextDocumentContentProvider for the `commit-review-git` URI scheme.
+ * TextDocumentContentProvider for the `quibble-git` URI scheme.
  *
  * VS Code normally only opens real files from disk. Implementing this interface
  * lets the extension register a custom URI scheme and return any string when VS Code
@@ -11,13 +11,13 @@ import { GitService } from './GitService';
  * Register with: `vscode.workspace.registerTextDocumentContentProvider(scheme, provider)`
  *
  * URI format:
- *   commit-review-git:/<relative-file-path>?repo=<absRepoPath>&ref=<hash>&side=<old|new>
+ *   quibble-git:/<relative-file-path>?repo=<absRepoPath>&ref=<hash>&side=<old|new>
  *
  * Special ref value `__empty__` returns an empty file (used for root commits
  * that have no parent, and for added/deleted files where one side is empty).
  */
 export class GitContentProvider implements vscode.TextDocumentContentProvider {
-  static readonly scheme = 'commit-review-git';
+  static readonly scheme = 'quibble-git';
 
   private _onDidChange = new vscode.EventEmitter<vscode.Uri>();
   readonly onDidChange = this._onDidChange.event;
@@ -40,10 +40,10 @@ export class GitContentProvider implements vscode.TextDocumentContentProvider {
     const git = this.git ?? new GitService(repo);
     try {
       const content = git.getFileContentAtCommit(ref, file);
-      console.log('[CommitReview] GitContentProvider', { ref: ref.slice(0, 8), file: file.split('/').pop(), contentLen: content.length });
+      console.log('[Quibble] GitContentProvider', { ref: ref.slice(0, 8), file: file.split('/').pop(), contentLen: content.length });
       return content;
     } catch (err) {
-      console.log('[CommitReview] GitContentProvider ERROR', { ref: ref.slice(0, 8), file: file.split('/').pop(), err: String(err) });
+      console.log('[Quibble] GitContentProvider ERROR', { ref: ref.slice(0, 8), file: file.split('/').pop(), err: String(err) });
       return '';
     }
   }
