@@ -250,8 +250,7 @@
   min-width: 0;
 }
 
-/* Truncate with ellipsis in commit rows; fade in expanded commit items */
-.ch-commit-row .ch-commit-msg { text-overflow: ellipsis; }
+/* Fade right edge of commit items */
 .ch-commit-item .ch-commit-msg {
   -webkit-mask-image: linear-gradient(to right, black calc(100% - 7px), transparent 100%);
   mask-image: linear-gradient(to right, black calc(100% - 7px), transparent 100%);
@@ -337,15 +336,18 @@
 }
 .ch-commit-row:hover { background: var(--vscode-list-hoverBackground, #2a2d2e); }
 
-/* Open-changes icon on commit rows — appears at far right on hover */
+/* Open-changes icon on commit rows — overlaps message edge on hover */
 .ch-open-changes {
   flex-shrink: 0;
   color: var(--vscode-descriptionForeground, #888);
   cursor: pointer;
   padding: 0 2px;
   line-height: 1;
+  margin-left: -20px;
+  background: var(--ch-row-bg);
 }
 .ch-open-changes i { opacity: 0; transition: opacity 0.2s; }
+.ch-commit-row:hover .ch-open-changes { background: var(--ch-row-hover-bg); }
 .ch-commit-row:hover .ch-open-changes i { opacity: 1; }
 .ch-open-changes:hover { color: var(--vscode-textLink-foreground, #4ea6ea); }
 
