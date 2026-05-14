@@ -16,14 +16,14 @@ Comments are stored locally (in VS Code's `globalState`) and optionally mirrored
 
 ### How to Use It
 
-1. **Open the sidebar** — Look for the Quibble icon in the activity bar (left side of VS Code). Click it to open the panel.
-2. **Pick a repo** — If you have multiple repos in your workspace, use the repo icon in the Changes panel header to select which one you're reviewing.
-3. **Set your base branch** — The extension compares your current branch against a base branch (defaults to `main` or `master`). You can change this via **Repository Settings** > **Set Base Branch**.
-4. **Browse commits and files** — The **Changes** panel shows all the commits and changed files on your branch. Click a file to open a diff view.
-5. **Leave comments** — In the diff view, hover over the gutter and click the `+` icon to start a comment thread on any line. Write your comment and hit **Submit Comment**.
-6. **Track your comments** — The **Comments** panel shows all your comments with their current status. You can approve, dismiss, reopen, or delete comments from here.
+1. **Open the sidebar** — Click the Quibble icon in the activity bar.
+2. **Pick a repo** — Multi-root workspace? Use the repo icon in the Changes header to switch repos.
+3. **Set your base branch** — Defaults to `main` or `master`. Change it via **Repository Settings** > **Set Base Branch**.
+4. **Browse commits and files** — Click any file in the **Changes** panel to open a diff.
+5. **Leave comments** — Hover the gutter in a diff, click `+`, write your comment, hit **Submit Comment**.
+6. **Track your comments** — The **Comments** panel shows everything with its current status. Approve, dismiss, reopen, or delete from there.
 
-That's really it. Open the sidebar, click through your commits, and comment on whatever catches your eye.
+That's it. Click through your commits and quibble away.
 
 ---
 
