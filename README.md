@@ -49,7 +49,7 @@ That's basically hoping the ranch hands didn't knock down any fences while you w
 1. Ask the agent to do something
 2. **While it's working**, review the commits as they come in
 3. See something going in the wrong direction? **Leave a comment directly on that line of code**
-4. Prompt the agent to check your comments — it reads the `.vscode/quibbles.json` file and course-corrects
+4. Prompt the agent to check your comments — it reads the `.vscode/quibbles.json` file and course-corrects. Or better yet, orchestrate the agent to check back for comments before moving on to the next task.
 
 You're catching issues early — when they're small and easy to fix — instead of after the agent has gone down the wrong path for 20 commits. Your feedback is specific and contextual because it's attached to the exact line of code you're talking about.
 
