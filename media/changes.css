@@ -369,18 +369,22 @@
 }
 .ch-file-item:hover { background: var(--vscode-list-hoverBackground, rgba(255,255,255,0.04)); }
 
-/* Open-file icon on file items — overlaps label's faded zone */
+/* Open-file icon on file items — zero width when idle, expands on hover */
 .ch-jump-file {
   flex-shrink: 0;
   font-size: 14px;
   color: var(--vscode-descriptionForeground, #888);
   cursor: pointer;
   line-height: 1;
-  padding: 0 2px;
-  margin-left: -20px;
-  background: var(--ch-row-bg);
+  width: 0;
+  padding: 0;
+  overflow: hidden;
+  opacity: 0;
+  transition: width 0.15s, opacity 0.15s, padding 0.15s;
 }
-.ch-jump-file i { opacity: 0; transition: opacity 0.2s; }
-.ch-file-item:hover .ch-jump-file { background: var(--ch-row-hover-bg); }
-.ch-file-item:hover .ch-jump-file i { opacity: 1; }
+.ch-file-item:hover .ch-jump-file {
+  width: 18px;
+  padding: 0 2px;
+  opacity: 1;
+}
 .ch-jump-file:hover { color: var(--vscode-textLink-foreground, #4ea6ea); }
