@@ -11,14 +11,14 @@ export interface GitUriParams {
   file: string;
 }
 
-export function parseGitUri(path: string, query: string): GitUriParams {
+export function parseGitUri(uriPath: string, query: string): GitUriParams {
   const params = new URLSearchParams(query);
   return {
     ref:        params.get('ref')        ?? '',
     repo:       params.get('repo')       ?? '',
     side:       params.get('side')       ?? '',
     reviewHash: params.get('reviewHash'),
-    file:       path.startsWith('/') ? path.slice(1) : path,
+    file:       uriPath.startsWith('/') ? uriPath.slice(1) : uriPath,
   };
 }
 

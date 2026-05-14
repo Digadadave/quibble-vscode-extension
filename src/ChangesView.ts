@@ -5,7 +5,6 @@ import { GitService } from './GitService';
 import { CommentManager, CommentStatus, STATUS } from './CommentManager';
 import { buildStatusCssVars } from './icons';
 
-/** Statuses excluded from file-row comment badges (superset of constants.ts CLOSED_STATUSES — adds OUTDATED). */
 const BADGE_HIDDEN_STATUSES = new Set<CommentStatus>([STATUS.APPROVED, STATUS.DISMISSED, STATUS.OUTDATED]);
 
 /**

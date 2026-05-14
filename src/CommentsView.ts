@@ -1,5 +1,5 @@
 import * as vscode from 'vscode';
-import { CommentManager, ReviewComment, CommentStatus, STATUS, CLOSED_STATUSES } from './CommentManager';
+import { CommentManager, ReviewComment, CommentStatus, STATUS, CLOSED_STATUSES, STATUS_LABELS } from './CommentManager';
 import { ICONS, STATUS_COLORS } from './icons';
 
 // ── Status metadata ──────────────────────────────────────────────────────────
@@ -8,20 +8,19 @@ const ADDRESSED_STATUSES   = new Set<CommentStatus>([STATUS.ADDRESSED, STATUS.AD
 const NO_CODE_NAV_STATUSES = new Set<CommentStatus>([STATUS.ADDRESSED_NO_CHANGE, STATUS.NEEDS_INPUT]);
 
 interface StatusMeta {
-  label: string;
   icon: string;          // codicon id
   color: vscode.ThemeColor;
 }
 
 const STATUS_META: Record<CommentStatus, StatusMeta> = {
-  [STATUS.OPEN]:                { label: 'Open',                  icon: ICONS.COMMENT_UNRESOLVED,       color: new vscode.ThemeColor(STATUS_COLORS.open.token) },
-  [STATUS.NEEDS_INPUT]:         { label: 'Needs Input',           icon: ICONS.FEEDBACK,                 color: new vscode.ThemeColor(STATUS_COLORS.question.token) },
-  [STATUS.IN_PROGRESS]:         { label: 'In Progress',           icon: ICONS.EDIT_SPARKLE,             color: new vscode.ThemeColor(STATUS_COLORS.replied.token) },
-  [STATUS.ADDRESSED]:           { label: 'Addressed',             icon: ICONS.CHECK,                    color: new vscode.ThemeColor(STATUS_COLORS.addressed.token) },
-  [STATUS.ADDRESSED_NO_CHANGE]: { label: 'Addressed (No Change)', icon: ICONS.COMMENT_DISCUSSION_QUOTE, color: new vscode.ThemeColor(STATUS_COLORS.replied.token) },
-  [STATUS.APPROVED]:            { label: 'Approved',              icon: ICONS.CHECK_ALL,                color: new vscode.ThemeColor(STATUS_COLORS.approved.token) },
-  [STATUS.DISMISSED]:           { label: 'Dismissed',             icon: ICONS.SYNC_IGNORED,             color: new vscode.ThemeColor(STATUS_COLORS.dismissed.token) },
-  [STATUS.OUTDATED]:            { label: 'Outdated',              icon: ICONS.SYNC_IGNORED,             color: new vscode.ThemeColor(STATUS_COLORS.dismissed.token) },
+  [STATUS.OPEN]:                { icon: ICONS.COMMENT_UNRESOLVED,       color: new vscode.ThemeColor(STATUS_COLORS.open.token) },
+  [STATUS.NEEDS_INPUT]:         { icon: ICONS.FEEDBACK,                 color: new vscode.ThemeColor(STATUS_COLORS.question.token) },
+  [STATUS.IN_PROGRESS]:         { icon: ICONS.EDIT_SPARKLE,             color: new vscode.ThemeColor(STATUS_COLORS.replied.token) },
+  [STATUS.ADDRESSED]:           { icon: ICONS.CHECK,                    color: new vscode.ThemeColor(STATUS_COLORS.addressed.token) },
+  [STATUS.ADDRESSED_NO_CHANGE]: { icon: ICONS.COMMENT_DISCUSSION_QUOTE, color: new vscode.ThemeColor(STATUS_COLORS.replied.token) },
+  [STATUS.APPROVED]:            { icon: ICONS.CHECK_ALL,                color: new vscode.ThemeColor(STATUS_COLORS.approved.token) },
+  [STATUS.DISMISSED]:           { icon: ICONS.SYNC_IGNORED,             color: new vscode.ThemeColor(STATUS_COLORS.dismissed.token) },
+  [STATUS.OUTDATED]:            { icon: ICONS.SYNC_IGNORED,             color: new vscode.ThemeColor(STATUS_COLORS.dismissed.token) },
 };
 
 
@@ -81,7 +80,7 @@ export class CommentTreeItem extends vscode.TreeItem {
     md.supportThemeIcons = true;
     md.isTrusted = true;
 
-    md.appendMarkdown(`**$(${meta.icon}) ${meta.label}** — \`${c.file}:${c.line}\`\n\n`);
+    md.appendMarkdown(`**$(${meta.icon}) ${STATUS_LABELS[c.status]}** — \`${c.file}:${c.line}\`\n\n`);
     if (dir) md.appendMarkdown(`*${dir}*\n\n`);
     md.appendMarkdown(`${c.body}\n\n`);
 

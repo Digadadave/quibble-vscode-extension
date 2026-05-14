@@ -216,8 +216,9 @@ export function activate(context: vscode.ExtensionContext): void {
 
             // Scroll to the matching comment in the newly opened diff.
             if (activeComments) {
-                const comment = activeComments.load().find(c => c.commitHash === commitHash && c.file === file && c.side === (parsed.side === 'old' ? 'left' : 'right'))
-                    ?? activeComments.load().find(c => c.commitHash === commitHash && c.file === file);
+                const allComments = activeComments.load();
+                const comment = allComments.find(c => c.commitHash === commitHash && c.file === file && c.side === (parsed.side === 'old' ? 'left' : 'right'))
+                    ?? allComments.find(c => c.commitHash === commitHash && c.file === file);
                 if (comment) {
                     setTimeout(() => {
                         vscode.commands.executeCommand('revealLine', {
