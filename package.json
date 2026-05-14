@@ -258,17 +258,17 @@
           "group": "navigation@3"
         },
         {
-          "command": "quibble.changes.collapseAll",
+          "command": "quibble.changes.toggleSearch",
           "when": "view == quibble.changesView",
           "group": "navigation@0"
         },
         {
-          "command": "quibble.changes.toggleSearch",
+          "command": "quibble.refresh",
           "when": "view == quibble.changesView",
           "group": "navigation@1"
         },
         {
-          "command": "quibble.refresh",
+          "command": "quibble.changes.collapseAll",
           "when": "view == quibble.changesView",
           "group": "navigation@2"
         },
