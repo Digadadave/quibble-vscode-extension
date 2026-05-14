@@ -250,6 +250,9 @@
   min-width: 0;
 }
 
+/* Show ellipsis on commit message when hovering (icon will overlay it) */
+.ch-commit-row:hover .ch-commit-msg { text-overflow: ellipsis; }
+
 /* Fade right edge of commit items */
 .ch-commit-item .ch-commit-msg {
   -webkit-mask-image: linear-gradient(to right, black calc(100% - 7px), transparent 100%);
