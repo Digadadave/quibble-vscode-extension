@@ -29,6 +29,19 @@ let gitFsWatchers: vscode.Disposable[] = [];
  * Push commands, event listeners, watchers, and status-bar items here so they
  * are automatically cleaned up.
  */
+type DiffResource = [vscode.Uri, vscode.Uri | undefined, vscode.Uri | undefined];
+
+function buildCommitResources(repoPath: string, files: import('./GitService').FileWithStats[], parentHash: string, hash: string): DiffResource[] {
+    return files.map(f => {
+        const oldRef = f.status === 'A' ? '__empty__' : parentHash;
+        const newRef = f.status === 'D' ? '__empty__' : hash;
+        const label = vscode.Uri.file(path.join(repoPath, f.path));
+        const original = f.status === 'A' ? undefined : GitContentProvider.makeUri(repoPath, f.path, oldRef, 'old', hash);
+        const modified = f.status === 'D' ? undefined : GitContentProvider.makeUri(repoPath, f.path, newRef, 'new');
+        return [label, original, modified] as DiffResource;
+    });
+}
+
 export function activate(context: vscode.ExtensionContext): void {
 
     // ── Git content provider (serves file content at specific commits) ─────────
@@ -145,14 +158,7 @@ export function activate(context: vscode.ExtensionContext): void {
         const repoPath = activeGit.getRepoPath();
         const parentHash = activeGit.getParentHash(hash) || '__empty__';
         const files = activeGit.getChangedFilesWithStats(hash);
-        const resources = files.map(f => {
-            const oldRef = f.status === 'A' ? '__empty__' : parentHash;
-            const newRef = f.status === 'D' ? '__empty__' : hash;
-            const label = vscode.Uri.file(path.join(repoPath, f.path));
-            const original = f.status === 'A' ? undefined : GitContentProvider.makeUri(repoPath, f.path, oldRef, 'old', hash);
-            const modified = f.status === 'D' ? undefined : GitContentProvider.makeUri(repoPath, f.path, newRef, 'new');
-            return [label, original, modified] as [vscode.Uri, vscode.Uri | undefined, vscode.Uri | undefined];
-        });
+        const resources = buildCommitResources(repoPath, files, parentHash, hash);
         await vscode.commands.executeCommand('vscode.changes', `Commit ${hash.slice(0, 7)}`, resources);
     };
 
@@ -529,14 +535,7 @@ export function activate(context: vscode.ExtensionContext): void {
             const repoPath = activeGit.getRepoPath();
             const parentHash = activeGit.getParentHash(hash) || '__empty__';
             const files = activeGit.getChangedFilesWithStats(hash);
-            const resources = files.map(f => {
-                const oldRef = f.status === 'A' ? '__empty__' : parentHash;
-                const newRef = f.status === 'D' ? '__empty__' : hash;
-                const label = vscode.Uri.file(path.join(repoPath, f.path));
-                const original = f.status === 'A' ? undefined : GitContentProvider.makeUri(repoPath, f.path, oldRef, 'old', hash);
-                const modified = f.status === 'D' ? undefined : GitContentProvider.makeUri(repoPath, f.path, newRef, 'new');
-                return [label, original, modified] as [vscode.Uri, vscode.Uri | undefined, vscode.Uri | undefined];
-            });
+            const resources = buildCommitResources(repoPath, files, parentHash, hash);
             await vscode.commands.executeCommand('vscode.changes', `Fix: ${hash.slice(0, 7)}`, resources);
         })
     );
