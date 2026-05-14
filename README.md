@@ -45,7 +45,7 @@ Without something like this, the typical "vibe coding" flow is:
 3. Look at a giant diff and try to figure out what happened
 4. If something's off, explain the problem and start over
 
-That's basically letting the herd roam free and hoping they're all still there when you check the gate. With Quibble, the flow becomes:
+That's basically hoping the ranch hands didn't knock down any fences while you weren't looking — and that the herd's still where you left them. With Quibble, the flow becomes:
 1. Ask the agent to do something
 2. **While it's working**, review the commits as they come in
 3. See something going in the wrong direction? **Leave a comment directly on that line of code**
