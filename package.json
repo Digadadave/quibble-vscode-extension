@@ -1,7 +1,7 @@
 {
   "name": "quibble",
   "displayName": "Quibble",
-  "description": "Review local git commits with GitHub-style comments. Agent-friendly metadata for Claude Code.",
+  "description": "Review local git commits with GitHub-style inline comments. Agent-friendly review file for AI-assisted workflows.",
   "version": "0.0.8",
   "publisher": "local",
   "engines": {
