@@ -2,7 +2,7 @@
   "name": "quibble",
   "displayName": "Quibble",
   "description": "Review local git commits with GitHub-style inline comments. Agent-friendly review file for AI-assisted workflows.",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "publisher": "local",
   "engines": {
     "vscode": "^1.85.0"
