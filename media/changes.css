@@ -47,17 +47,6 @@
    by reading and compositing the actual resolved theme colors from the body,
    ensuring they are always fully opaque regardless of theme. */
 
-.ch-branch-label {
-  font-size: 10px;
-  color: var(--vscode-descriptionForeground, #888);
-  margin-left: 6px;
-  font-weight: normal;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  flex: 1;
-  min-width: 0;
-}
 
 /* ── Toggle switch ─────────────────────────────────────── */
 .ch-toggle {
@@ -250,8 +239,10 @@
   min-width: 0;
 }
 
-/* Fade right edge: commit rows (for icon overlay) and expanded commit items */
-.ch-commit-row .ch-commit-msg,
+/* Truncate commit message with ellipsis */
+.ch-commit-row .ch-commit-msg { text-overflow: ellipsis; }
+
+/* Fade right edge of commit items */
 .ch-commit-item .ch-commit-msg {
   -webkit-mask-image: linear-gradient(to right, black calc(100% - 7px), transparent 100%);
   mask-image: linear-gradient(to right, black calc(100% - 7px), transparent 100%);
@@ -337,19 +328,23 @@
 }
 .ch-commit-row:hover { background: var(--vscode-list-hoverBackground, #2a2d2e); }
 
-/* Open-all-changes icon on commit rows — overlaps message's faded zone */
+/* Open-changes icon on commit rows — zero width when idle, expands on hover */
 .ch-open-changes {
   flex-shrink: 0;
   color: var(--vscode-descriptionForeground, #888);
   cursor: pointer;
-  padding: 0 2px;
   line-height: 1;
-  margin-left: -20px;
-  background: var(--ch-row-bg);
+  width: 0;
+  padding: 0;
+  overflow: hidden;
+  opacity: 0;
+  transition: width 0.15s, opacity 0.15s, padding 0.15s;
 }
-.ch-open-changes i { opacity: 0; transition: opacity 0.2s; }
-.ch-commit-row:hover .ch-open-changes { background: var(--ch-row-hover-bg); }
-.ch-commit-row:hover .ch-open-changes i { opacity: 1; }
+.ch-commit-row:hover .ch-open-changes {
+  width: 18px;
+  padding: 0 2px;
+  opacity: 1;
+}
 .ch-open-changes:hover { color: var(--vscode-textLink-foreground, #4ea6ea); }
 
 /* Expanded file list under a commit row */
