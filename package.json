@@ -1,8 +1,8 @@
 {
   "name": "quibble",
   "displayName": "Quibble",
-  "description": "Review local git commits with GitHub-style comments. Agent-friendly metadata for Claude Code.",
-  "version": "0.0.7",
+  "description": "Review local git commits with GitHub-style inline comments. Agent-friendly review file for AI-assisted workflows.",
+  "version": "0.0.8",
   "publisher": "local",
   "engines": {
     "vscode": "^1.85.0"
@@ -216,7 +216,7 @@
     "configuration": {
       "title": "Quibble",
       "properties": {
-        "quibble.reviewsPath": {
+        "quibble.commentsPath": {
           "type": "string",
           "default": ".vscode/quibbles.json",
           "description": "Path (relative to the repo root) for the working comments JSON. This file is populated with comments for the current branch and is the file agents should read/write. The persistent DB lives in VS Code's globalStorage.",
@@ -226,25 +226,82 @@
     },
     "menus": {
       "commandPalette": [
-        { "command": "quibble.comment.reply", "when": "false" },
-        { "command": "quibble.comment.resolve", "when": "false" },
-        { "command": "quibble.comment.gotoFile", "when": "false" },
-        { "command": "quibble.comment.dismiss", "when": "false" },
-        { "command": "quibble.comment.cancelThread", "when": "false" },
-        { "command": "quibble.comment.reopen", "when": "false" },
-        { "command": "quibble.comment.delete", "when": "false" },
-        { "command": "quibble.comments.resolve", "when": "false" },
-        { "command": "quibble.comments.dismiss", "when": "false" },
-        { "command": "quibble.comments.reopen", "when": "false" },
-        { "command": "quibble.comments.delete", "when": "false" },
-        { "command": "quibble.comments.openDiff", "when": "false" },
-        { "command": "quibble.comments.viewFix", "when": "false" },
-        { "command": "quibble.comments.showAll", "when": "false" },
-        { "command": "quibble.comments.hideClosed", "when": "false" },
-        { "command": "quibble.changes.collapseAll", "when": "false" },
-        { "command": "quibble.changes.toCommitsView", "when": "false" },
-        { "command": "quibble.changes.toFilesView", "when": "false" },
-        { "command": "quibble.changes.toggleSearch", "when": "false" }
+        {
+          "command": "quibble.comment.reply",
+          "when": "false"
+        },
+        {
+          "command": "quibble.comment.resolve",
+          "when": "false"
+        },
+        {
+          "command": "quibble.comment.gotoFile",
+          "when": "false"
+        },
+        {
+          "command": "quibble.comment.dismiss",
+          "when": "false"
+        },
+        {
+          "command": "quibble.comment.cancelThread",
+          "when": "false"
+        },
+        {
+          "command": "quibble.comment.reopen",
+          "when": "false"
+        },
+        {
+          "command": "quibble.comment.delete",
+          "when": "false"
+        },
+        {
+          "command": "quibble.comments.resolve",
+          "when": "false"
+        },
+        {
+          "command": "quibble.comments.dismiss",
+          "when": "false"
+        },
+        {
+          "command": "quibble.comments.reopen",
+          "when": "false"
+        },
+        {
+          "command": "quibble.comments.delete",
+          "when": "false"
+        },
+        {
+          "command": "quibble.comments.openDiff",
+          "when": "false"
+        },
+        {
+          "command": "quibble.comments.viewFix",
+          "when": "false"
+        },
+        {
+          "command": "quibble.comments.showAll",
+          "when": "false"
+        },
+        {
+          "command": "quibble.comments.hideClosed",
+          "when": "false"
+        },
+        {
+          "command": "quibble.changes.collapseAll",
+          "when": "false"
+        },
+        {
+          "command": "quibble.changes.toCommitsView",
+          "when": "false"
+        },
+        {
+          "command": "quibble.changes.toFilesView",
+          "when": "false"
+        },
+        {
+          "command": "quibble.changes.toggleSearch",
+          "when": "false"
+        }
       ],
       "view/title": [
         {
