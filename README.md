@@ -29,7 +29,7 @@ That's it. Click through your commits and quibble away.
 
 ## Working with AI Agents — Keeping the Herd in Line
 
-AI coding agents are powerful. They're also a little like ranch hands who work *really* fast but don't always check in before knocking down a fence. Left unsupervised, they'll refactor half your codebase, rename things you liked just fine, and commit 20 times before you've finished your coffee. Quibble gives you a way to watch the work as it happens and course-correct before you've lost a few head.
+AI coding agents are powerful. They're also a little like ranch hands who work *really* fast but don't always check in before knocking down a fence. Left unsupervised, they'll refactor half your codebase, rename things you liked just fine, and commit 20 times before you've finished your coffee. Quibble gives you a way to watch the work as it happens and course-correct before things get out of hand.
 
 ### The Idea
 
