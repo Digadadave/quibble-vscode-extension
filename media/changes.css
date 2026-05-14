@@ -116,7 +116,7 @@
   opacity: 0.85;
 }
 
-/* Label group: filename + folder + comment badge truncate together as one unit */
+/* Label group: filename + folder + comment badge */
 .ch-file-label {
   flex: 1;
   min-width: 0;
@@ -124,15 +124,15 @@
   display: flex;
   align-items: center;
   gap: 4px;
-  -webkit-mask-image: linear-gradient(to right, black calc(100% - 7px), transparent 100%);
-  mask-image: linear-gradient(to right, black calc(100% - 7px), transparent 100%);
 }
 
 .ch-filename {
   font-size: 12px;
   font-weight: 500;
   white-space: nowrap;
-  flex-shrink: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  min-width: 0;
 }
 
 /* Comment badge */
@@ -296,20 +296,24 @@
 }
 .ch-load-more:hover { text-decoration: underline; }
 
-/* Jump-to-source icon — overlaps label's faded zone, zero net flex space */
+/* Jump-to-source icon — zero width when idle, expands on hover */
 .ch-jump-source {
   flex-shrink: 0;
   font-size: 14px;
   color: var(--vscode-descriptionForeground, #888);
   cursor: pointer;
   line-height: 1;
-  padding: 0 2px;
-  margin-left: -20px;
-  background: var(--ch-row-bg);
+  width: 0;
+  padding: 0;
+  overflow: hidden;
+  opacity: 0;
+  transition: width 0.15s, opacity 0.15s, padding 0.15s;
 }
-.ch-jump-source i { opacity: 0; transition: opacity 0.2s; }
-.ch-row:hover .ch-jump-source { background: var(--ch-row-hover-bg); }
-.ch-row:hover .ch-jump-source i { opacity: 1; }
+.ch-row:hover .ch-jump-source {
+  width: 18px;
+  padding: 0 2px;
+  opacity: 1;
+}
 .ch-jump-source:hover { color: var(--vscode-textLink-foreground, #4ea6ea); }
 
 /* ── Commits view (.ch-commit-block / .ch-commit-row / .ch-file-list) ────── */
