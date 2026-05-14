@@ -22,11 +22,17 @@
 </head>
 <body>
 
-<div class="ch-search-box" hidden>
-  <i class="codicon codicon-search ch-search-icon"></i>
-  <input id="ch-search" type="text" placeholder="Filter files…" autocomplete="off" spellcheck="false">
-  <button id="ch-search-clear" class="ch-search-clear" title="Clear filter" hidden>
-    <i class="codicon codicon-close"></i>
+<div class="ch-top-bar">
+  <div id="ch-search-part" class="ch-search-part" hidden>
+    <i class="codicon codicon-search ch-search-icon"></i>
+    <input id="ch-search" type="text" placeholder="Filter files…" autocomplete="off" spellcheck="false">
+    <button id="ch-search-clear" class="ch-search-clear" title="Clear filter" hidden>
+      <i class="codicon codicon-close"></i>
+    </button>
+  </div>
+  <button class="ch-branch-btn" data-action="repoMenu" title="Switch branch or repo">
+    <i class="codicon codicon-git-branch"></i>
+    <span id="branch-label"></span>
   </button>
 </div>
 <div id="changes-list"></div>
