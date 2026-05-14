@@ -89,6 +89,62 @@ export function parseGitLog(raw: string): GitCommit[] {
         });
 }
 
+interface CommitMeta { hash: string; shortHash: string; message: string }
+interface CommitEntry extends CommitMeta { insertions: number; deletions: number }
+
+export function parseChangesOutput(
+    numstatRaw: string,
+    statsRaw: string,
+    statusFiles: ChangedFile[],
+): BranchFileChange[] {
+    const fileCommits = new Map<string, CommitEntry[]>();
+
+    let currentCommit: CommitMeta | null = null;
+    for (const line of numstatRaw.split('\n')) {
+        if (line.startsWith('commit:')) {
+            const parts = line.slice('commit:'.length).split(SEP);
+            currentCommit = { hash: parts[0] ?? '', shortHash: parts[1] ?? '', message: parts[2] ?? '' };
+            continue;
+        }
+        if (!currentCommit || !line.trim()) continue;
+        const parts = line.split('\t');
+        if (parts.length < 3) continue;
+        const insertions = parseInt(parts[0]) || 0;
+        const deletions = parseInt(parts[1]) || 0;
+        const filePath = parts[2] ?? '';
+        if (!filePath) continue;
+        if (!fileCommits.has(filePath)) fileCommits.set(filePath, []);
+        fileCommits.get(filePath)!.push({ ...currentCommit, insertions, deletions });
+    }
+
+    const statsMap = new Map<string, { insertions: number; deletions: number }>();
+    for (const line of statsRaw.split('\n').filter(Boolean)) {
+        const parts = line.split('\t');
+        const ins = parseInt(parts[0]) || 0;
+        const del = parseInt(parts[1]) || 0;
+        const file = parts[2] ?? '';
+        if (file) statsMap.set(file, { insertions: ins, deletions: del });
+    }
+
+    const statusMap = new Map(statusFiles.map(f => [f.path, f.status]));
+
+    const result: BranchFileChange[] = [];
+    const seen = new Set<string>();
+    for (const [filePath, fileCommitList] of fileCommits) {
+        if (!statusMap.has(filePath)) continue;
+        seen.add(filePath);
+        const stats = statsMap.get(filePath) ?? { insertions: 0, deletions: 0 };
+        const status = statusMap.get(filePath) ?? 'M';
+        result.push({ path: filePath, status, commits: fileCommitList, ...stats });
+    }
+    for (const [filePath, status] of statusMap) {
+        if (seen.has(filePath)) continue;
+        const stats = statsMap.get(filePath) ?? { insertions: 0, deletions: 0 };
+        result.push({ path: filePath, status, commits: [], ...stats });
+    }
+    return result;
+}
+
 // All git commands run synchronously via execSync. This is intentional — git
 // operations on local repos are fast and the extension host is single-threaded,
 // so async overhead isn't worth the complexity. Failures (non-zero exit, no repo,
@@ -436,69 +492,14 @@ export class GitService {
         const cached = this._branchChangesCache.get(branch);
         if (cached && cached.head === head && cached.base === base) return cached.result;
 
-        const sep = '\x1f';
-        // Single git log call with --numstat to get per-commit file stats without N+1 spawns.
-        // Output alternates between a commit header line and numstat lines for that commit.
         const numstatRaw = exec(
-            `git log --first-parent "${base}..${branch}" --format="commit:%H${sep}%h${sep}%s" --numstat`,
+            `git log --first-parent "${base}..${branch}" --format="commit:%H${SEP}%h${SEP}%s" --numstat`,
             this.repoPath
         );
-
-        type CommitMeta = { hash: string; shortHash: string; message: string };
-        type CommitEntry = CommitMeta & { insertions: number; deletions: number };
-        const fileCommits = new Map<string, CommitEntry[]>();
-
-        let currentCommit: CommitMeta | null = null;
-        for (const line of numstatRaw.split('\n')) {
-            if (line.startsWith('commit:')) {
-                const parts = line.slice('commit:'.length).split(sep);
-                currentCommit = { hash: parts[0] ?? '', shortHash: parts[1] ?? '', message: parts[2] ?? '' };
-                continue;
-            }
-            if (!currentCommit || !line.trim()) continue;
-            const parts = line.split('\t');
-            if (parts.length < 3) continue;
-            const insertions = parseInt(parts[0]) || 0;
-            const deletions = parseInt(parts[1]) || 0;
-            const filePath = parts[2] ?? '';
-            if (!filePath) continue;
-            if (!fileCommits.has(filePath)) fileCommits.set(filePath, []);
-            fileCommits.get(filePath)!.push({ ...currentCommit, insertions, deletions });
-        }
-
-        // Cumulative net +/- per file across the whole branch
         const statsRaw = exec(`git diff "${base}" "${branch}" --numstat`, this.repoPath);
-        const statsMap = new Map<string, { insertions: number; deletions: number }>();
-        for (const line of statsRaw.split('\n').filter(Boolean)) {
-            const parts = line.split('\t');
-            const ins = parseInt(parts[0]) || 0;
-            const del = parseInt(parts[1]) || 0;
-            const file = parts[2] ?? '';
-            if (file) statsMap.set(file, { insertions: ins, deletions: del });
-        }
-
-        // Get cumulative file status (A/M/D) across the whole branch
         const statusFiles = this.getDirectChangedFiles(base, branch);
-        const statusMap = new Map(statusFiles.map(f => [f.path, f.status]));
 
-        const result: BranchFileChange[] = [];
-        const seen = new Set<string>();
-        for (const [filePath, fileCommitList] of fileCommits) {
-            // Skip files with no net change base→HEAD (added then deleted/renamed within the branch).
-            // They appear in per-commit data but not in the cumulative diff.
-            if (!statusMap.has(filePath)) continue;
-            seen.add(filePath);
-            const stats = statsMap.get(filePath) ?? { insertions: 0, deletions: 0 };
-            const status = statusMap.get(filePath) ?? 'M';
-            result.push({ path: filePath, status, commits: fileCommitList, ...stats });
-        }
-        // Pure renames / mode-only changes produce zero numstat lines, so they never
-        // enter fileCommits. Pick them up from the cumulative status instead.
-        for (const [filePath, status] of statusMap) {
-            if (seen.has(filePath)) continue;
-            const stats = statsMap.get(filePath) ?? { insertions: 0, deletions: 0 };
-            result.push({ path: filePath, status, commits: [], ...stats });
-        }
+        const result = parseChangesOutput(numstatRaw, statsRaw, statusFiles);
         this._branchChangesCache.set(branch, { head, base, result });
         return result;
     }
@@ -545,64 +546,17 @@ export class GitService {
         const cached = this._branchChangesCache.get(branch);
         if (cached && cached.head === head && cached.base === base) return cached.result;
 
-        const sep = '\x1f';
         try {
             const [numstatRaw, statsRaw] = await Promise.all([
                 execAsync(
-                    `git log --first-parent "${base}..${branch}" --format="commit:%H${sep}%h${sep}%s" --numstat`,
+                    `git log --first-parent "${base}..${branch}" --format="commit:%H${SEP}%h${SEP}%s" --numstat`,
                     this.repoPath
                 ),
                 execAsync(`git diff "${base}" "${branch}" --numstat`, this.repoPath),
             ]);
-
-            type CommitMeta = { hash: string; shortHash: string; message: string };
-            type CommitEntry = CommitMeta & { insertions: number; deletions: number };
-            const fileCommits = new Map<string, CommitEntry[]>();
-
-            let currentCommit: CommitMeta | null = null;
-            for (const line of numstatRaw.split('\n')) {
-                if (line.startsWith('commit:')) {
-                    const parts = line.slice('commit:'.length).split(sep);
-                    currentCommit = { hash: parts[0] ?? '', shortHash: parts[1] ?? '', message: parts[2] ?? '' };
-                    continue;
-                }
-                if (!currentCommit || !line.trim()) continue;
-                const parts = line.split('\t');
-                if (parts.length < 3) continue;
-                const insertions = parseInt(parts[0]) || 0;
-                const deletions = parseInt(parts[1]) || 0;
-                const filePath = parts[2] ?? '';
-                if (!filePath) continue;
-                if (!fileCommits.has(filePath)) fileCommits.set(filePath, []);
-                fileCommits.get(filePath)!.push({ ...currentCommit, insertions, deletions });
-            }
-
-            const statsMap = new Map<string, { insertions: number; deletions: number }>();
-            for (const line of statsRaw.split('\n').filter(Boolean)) {
-                const parts = line.split('\t');
-                const ins = parseInt(parts[0]) || 0;
-                const del = parseInt(parts[1]) || 0;
-                const file = parts[2] ?? '';
-                if (file) statsMap.set(file, { insertions: ins, deletions: del });
-            }
-
             const statusFiles = this.getDirectChangedFiles(base, branch);
-            const statusMap = new Map(statusFiles.map(f => [f.path, f.status]));
 
-            const result: BranchFileChange[] = [];
-            const seen = new Set<string>();
-            for (const [filePath, fileCommitList] of fileCommits) {
-                if (!statusMap.has(filePath)) continue;
-                seen.add(filePath);
-                const stats = statsMap.get(filePath) ?? { insertions: 0, deletions: 0 };
-                const status = statusMap.get(filePath) ?? 'M';
-                result.push({ path: filePath, status, commits: fileCommitList, ...stats });
-            }
-            for (const [filePath, status] of statusMap) {
-                if (seen.has(filePath)) continue;
-                const stats = statsMap.get(filePath) ?? { insertions: 0, deletions: 0 };
-                result.push({ path: filePath, status, commits: [], ...stats });
-            }
+            const result = parseChangesOutput(numstatRaw, statsRaw, statusFiles);
             this._branchChangesCache.set(branch, { head, base, result });
             return result;
         } catch {
