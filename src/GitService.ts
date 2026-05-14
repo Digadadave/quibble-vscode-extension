@@ -67,6 +67,28 @@ export interface DiffLine {
     oldLineNum?: number;
 }
 
+// ── Pure parsing helpers (exported for testing) ──────────────────────────────
+
+const SEP = '\x1f';
+const RS = '\x1e';
+const GIT_LOG_FORMAT = `--format=%H%x1f%h%x1f%s%x1f%ai%x1f%an%x1f%D%x1e`;
+
+export function parseGitLog(raw: string): GitCommit[] {
+    return raw
+        .split(RS)
+        .map(s => s.trim())
+        .filter(Boolean)
+        .map(record => {
+            const parts = record.split(SEP);
+            const [hash, shortHash, message, date, author, decoration = ''] = parts;
+            const refs = decoration
+                .split(',')
+                .map(r => r.trim())
+                .filter(Boolean);
+            return { hash, shortHash, message, date, author, refs };
+        });
+}
+
 // All git commands run synchronously via execSync. This is intentional — git
 // operations on local repos are fast and the extension host is single-threaded,
 // so async overhead isn't worth the complexity. Failures (non-zero exit, no repo,
@@ -127,28 +149,9 @@ export class GitService {
     }
 
     getLog(limit = 30): GitCommit[] {
-        const sep = '\x1f';
-        const rs = '\x1e';
-        // %D = ref names (branch/tag decorations), empty string when none
-        // Use %x1f/%x1e so git outputs the control chars — avoids shell mangling
-        const format = '--format=%H%x1f%h%x1f%s%x1f%ai%x1f%an%x1f%D%x1e';
-        const raw = exec(`git log ${format} -${limit}`, this.repoPath);
+        const raw = exec(`git log ${GIT_LOG_FORMAT} -${limit}`, this.repoPath);
         if (!raw) return [];
-
-        return raw
-            .split(rs)
-            .map(s => s.trim())
-            .filter(Boolean)
-            .map(record => {
-                const parts = record.split(sep);
-                const [hash, shortHash, message, date, author, decoration = ''] = parts;
-                // %D gives e.g. "HEAD -> main, origin/main, tag: v1.0"
-                const refs = decoration
-                    .split(',')
-                    .map(r => r.trim())
-                    .filter(Boolean);
-                return { hash, shortHash, message, date, author, refs };
-            });
+        return parseGitLog(raw);
     }
 
     getBranches(): GitBranch[] {
@@ -182,31 +185,15 @@ export class GitService {
     }
 
     getCommitsForBranch(branch: string, limit = 30): GitCommit[] {
-        const sep = '\x1f';
-        const rs = '\x1e';
-        const format = '--format=%H%x1f%h%x1f%s%x1f%ai%x1f%an%x1f%D%x1e';
         // Scope to commits unique to this branch (since merge-base with main/master).
         // --first-parent excludes commits merged in from the default branch.
         // Falls back to full log if no merge-base can be found (e.g. on main itself).
         const base = this.getMergeBase(branch);
         const range = base ? `"${base}..${branch}"` : `"${branch}" -${limit}`;
         const limitFlag = base ? `-${limit}` : '';
-        const raw = exec(`git log --first-parent ${range} ${format} ${limitFlag}`, this.repoPath);
+        const raw = exec(`git log --first-parent ${range} ${GIT_LOG_FORMAT} ${limitFlag}`, this.repoPath);
         if (!raw) return [];
-
-        return raw
-            .split(rs)
-            .map(s => s.trim())
-            .filter(Boolean)
-            .map(record => {
-                const parts = record.split(sep);
-                const [hash, shortHash, message, date, author, decoration = ''] = parts;
-                const refs = decoration
-                    .split(',')
-                    .map(r => r.trim())
-                    .filter(Boolean);
-                return { hash, shortHash, message, date, author, refs };
-            });
+        return parseGitLog(raw);
     }
 
     getChangedFiles(hash: string): ChangedFile[] {
