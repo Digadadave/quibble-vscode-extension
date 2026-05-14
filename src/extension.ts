@@ -4,7 +4,7 @@ import { GitService } from './GitService';
 import { CommentManager } from './CommentManager';
 import { CommentsView } from './CommentsView';
 import { ChangesView } from './ChangesView';
-import { GitContentProvider } from './GitContentProvider';
+import { GitContentProvider, parseGitUri } from './GitContentProvider';
 import { ReviewCommentController } from './ReviewCommentController';
 import { ICONS } from './icons';
 
@@ -192,18 +192,17 @@ export function activate(context: vscode.ExtensionContext): void {
             if (activeTab?.input instanceof vscode.TabInputTextDiff) return;
             if (!(activeTab?.input instanceof vscode.TabInputText)) return;
 
-            const params = new URLSearchParams(uri.query);
-            const side = params.get('side');
-            if (side !== 'new' && side !== 'old') return;
+            const parsed = parseGitUri(uri.path, uri.query);
+            if (parsed.side !== 'new' && parsed.side !== 'old') return;
             if (!activeGit) return;
 
             // For the old side, reviewHash is the actual commit being reviewed.
-            const commitHash = side === 'old'
-                ? (params.get('reviewHash') ?? params.get('ref') ?? '')
-                : (params.get('ref') ?? '');
+            const commitHash = parsed.side === 'old'
+                ? (parsed.reviewHash ?? parsed.ref)
+                : parsed.ref;
             if (!commitHash) return;
 
-            const file = uri.path.startsWith('/') ? uri.path.slice(1) : uri.path;
+            const file = parsed.file;
 
             // Replace the standalone file view with a proper side-by-side diff.
             await vscode.commands.executeCommand('workbench.action.closeActiveEditor');
@@ -211,7 +210,7 @@ export function activate(context: vscode.ExtensionContext): void {
 
             // Scroll to the matching comment in the newly opened diff.
             if (activeComments) {
-                const comment = activeComments.load().find(c => c.commitHash === commitHash && c.file === file && c.side === (side === 'old' ? 'left' : 'right'))
+                const comment = activeComments.load().find(c => c.commitHash === commitHash && c.file === file && c.side === (parsed.side === 'old' ? 'left' : 'right'))
                     ?? activeComments.load().find(c => c.commitHash === commitHash && c.file === file);
                 if (comment) {
                     setTimeout(() => {
