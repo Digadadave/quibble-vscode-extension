@@ -4,7 +4,7 @@
 
 You know that feeling when you're about to push and think *"wait, did I actually look at all of this?"* Quibble lets you review your own branch like a proper code review — browse commits, leave inline comments on specific lines, and track them as you go. It's like having a PR review, minus the PR.
 
-And if you're working with AI agents? Quibble is how you keep them from going rogue. [More on that below.](#working-with-ai-agents--keeping-the-herd-in-line)
+And if you're working with AI agents? Quibble is how you keep them from going rogue. [Skip ahead if you want to see how.](#working-with-ai-agents--keeping-the-herd-in-line)
 
 ---
 
