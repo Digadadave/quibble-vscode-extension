@@ -1,6 +1,6 @@
 import * as vscode from 'vscode';
 import * as path from 'path';
-import { CommentManager, ReviewComment, CommentSnapshot, CommentStatus, SnapshotLine, STATUS, CLOSED_STATUSES } from './CommentManager';
+import { CommentManager, ReviewComment, CommentSnapshot, CommentStatus, SnapshotLine, STATUS, CLOSED_STATUSES, STATUS_LABELS } from './CommentManager';
 import { GitContentProvider } from './GitContentProvider';
 import { GitService } from './GitService';
 import { ICON_FILES } from './icons';
@@ -9,18 +9,6 @@ import { ICON_FILES } from './icons';
 
 const AGENT_STATUSES = new Set<CommentStatus>([STATUS.ADDRESSED, STATUS.ADDRESSED_NO_CHANGE, STATUS.IN_PROGRESS, STATUS.NEEDS_INPUT]);
 
-// ── Status display labels ────────────────────────────────────────────────────
-
-const STATUS_LABELS: Record<CommentStatus, string> = {
-  [STATUS.OPEN]:                'Open',
-  [STATUS.IN_PROGRESS]:         'In Progress',
-  [STATUS.NEEDS_INPUT]:         'Needs Input',
-  [STATUS.ADDRESSED]:           'Addressed',
-  [STATUS.ADDRESSED_NO_CHANGE]: 'Addressed (No Change)',
-  [STATUS.APPROVED]:            'Approved',
-  [STATUS.DISMISSED]:           'Dismissed',
-  [STATUS.OUTDATED]:            'Outdated',
-};
 
 // ── Extended Comment interface ────────────────────────────────────────────────
 
