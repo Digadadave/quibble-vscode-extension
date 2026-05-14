@@ -129,8 +129,6 @@ export class ChangesView implements vscode.WebviewViewProvider, vscode.Disposabl
         this.onJumpToSource?.(msg.file as string);
       } else if (msg.type === 'openCommitChanges') {
         this.onOpenCommitChanges?.(msg.hash as string);
-      } else if (msg.type === 'repoMenu') {
-        vscode.commands.executeCommand('quibble.repoMenu');
       }
     }, null, this.disposables);
 
@@ -139,6 +137,7 @@ export class ChangesView implements vscode.WebviewViewProvider, vscode.Disposabl
     } else if (this.cachedData) {
       const data = this.cachedData;
       this.cachedData = null;
+      webviewView.description = data.branch;
       webviewView.webview.postMessage({ type: 'load', branch: data.branch, files: data.files });
     } else {
       void this.refresh();
@@ -153,6 +152,7 @@ export class ChangesView implements vscode.WebviewViewProvider, vscode.Disposabl
     const data = await this.buildData();
     this.cachedData = data;
     if (!this._view) return;
+    this._view.description = data.branch;
     this._view.webview.postMessage({ type: 'load', branch: data.branch, files: data.files });
   }
 

@@ -166,8 +166,8 @@
       },
       {
         "command": "quibble.repoMenu",
-        "title": "Repository Settings",
-        "icon": "$(repo)",
+        "title": "Switch Branch / Repo",
+        "icon": "$(git-branch)",
         "category": "Quibble"
       },
       {

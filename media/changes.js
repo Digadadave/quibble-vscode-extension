@@ -192,7 +192,7 @@
       return;
     }
     if (msg.type === "setSearchVisible") {
-      const box = /** @type {HTMLElement} */ (document.getElementById("ch-search-part"));
+      const box = /** @type {HTMLElement} */ (document.querySelector(".ch-search-box"));
       if (msg.visible) {
         box?.removeAttribute("hidden");
         searchInput?.focus();
@@ -256,12 +256,6 @@
 
   document.addEventListener("click", (e) => {
     const target = /** @type {HTMLElement} */ (e.target);
-
-    // ── Branch button → repo/branch picker ──
-    if (target.closest(".ch-branch-btn")) {
-      vscode.postMessage({ type: "repoMenu" });
-      return;
-    }
 
     // ── Commits view: open-file button on a file item ──
     const jumpFile = target.closest(".ch-jump-file");

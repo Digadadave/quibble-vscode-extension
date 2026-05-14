@@ -1,47 +1,14 @@
 /* ── Changes panel (.ch-*) ──────────────────────────────────────────────── */
 
-/* ── Top bar (branch button + optional search) ──────────── */
-.ch-top-bar {
+/* ── Search box ────────────────────────────────────────── */
+.ch-search-box[hidden] { display: none; }
+.ch-search-box {
   display: flex;
   align-items: center;
   gap: 4px;
-  padding: 3px 8px;
+  padding: 4px 8px;
   border-bottom: 1px solid var(--vscode-sideBarSectionHeader-border, rgba(128,128,128,0.2));
-  flex-shrink: 0;
 }
-.ch-search-part[hidden] { display: none; }
-.ch-search-part {
-  display: flex;
-  align-items: center;
-  flex: 1;
-  gap: 4px;
-  min-width: 0;
-}
-.ch-branch-btn {
-  display: flex;
-  align-items: center;
-  gap: 4px;
-  margin-left: auto;
-  padding: 1px 4px;
-  background: none;
-  border: none;
-  border-radius: 3px;
-  cursor: pointer;
-  color: var(--vscode-descriptionForeground, #888);
-  font-size: 11px;
-  font-family: inherit;
-  white-space: nowrap;
-  overflow: hidden;
-  max-width: 60%;
-  min-width: 0;
-  flex-shrink: 0;
-}
-.ch-branch-btn:hover {
-  color: var(--vscode-foreground, #ccc);
-  background: var(--vscode-toolbar-hoverBackground, rgba(128,128,128,0.2));
-}
-.ch-branch-btn .codicon { font-size: 13px; flex-shrink: 0; }
-#branch-label { overflow: hidden; text-overflow: ellipsis; min-width: 0; }
 .ch-search-icon {
   font-size: 12px;
   color: var(--vscode-input-placeholderForeground, #888);
