@@ -181,7 +181,7 @@ export class CommentManager implements vscode.Disposable {
   ) {
     const configPath = vscode.workspace
       .getConfiguration('quibble')
-      .get<string>('reviewsPath', '.vscode/quibbles.json');
+      .get<string>('commentsPath', '.vscode/quibbles.json');
     this.workingJsonPath = repoPath ? path.join(repoPath, configPath) : '';
     this.globalState = globalState;
     this.dbKey = repoPath ? `repo:${repoPath}` : '';

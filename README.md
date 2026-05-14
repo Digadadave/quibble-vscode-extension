@@ -98,7 +98,7 @@ There are additional agent-related statuses covered in the [Working with AI Agen
 
 | Setting | Default | Description |
 |---------|---------|-------------|
-| `quibble.reviewsPath` | `.vscode/quibbles.json` | Path (relative to repo root) for the working review JSON file. This is the file that external tools and agents read/write. The persistent database lives in VS Code's `globalStorage`. |
+| `quibble.commentsPath` | `.vscode/quibbles.json` | Path (relative to repo root) for the working review JSON file. This is the file that external tools and agents read/write. The persistent database lives in VS Code's `globalStorage`. |
 
 ### Command Palette
 
