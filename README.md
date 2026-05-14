@@ -2,7 +2,9 @@
 
 **Review local git commits with inline comments — right inside VS Code.**
 
-Ever wished you could do a proper code review on your own branch before pushing? Quibble brings GitHub-style inline commenting to your local commits. Browse your branch's changes, leave comments on specific lines in a diff, and track them as you go. It's a code review — just for your local work.
+You know that feeling when you're about to push and think *"wait, did I actually look at all of this?"* Quibble lets you review your own branch like a proper code review — browse commits, leave inline comments on specific lines, and track them as you go. It's like having a PR review, minus the PR.
+
+And if you're working with AI agents? Quibble is how you keep them from going rogue. [More on that below.](#working-with-ai-agents--keeping-the-herd-in-line)
 
 ---
 
@@ -90,7 +92,7 @@ Comments flow through different statuses. When you're using Quibble on its own (
 | **Approved** | Green | You're happy with how it was addressed |
 | **Dismissed** | Grey | Closed — not relevant anymore |
 
-There are additional agent-related statuses covered in the [Working with AI Agents](#working-with-ai-agents--the-real-superpower) section below.
+There are additional agent-related statuses covered in the [Working with AI Agents](#working-with-ai-agents--keeping-the-herd-in-line) section below.
 
 ---
 
@@ -115,33 +117,31 @@ These commands are available from the command palette (`Cmd+Shift+P` / `Ctrl+Shi
 
 ---
 
-## Working with AI Agents — The Real Superpower
+## Working with AI Agents — Keeping the Herd in Line
 
-Alright, here's where things get really interesting.
-
-Quibble was built with AI-assisted development in mind. If you're working with a coding agent (Claude Code, Copilot, Cursor, or any AI that reads files and commits as it works), this extension turns your workflow into something much more interactive and collaborative.
+AI coding agents are powerful. They're also a little like ranch hands who work *really* fast but don't always check in before knocking down a fence. Left unsupervised, they'll refactor half your codebase, rename things you liked just fine, and commit 20 times before you've finished your coffee. Quibble gives you a way to watch the work as it happens and course-correct before you've lost a few head.
 
 ### The Idea
 
 When an AI agent is making code changes for you, it's doing a lot — refactoring, adding features, fixing bugs. The agent commits as it goes, and each commit shows up in your Changes panel in real time. This means you can **review what the agent is doing as it works**, not just after it's done.
 
-Think of it like pair programming where your partner commits frequently and you're reviewing the diffs live.
+Think of it like pair programming where your partner commits frequently and you're reviewing the diffs live. Except your partner never gets tired and occasionally needs to be told *"no, put that back."*
 
 ### Why This Matters
 
-Without something like this, the typical flow is:
+Without something like this, the typical "vibe coding" flow is:
 1. Ask the agent to do something
 2. Wait for it to finish
 3. Look at a giant diff and try to figure out what happened
 4. If something's off, explain the problem and start over
 
-With Quibble, the flow becomes:
+That's basically letting the herd roam free and hoping they're all still there when you check the gate. With Quibble, the flow becomes:
 1. Ask the agent to do something
 2. **While it's working**, review the commits as they come in
 3. See something going in the wrong direction? **Leave a comment directly on that line of code**
 4. Prompt the agent to check your comments — it reads the `.vscode/quibbles.json` file and course-corrects
 
-This is a huge deal. You're catching issues early — when they're small and easy to fix — instead of after the agent has gone down the wrong path for 20 commits. Your feedback is specific and contextual because it's attached to the exact line of code you're talking about.
+You're catching issues early — when they're small and easy to fix — instead of after the agent has gone down the wrong path for 20 commits. Your feedback is specific and contextual because it's attached to the exact line of code you're talking about.
 
 ### How the Agent Picks Up Your Comments
 
@@ -177,7 +177,7 @@ When an agent is involved, comments can move through additional statuses beyond 
 
 ### The Bottom Line
 
-If you're using AI agents to write code, Quibble gives you a way to stay in the loop without slowing down. You review commits as they land, redirect early when something's off, and ask questions when you want to understand a decision. It's the difference between managing an agent and collaborating with one.
+If you're letting AI agents write code, you want to keep an eye on the herd — not chase strays after the fact. Quibble lets you watch the commits roll in, nudge things back on track with a comment, and catch problems while they're still small. It's the difference between managing an agent and actually collaborating with one.
 
 ---
 
@@ -188,4 +188,4 @@ If you're using AI agents to write code, Quibble gives you a way to stay in the 
 3. Click the Quibble icon in the activity bar
 4. Start reviewing your commits and leaving comments
 
-Happy reviewing!
+Now go find something to quibble about.
