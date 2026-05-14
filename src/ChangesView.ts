@@ -5,7 +5,8 @@ import { GitService } from './GitService';
 import { CommentManager, CommentStatus, STATUS } from './CommentManager';
 import { buildStatusCssVars } from './icons';
 
-const CLOSED_STATUSES = new Set<CommentStatus>([STATUS.APPROVED, STATUS.DISMISSED, STATUS.OUTDATED]);
+/** Statuses excluded from file-row comment badges (superset of constants.ts CLOSED_STATUSES — adds OUTDATED). */
+const BADGE_HIDDEN_STATUSES = new Set<CommentStatus>([STATUS.APPROVED, STATUS.DISMISSED, STATUS.OUTDATED]);
 
 /**
  * Implements WebviewViewProvider — VS Code calls resolveWebviewView() the first
@@ -189,7 +190,7 @@ export class ChangesView implements vscode.WebviewViewProvider, vscode.Disposabl
   private buildCommentsByFile(comments: ReturnType<CommentManager['load']>): Map<string, number> {
     const map = new Map<string, number>();
     for (const c of comments) {
-      if (!CLOSED_STATUSES.has(c.status)) {
+      if (!BADGE_HIDDEN_STATUSES.has(c.status)) {
         map.set(c.file, (map.get(c.file) ?? 0) + 1);
       }
     }
