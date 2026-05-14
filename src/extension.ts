@@ -59,6 +59,7 @@ export function activate(context: vscode.ExtensionContext): void {
     activeCommentsView.onDeleteComment = id => {
         if (!activeComments) return;
         activeComments.deleteComment(id);
+        activeCommentController?.refresh();
         refreshOnMutation();
     };
 
@@ -66,6 +67,7 @@ export function activate(context: vscode.ExtensionContext): void {
     activeCommentsView.onUpdateStatus = (id, status) => {
         if (!activeComments) return;
         activeComments.updateStatus(id, status as import('./CommentManager').CommentStatus);
+        activeCommentController?.refreshComment(id);
         refreshOnMutation();
     };
 
