@@ -277,11 +277,11 @@
       return;
     }
 
-    // ── Commits view: stats (+/-) → open multi-file diff ──
-    const commitStats = target.closest(".ch-commit-row .ch-stats");
-    if (commitStats) {
+    // ── Commits view: open-changes button on commit row ──
+    const openChangesBtn = target.closest(".ch-open-changes");
+    if (openChangesBtn) {
       e.stopPropagation();
-      const hash = commitStats.closest(".ch-commit-row")?.getAttribute("data-hash");
+      const hash = openChangesBtn.getAttribute("data-hash");
       if (hash) vscode.postMessage({ type: "openCommitChanges", hash });
       return;
     }
@@ -451,6 +451,7 @@
       `<div class="ch-commit-row${isExpanded ? " ch-expanded" : ""}" data-hash="${esc(commit.hash)}">` +
       `<span class="ch-badge ch-badge-hash" style="background:${color};color:${tColor}">${esc(commit.shortHash)}</span>` +
       `<span class="ch-commit-msg" title="${esc(commit.message)}">${esc(commit.message)}</span>` +
+      `<span class="ch-open-changes" data-hash="${esc(commit.hash)}" title="Open Changes">${ICON_OPEN_CHANGES}</span>` +
       statsHtml +
       `</div>`;
 
