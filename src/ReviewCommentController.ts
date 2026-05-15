@@ -1,7 +1,7 @@
 import * as vscode from 'vscode';
 import * as path from 'path';
-import { CommentManager, ReviewComment, CommentSnapshot, CommentStatus, SnapshotLine, STATUS, CLOSED_STATUSES } from './CommentManager';
-import { GitContentProvider } from './GitContentProvider';
+import { CommentManager, ReviewComment, CommentSnapshot, CommentStatus, SnapshotLine, STATUS, CLOSED_STATUSES, STATUS_LABELS } from './CommentManager';
+import { GitContentProvider, parseGitUri } from './GitContentProvider';
 import { GitService } from './GitService';
 import { ICON_FILES } from './icons';
 
@@ -9,18 +9,6 @@ import { ICON_FILES } from './icons';
 
 const AGENT_STATUSES = new Set<CommentStatus>([STATUS.ADDRESSED, STATUS.ADDRESSED_NO_CHANGE, STATUS.IN_PROGRESS, STATUS.NEEDS_INPUT]);
 
-// ── Status display labels ────────────────────────────────────────────────────
-
-const STATUS_LABELS: Record<CommentStatus, string> = {
-  [STATUS.OPEN]:                'Open',
-  [STATUS.IN_PROGRESS]:         'In Progress',
-  [STATUS.NEEDS_INPUT]:         'Needs Input',
-  [STATUS.ADDRESSED]:           'Addressed',
-  [STATUS.ADDRESSED_NO_CHANGE]: 'Addressed (No Change)',
-  [STATUS.APPROVED]:            'Approved',
-  [STATUS.DISMISSED]:           'Dismissed',
-  [STATUS.OUTDATED]:            'Outdated',
-};
 
 // ── Extended Comment interface ────────────────────────────────────────────────
 
@@ -162,8 +150,8 @@ export class ReviewCommentController implements vscode.Disposable {
   private isCumulativeDiffOpen(headHash: string): boolean {
     return vscode.window.visibleTextEditors.some(editor => {
       if (editor.document.uri.scheme !== GitContentProvider.scheme) return false;
-      const params = new URLSearchParams(editor.document.uri.query);
-      return params.get('ref') === headHash && params.get('side') === 'new';
+      const { ref, side } = parseGitUri(editor.document.uri.path, editor.document.uri.query);
+      return ref === headHash && side === 'new';
     });
   }
 
@@ -369,17 +357,17 @@ export class ReviewCommentController implements vscode.Disposable {
 
           if (thread.comments.length === 0) {
             // New comment from the gutter
-            const params      = new URLSearchParams(thread.uri.query);
-            const uriRef      = params.get('ref') ?? '';
-            const uriSide     = params.get('side') ?? 'new';
-            const file        = thread.uri.path.startsWith('/') ? thread.uri.path.slice(1) : thread.uri.path;
+            const parsed      = parseGitUri(thread.uri.path, thread.uri.query);
+            const uriRef      = parsed.ref;
+            const uriSide     = parsed.side || 'new';
+            const file        = parsed.file;
             const line        = (thread.range?.start.line ?? 0) + 1;
 
             // Left-side comments are about removed/changed code. Use reviewHash as
             // the stored commitHash (the reviewed commit), while uriRef (the parent)
             // is only used to capture the snapshot of the old file content.
             const isLeftSide  = uriSide === 'old';
-            const commitHash  = isLeftSide ? (params.get('reviewHash') ?? uriRef) : uriRef;
+            const commitHash  = isLeftSide ? (parsed.reviewHash ?? uriRef) : uriRef;
             const snapshotRef = isLeftSide ? uriRef : commitHash;
             const side        = isLeftSide ? 'left' : 'right';
 
@@ -444,9 +432,7 @@ export class ReviewCommentController implements vscode.Disposable {
       vscode.commands.registerCommand('quibble.comment.dismiss', makeStatusAction(STATUS.DISMISSED)),
       vscode.commands.registerCommand('quibble.comment.reopen',  makeStatusAction(STATUS.OPEN)),
       vscode.commands.registerCommand('quibble.comment.gotoFile', (thread: vscode.CommentThread) => {
-        const params   = new URLSearchParams(thread.uri.query);
-        const repoPath = params.get('repo') ?? '';
-        const filePath = thread.uri.path.startsWith('/') ? thread.uri.path.slice(1) : thread.uri.path;
+        const { repo: repoPath, file: filePath } = parseGitUri(thread.uri.path, thread.uri.query);
         const line     = thread.range?.start.line ?? 0;
 
         const absUri = vscode.Uri.file(path.join(repoPath, filePath));

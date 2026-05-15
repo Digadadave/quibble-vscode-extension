@@ -1,9 +1,9 @@
 {
   "name": "quibble",
   "displayName": "Quibble",
-  "description": "Review local git commits with GitHub-style inline comments. Agent-friendly review file for AI-assisted workflows.",
-  "version": "0.0.8",
-  "publisher": "local",
+  "description": "Inline code reviews on local commits. Because someone has to tell the AI it's wrong.",
+  "version": "1.0.0",
+  "publisher": "digadadave",
   "engines": {
     "vscode": "^1.85.0"
   },
@@ -469,6 +469,7 @@
     "compile": "tsc -p ./",
     "watch": "tsc -watch -p ./",
     "lint": "eslint",
+    "test": "vitest run",
     "package": "npx @vscode/vsce package"
   },
   "devDependencies": {
@@ -477,7 +478,8 @@
     "@typescript-eslint/eslint-plugin": "^8.57.2",
     "@typescript-eslint/parser": "^8.57.2",
     "eslint": "^10.1.0",
-    "typescript": "^5.3.0"
+    "typescript": "^5.3.0",
+    "vitest": "^4.1.6"
   },
   "dependencies": {
     "@vscode/codicons": "^0.0.45"

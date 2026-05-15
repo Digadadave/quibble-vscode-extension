@@ -3,9 +3,9 @@ import * as path from 'path';
 import * as crypto from 'crypto';
 import * as vscode from 'vscode';
 
-import { STATUS, CLOSED_STATUSES } from './constants';
+import { STATUS, CLOSED_STATUSES, STATUS_LABELS } from './constants';
 import type { CommentStatus } from './constants';
-export { STATUS, CLOSED_STATUSES };
+export { STATUS, CLOSED_STATUSES, STATUS_LABELS };
 export type { CommentStatus };
 
 export interface ThreadEntry {

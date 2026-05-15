@@ -1,6 +1,27 @@
 import * as vscode from 'vscode';
 import { GitService } from './GitService';
 
+// ── URI parsing (exported for testing) ───────────────────────────────────────
+
+export interface GitUriParams {
+  ref: string;
+  repo: string;
+  side: string;
+  reviewHash: string | null;
+  file: string;
+}
+
+export function parseGitUri(uriPath: string, query: string): GitUriParams {
+  const params = new URLSearchParams(query);
+  return {
+    ref:        params.get('ref')        ?? '',
+    repo:       params.get('repo')       ?? '',
+    side:       params.get('side')       ?? '',
+    reviewHash: params.get('reviewHash'),
+    file:       uriPath.startsWith('/') ? uriPath.slice(1) : uriPath,
+  };
+}
+
 /**
  * TextDocumentContentProvider for the `quibble-git` URI scheme.
  *
@@ -30,13 +51,10 @@ export class GitContentProvider implements vscode.TextDocumentContentProvider {
   }
 
   provideTextDocumentContent(uri: vscode.Uri): string {
-    const params = new URLSearchParams(uri.query);
-    const ref  = params.get('ref')  ?? '';
-    const repo = params.get('repo') ?? '';
+    const { ref, repo, file } = parseGitUri(uri.path, uri.query);
 
     if (ref === '__empty__') return '';
 
-    const file = uri.path.startsWith('/') ? uri.path.slice(1) : uri.path;
     const git = this.git ?? new GitService(repo);
     try {
       const content = git.getFileContentAtCommit(ref, file);
