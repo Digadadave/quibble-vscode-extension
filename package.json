@@ -221,6 +221,12 @@
           "default": ".vscode/quibbles.json",
           "description": "Path (relative to the repo root) for the working comments JSON. This file is populated with comments for the current branch and is the file agents should read/write. The persistent DB lives in VS Code's globalStorage.",
           "scope": "resource"
+        },
+        "quibble.hideMergeCommits": {
+          "type": "boolean",
+          "default": true,
+          "description": "Exclude merge commits from commit lists (passes --no-merges to git log).",
+          "scope": "resource"
         }
       }
     },

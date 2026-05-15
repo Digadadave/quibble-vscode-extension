@@ -497,7 +497,8 @@ export function activate(context: vscode.ExtensionContext): void {
 
             const count = activeComments.orphanedComments.length;
             const branch = activeGit.getCurrentBranch();
-            const commits = activeGit.getCommitsForBranch(branch, 50);
+            const hideMerges = vscode.workspace.getConfiguration('quibble').get<boolean>('hideMergeCommits', true);
+            const commits = activeGit.getCommitsForBranch(branch, 50, hideMerges);
 
             const items = commits.map(c => ({
                 label: `$(${ICONS.GIT_COMMIT}) ${c.shortHash}`,
@@ -675,7 +676,8 @@ function copyAgentPrompt(git: GitService, comments: CommentManager): void {
         byCommit.get(c.commitHash)!.push(c);
     }
 
-    const commits = git.getLog(100);
+    const hideMerges = vscode.workspace.getConfiguration('quibble').get<boolean>('hideMergeCommits', true);
+    const commits = git.getLog(100, hideMerges);
     const hashToMsg = new Map(commits.map(c => [c.hash, c.message]));
 
     let prompt = '## Code Review Comments to Address\n\n';

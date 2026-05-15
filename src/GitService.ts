@@ -204,8 +204,9 @@ export class GitService {
         return this.repoPath;
     }
 
-    getLog(limit = 30): GitCommit[] {
-        const raw = exec(`git log ${GIT_LOG_FORMAT} -${limit}`, this.repoPath);
+    getLog(limit = 30, hideMerges = true): GitCommit[] {
+        const noMerges = hideMerges ? '--no-merges ' : '';
+        const raw = exec(`git log ${noMerges}${GIT_LOG_FORMAT} -${limit}`, this.repoPath);
         if (!raw) return [];
         return parseGitLog(raw);
     }
@@ -240,14 +241,15 @@ export class GitService {
         return branches;
     }
 
-    getCommitsForBranch(branch: string, limit = 30): GitCommit[] {
+    getCommitsForBranch(branch: string, limit = 30, hideMerges = true): GitCommit[] {
         // Scope to commits unique to this branch (since merge-base with main/master).
         // --first-parent excludes commits merged in from the default branch.
         // Falls back to full log if no merge-base can be found (e.g. on main itself).
         const base = this.getMergeBase(branch);
         const range = base ? `"${base}..${branch}"` : `"${branch}" -${limit}`;
         const limitFlag = base ? `-${limit}` : '';
-        const raw = exec(`git log --first-parent ${range} ${GIT_LOG_FORMAT} ${limitFlag}`, this.repoPath);
+        const noMerges = hideMerges ? '--no-merges ' : '';
+        const raw = exec(`git log --first-parent ${noMerges}${range} ${GIT_LOG_FORMAT} ${limitFlag}`, this.repoPath);
         if (!raw) return [];
         return parseGitLog(raw);
     }
