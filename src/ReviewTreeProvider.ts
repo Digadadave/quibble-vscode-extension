@@ -76,7 +76,8 @@ export class ReviewTreeProvider implements vscode.TreeDataProvider<ReviewTreeIte
   // ── Commits under branch ──────────────────────────────────────────────────
 
   private getCommitNodes(): ReviewTreeItem[] {
-    const commits = this.git.getLog(30);
+    const hideMerges = vscode.workspace.getConfiguration('quibble').get<boolean>('hideMergeCommits', true);
+    const commits = this.git.getLog(30, hideMerges);
     return commits.map(commit => {
       const commentCount = this.comments.getCommentsForCommit(commit.hash).length;
       const badge = commentCount > 0 ? ` $(${ICONS.COMMENT}) ${commentCount}` : '';
