@@ -14,17 +14,6 @@ Quibble adds a dedicated sidebar to VS Code where you can see all the commits on
 
 Comments are stored locally (in VS Code's `globalState`) and optionally mirrored to a `.vscode/quibbles.json` file for external tools to read and write (more on that later).
 
-### How to Use It
-
-1. **Open the sidebar** — Click the Quibble icon in the activity bar.
-2. **Pick a repo** — Multi-root workspace? Use the repo icon in the Changes header to switch repos.
-3. **Set your base branch** — Defaults to `main` or `master`. Change it via **Repository Settings** > **Set Base Branch**.
-4. **Browse commits and files** — Click any file in the **Changes** panel to open a diff.
-5. **Leave comments** — Hover the gutter in a diff, click `+`, write your comment, hit **Submit Comment**.
-6. **Track your comments** — The **Comments** panel shows everything with its current status. Approve, dismiss, reopen, or delete from there.
-
-That's it. Click through your commits and quibble away.
-
 ---
 
 ## Working with AI Agents — Keeping the Herd in Line
@@ -88,6 +77,19 @@ When an agent is involved, comments can move through additional statuses beyond 
 ### The Bottom Line
 
 If you're letting AI agents write code, you want to keep an eye on the herd — not chase strays after the fact. Quibble lets you watch the commits roll in, nudge things back on track with a comment, and catch problems while they're still small. It's the difference between managing an agent and actually collaborating with one.
+
+---
+
+## How to Use It
+
+1. **Open the sidebar** — Click the Quibble icon in the activity bar.
+2. **Pick a repo** — Multi-root workspace? Use the repo icon in the Changes header to switch repos.
+3. **Set your base branch** — Defaults to `main` or `master`. Change it via **Repository Settings** > **Set Base Branch**.
+4. **Browse commits and files** — Click any file in the **Changes** panel to open a diff.
+5. **Leave comments** — Hover the gutter in a diff, click `+`, write your comment, hit **Submit Comment**.
+6. **Track your comments** — The **Comments** panel shows everything with its current status. Approve, dismiss, reopen, or delete from there.
+
+That's it. Click through your commits and quibble away.
 
 ---
 
