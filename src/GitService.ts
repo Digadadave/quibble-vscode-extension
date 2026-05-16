@@ -486,7 +486,7 @@ export class GitService {
      * Returns all files changed on `branch` since it diverged from main/master,
      * sorted with the most-recently-touched file first.
      */
-    getChangesOnBranch(branch: string): BranchFileChange[] {
+    getChangesOnBranch(branch: string, hideMerges = true): BranchFileChange[] {
         const base = this.getMergeBase(branch);
         if (!base) return [];
 
@@ -494,8 +494,9 @@ export class GitService {
         const cached = this._branchChangesCache.get(branch);
         if (cached && cached.head === head && cached.base === base) return cached.result;
 
+        const noMerges = hideMerges ? '--no-merges ' : '';
         const numstatRaw = exec(
-            `git log --first-parent "${base}..${branch}" --format="commit:%H${SEP}%h${SEP}%s" --numstat`,
+            `git log --first-parent ${noMerges}"${base}..${branch}" --format="commit:%H${SEP}%h${SEP}%s" --numstat`,
             this.repoPath
         );
         const statsRaw = exec(`git diff "${base}" "${branch}" --numstat`, this.repoPath);
@@ -540,7 +541,7 @@ export class GitService {
      * so the extension host is not blocked while the results load. The ChangesView uses
      * this so the sidebar can show a loading spinner while data arrives in the background.
      */
-    async getChangesOnBranchAsync(branch: string): Promise<BranchFileChange[]> {
+    async getChangesOnBranchAsync(branch: string, hideMerges = true): Promise<BranchFileChange[]> {
         const base = this.getMergeBase(branch);
         if (!base) return [];
 
@@ -548,10 +549,11 @@ export class GitService {
         const cached = this._branchChangesCache.get(branch);
         if (cached && cached.head === head && cached.base === base) return cached.result;
 
+        const noMerges = hideMerges ? '--no-merges ' : '';
         try {
             const [numstatRaw, statsRaw] = await Promise.all([
                 execAsync(
-                    `git log --first-parent "${base}..${branch}" --format="commit:%H${SEP}%h${SEP}%s" --numstat`,
+                    `git log --first-parent ${noMerges}"${base}..${branch}" --format="commit:%H${SEP}%h${SEP}%s" --numstat`,
                     this.repoPath
                 ),
                 execAsync(`git diff "${base}" "${branch}" --numstat`, this.repoPath),

@@ -169,7 +169,8 @@ export class ChangesView implements vscode.WebviewViewProvider, vscode.Disposabl
   private async buildData(): Promise<{ branch: string; files: object[] }> {
     try {
       const branch = this.git.getCurrentBranch();
-      const rawFiles = await this.git.getChangesOnBranchAsync(branch);
+      const hideMerges = vscode.workspace.getConfiguration('quibble').get<boolean>('hideMergeCommits', true);
+      const rawFiles = await this.git.getChangesOnBranchAsync(branch, hideMerges);
       const allComments = this.comments.load();
 
       const commentsByFile = this.buildCommentsByFile(allComments);
