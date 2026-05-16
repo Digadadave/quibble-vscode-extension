@@ -1,6 +1,6 @@
 # Quibble
 
-**Review local git commits with inline comments — right inside VS Code.**
+**Quibble early, quibble often. Inline comments on your commits — don't let one bad change ruin the branch.**
 
 You know that feeling when you're about to push and think *"wait, did I actually look at all of this?"* Quibble lets you review your own branch like a proper code review — browse commits, leave inline comments on specific lines, and track them as you go. It's like having a PR review, minus the PR.
 
@@ -10,7 +10,7 @@ And if you're working with AI agents? Quibble is how you keep them from going ro
 
 ## What It Does
 
-Quibble adds a dedicated sidebar to VS Code where you can see all the commits on your current branch (compared to a base branch like `main` or `master`). Click any commit to open a native VS Code diff view, and from there you can leave comments on specific lines — just like you would in a pull request.
+Quibble adds a dedicated sidebar to VS Code where you can see all the commits on your current branch (compared to a base branch like `main` or `master` (or whatever you've called it)). Click any commit to open a native VS Code diff view, and from there you can leave comments on specific lines — just like you would in a pull request.
 
 Comments are stored locally (in VS Code's `globalState`) and optionally mirrored to a `.vscode/quibbles.json` file for external tools to read and write (more on that later).
 
@@ -167,6 +167,7 @@ Not much to configure — Quibble mostly just works. But if you need to tweak th
 | Setting | Default | Description |
 |---------|---------|-------------|
 | `quibble.commentsPath` | `.vscode/quibbles.json` | Path (relative to repo root) for the working review JSON file. This is the file that external tools and agents read/write. The persistent database lives in VS Code's `globalStorage`. |
+| `quibble.hideMergeCommits` | `true` | Exclude merge commits from commit lists. Keeps the Changes panel focused on the commits that actually matter. |
 
 ### Command Palette
 
