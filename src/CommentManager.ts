@@ -149,8 +149,8 @@ export class CommentManager implements vscode.Disposable {
   private globalState: vscode.Memento;
   private dbKey: string;
   private watcher: vscode.FileSystemWatcher | undefined;
-  /** Prevents the file watcher from echoing back our own saves. */
-  private suppressNextWatchEvent = false;
+  /** Last JSON string written by the extension; used to detect echo-backs in the file watcher. */
+  private lastWrittenJson: string | null = null;
 
   /** Current branch's git commit hashes. */
   private currentHashes: Set<string> = new Set();
@@ -374,7 +374,14 @@ export class CommentManager implements vscode.Disposable {
     const pattern = new vscode.RelativePattern(this.repoPath, rel);
     this.watcher = vscode.workspace.createFileSystemWatcher(pattern);
     const maybefire = () => {
-      if (this.suppressNextWatchEvent) { this.suppressNextWatchEvent = false; return; }
+      if (this.lastWrittenJson !== null) {
+        const expected = this.lastWrittenJson;
+        this.lastWrittenJson = null;
+        try {
+          const onDisk = fs.readFileSync(this.workingJsonPath, 'utf8');
+          if (onDisk === expected) return; // Echo-back of our own write; ignore
+        } catch { /* fall through and process as external change */ }
+      }
       // External change to working JSON — invalidate cache, sync back to DB
       this.invalidateCache();
       this.syncWorkingJsonToDb();
@@ -408,14 +415,14 @@ export class CommentManager implements vscode.Disposable {
     this._cache = comments; // write-through: update cache immediately
     const dir = path.dirname(this.workingJsonPath);
     if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
-    this.suppressNextWatchEvent = true;
-
     const store: ReviewStore = {
       _schema: SCHEMA_DESCRIPTION,
       version: 1,
       reviews: comments,
     };
-    fs.writeFileSync(this.workingJsonPath, JSON.stringify(store, null, 2), 'utf8');
+    const content = JSON.stringify(store, null, 2);
+    this.lastWrittenJson = content;
+    fs.writeFileSync(this.workingJsonPath, content, 'utf8');
   }
 
   /**
