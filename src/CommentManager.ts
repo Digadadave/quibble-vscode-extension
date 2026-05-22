@@ -111,7 +111,7 @@ const SCHEMA_DESCRIPTION = {
     addressedAt: 'ISO 8601 timestamp when the agent marked it addressed, null otherwise',
     addressedByCommit: 'Full hash of the commit where the agent fixed the issue, null otherwise',
     codeSnippet: 'Plain-text copy of the target line(s) at the time of the comment, for quick reference',
-    resolvedNote: 'Written by the agent when updating status. For \'addressed\': what was changed. For \'outdated\': what changed in the code. For \'pending\': the agent\'s question for the user. Null if status is \'open\'.',
+    resolvedNote: 'Optional short summary written by the agent. Only set this when it adds meaningful context beyond what is already in the thread — for example, summarising a multi-turn conversation or capturing a detail too long for the thread. If the thread reply already covers everything, leave this null. For \'outdated\': what changed in the code that made the comment no longer apply.',
     thread: {
       description: 'Ordered list of follow-up messages after the initial comment body',
       items: {
