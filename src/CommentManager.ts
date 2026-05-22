@@ -218,11 +218,28 @@ export class CommentManager implements vscode.Disposable {
   // ── Branch switching ──────────────────────────────────────────────────────
 
   /**
-   * Switch to a branch: compare stored hashes with current git hashes, detect
-   * orphans, and populate the working JSON with matched comments.
+   * Switch to a branch: repopulate the working JSON with the new branch's comments.
+   * Call this when .git/HEAD changes (the user actually switched branches).
    */
   switchBranch(branchName: string, gitHashes: string[]): void {
     this.invalidateCache();
+    this.updateBranchState(branchName, gitHashes);
+    this.populateWorkingJson();
+  }
+
+  /**
+   * Track a new commit on the current branch without rewriting quibbles.json.
+   * Call this when a commit lands but the branch hasn't changed.
+   */
+  trackNewCommit(branchName: string, gitHashes: string[]): void {
+    this.updateBranchState(branchName, gitHashes);
+  }
+
+  /**
+   * Shared state update: detect orphans, update stored hashes, set context key.
+   * Does not touch the working JSON or the cache.
+   */
+  private updateBranchState(branchName: string, gitHashes: string[]): void {
     this.currentBranch = branchName;
     this.currentHashes = new Set(gitHashes);
 
@@ -256,10 +273,6 @@ export class CommentManager implements vscode.Disposable {
     db.branches[branchName] = updatedHashes;
     this.dbSave(db);
 
-    // ── Populate working JSON ─────────────────────────────────────────────
-    this.populateWorkingJson();
-
-    // Set context key for orphan indicator in the UI
     vscode.commands.executeCommand(
       'setContext',
       'quibble.hasOrphans',
