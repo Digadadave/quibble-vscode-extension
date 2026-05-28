@@ -291,15 +291,22 @@ export function activate(context: vscode.ExtensionContext): void {
     // Wire the comment controller's mutation callback.
     if (activeCommentController) activeCommentController.onCommentMutation = refreshOnMutation;
 
-    // ── Git change handler ─────────────────────────────────────────────────────
-    // Called when .git/HEAD changes (branch switch) or .git/refs/heads/** changes
-    // (new commit on current branch, or any branch update).
-    function onGitChange(): void {
+    // ── Git change handlers ────────────────────────────────────────────────────
+    // .git/HEAD changes → user switched branches → repopulate quibbles.json
+    function onBranchSwitch(): void {
         if (!activeGit || !activeComments) return;
         const branch = activeGit.getCurrentBranch();
         const hashes = activeGit.getBranchCommitHashes(branch);
-
         activeComments.switchBranch(branch, hashes);
+        debouncedRefreshAll();
+    }
+
+    // Commit landed on current branch → track hashes, refresh UI, no file rewrite
+    function onNewCommit(): void {
+        if (!activeGit || !activeComments) return;
+        const branch = activeGit.getCurrentBranch();
+        const hashes = activeGit.getBranchCommitHashes(branch);
+        activeComments.trackNewCommit(branch, hashes);
         debouncedRefreshAll();
     }
 
@@ -354,12 +361,12 @@ export function activate(context: vscode.ExtensionContext): void {
         const refsWatcher       = vscode.workspace.createFileSystemWatcher(new vscode.RelativePattern(repoPath, '.git/refs/heads/**'));
         const commitMsgWatcher  = vscode.workspace.createFileSystemWatcher(new vscode.RelativePattern(repoPath, '.git/COMMIT_EDITMSG'));
         const packedRefsWatcher = vscode.workspace.createFileSystemWatcher(new vscode.RelativePattern(repoPath, '.git/packed-refs'));
-        headWatcher.onDidChange(onGitChange);
-        refsWatcher.onDidChange(onGitChange);
-        refsWatcher.onDidCreate(onGitChange);
-        commitMsgWatcher.onDidChange(onGitChange);
-        commitMsgWatcher.onDidCreate(onGitChange);
-        packedRefsWatcher.onDidChange(onGitChange);
+        headWatcher.onDidChange(onBranchSwitch);
+        refsWatcher.onDidChange(onNewCommit);
+        refsWatcher.onDidCreate(onNewCommit);
+        commitMsgWatcher.onDidChange(onNewCommit);
+        commitMsgWatcher.onDidCreate(onNewCommit);
+        packedRefsWatcher.onDidChange(onNewCommit);
         gitFsWatchers.push(headWatcher, refsWatcher, commitMsgWatcher, packedRefsWatcher);
 
         refreshAll();

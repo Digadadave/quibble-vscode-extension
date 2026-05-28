@@ -2,7 +2,7 @@
   "name": "quibble",
   "displayName": "Quibble",
   "description": "Inline code reviews on local commits. Because someone has to tell the AI it's wrong.",
-  "version": "1.0.1",
+  "version": "1.0.2",
   "publisher": "digadadave",
   "engines": {
     "vscode": "^1.85.0"

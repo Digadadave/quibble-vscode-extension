@@ -79,7 +79,7 @@ interface ReviewStore {
 
 const SCHEMA_DESCRIPTION = {
   description: 'Local commit review metadata for a VS Code extension. Each entry in \'reviews\' represents a comment left by the user on a specific file and line at the time of a commit. Comments are intended to be addressed by an AI agent. The snapshot field captures surrounding code context at the time the comment was made so the agent can understand the original intent even if the code has since changed. The agent should check this file before starting any task and address all open comments.',
-  update_order: 'When writing a response to a comment, always update fields in this order: (1) thread — append the reply first, (2) resolvedNote — set the summary, (3) addressedAt — set the timestamp, (4) addressedByCommit — set after committing, (5) status — update last, after all other fields are written. This ensures the UI never shows a new status without the supporting context already in place.',
+  update_order: 'When writing a response to a comment, always update fields in this order: (1) thread — append the reply first, (2) resolvedNote — only if it adds context the thread reply does not already cover, otherwise leave null, (3) addressedAt — set the timestamp, (4) addressedByCommit — set after committing, (5) status — update last, after all other fields are written. This ensures the UI never shows a new status without the supporting context already in place.',
   fields: {
     id: 'Unique identifier for the comment (e.g. \'cr_a1b2c3d4\')',
     uuid: 'Stable identity across copies — same uuid means same logical comment, even if commitHash differs (squash/rebase remap)',
@@ -111,7 +111,7 @@ const SCHEMA_DESCRIPTION = {
     addressedAt: 'ISO 8601 timestamp when the agent marked it addressed, null otherwise',
     addressedByCommit: 'Full hash of the commit where the agent fixed the issue, null otherwise',
     codeSnippet: 'Plain-text copy of the target line(s) at the time of the comment, for quick reference',
-    resolvedNote: 'Written by the agent when updating status. For \'addressed\': what was changed. For \'outdated\': what changed in the code. For \'pending\': the agent\'s question for the user. Null if status is \'open\'.',
+    resolvedNote: 'Optional short summary written by the agent. Only set this when it adds meaningful context beyond what is already in the thread — for example, summarising a multi-turn conversation or capturing a detail too long for the thread. If the thread reply already covers everything, leave this null. For \'outdated\': what changed in the code that made the comment no longer apply.',
     thread: {
       description: 'Ordered list of follow-up messages after the initial comment body',
       items: {
@@ -149,8 +149,8 @@ export class CommentManager implements vscode.Disposable {
   private globalState: vscode.Memento;
   private dbKey: string;
   private watcher: vscode.FileSystemWatcher | undefined;
-  /** Prevents the file watcher from echoing back our own saves. */
-  private suppressNextWatchEvent = false;
+  /** Last JSON string written by the extension; used to detect echo-backs in the file watcher. */
+  private lastWrittenJson: string | null = null;
 
   /** Current branch's git commit hashes. */
   private currentHashes: Set<string> = new Set();
@@ -218,11 +218,28 @@ export class CommentManager implements vscode.Disposable {
   // ── Branch switching ──────────────────────────────────────────────────────
 
   /**
-   * Switch to a branch: compare stored hashes with current git hashes, detect
-   * orphans, and populate the working JSON with matched comments.
+   * Switch to a branch: repopulate the working JSON with the new branch's comments.
+   * Call this when .git/HEAD changes (the user actually switched branches).
    */
   switchBranch(branchName: string, gitHashes: string[]): void {
     this.invalidateCache();
+    this.updateBranchState(branchName, gitHashes);
+    this.populateWorkingJson();
+  }
+
+  /**
+   * Track a new commit on the current branch without rewriting quibbles.json.
+   * Call this when a commit lands but the branch hasn't changed.
+   */
+  trackNewCommit(branchName: string, gitHashes: string[]): void {
+    this.updateBranchState(branchName, gitHashes);
+  }
+
+  /**
+   * Shared state update: detect orphans, update stored hashes, set context key.
+   * Does not touch the working JSON or the cache.
+   */
+  private updateBranchState(branchName: string, gitHashes: string[]): void {
     this.currentBranch = branchName;
     this.currentHashes = new Set(gitHashes);
 
@@ -256,10 +273,6 @@ export class CommentManager implements vscode.Disposable {
     db.branches[branchName] = updatedHashes;
     this.dbSave(db);
 
-    // ── Populate working JSON ─────────────────────────────────────────────
-    this.populateWorkingJson();
-
-    // Set context key for orphan indicator in the UI
     vscode.commands.executeCommand(
       'setContext',
       'quibble.hasOrphans',
@@ -374,7 +387,14 @@ export class CommentManager implements vscode.Disposable {
     const pattern = new vscode.RelativePattern(this.repoPath, rel);
     this.watcher = vscode.workspace.createFileSystemWatcher(pattern);
     const maybefire = () => {
-      if (this.suppressNextWatchEvent) { this.suppressNextWatchEvent = false; return; }
+      if (this.lastWrittenJson !== null) {
+        const expected = this.lastWrittenJson;
+        this.lastWrittenJson = null;
+        try {
+          const onDisk = fs.readFileSync(this.workingJsonPath, 'utf8');
+          if (onDisk === expected) return; // Echo-back of our own write; ignore
+        } catch { /* fall through and process as external change */ }
+      }
       // External change to working JSON — invalidate cache, sync back to DB
       this.invalidateCache();
       this.syncWorkingJsonToDb();
@@ -408,14 +428,14 @@ export class CommentManager implements vscode.Disposable {
     this._cache = comments; // write-through: update cache immediately
     const dir = path.dirname(this.workingJsonPath);
     if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
-    this.suppressNextWatchEvent = true;
-
     const store: ReviewStore = {
       _schema: SCHEMA_DESCRIPTION,
       version: 1,
       reviews: comments,
     };
-    fs.writeFileSync(this.workingJsonPath, JSON.stringify(store, null, 2), 'utf8');
+    const content = JSON.stringify(store, null, 2);
+    this.lastWrittenJson = content;
+    fs.writeFileSync(this.workingJsonPath, content, 'utf8');
   }
 
   /**
